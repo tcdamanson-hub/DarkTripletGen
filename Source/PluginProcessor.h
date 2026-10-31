@@ -9,6 +9,8 @@ class DarkTripletAudioProcessor : public juce::AudioProcessor,
                                   private juce::Timer
 {
 public:
+    enum Layer { Melody = 0, Chords = 1, Both = 2 };
+
     DarkTripletAudioProcessor();
     ~DarkTripletAudioProcessor() override;
 
@@ -24,7 +26,7 @@ public:
     bool acceptsMidi() const override  { return true; }
     bool producesMidi() const override { return true; }
     bool isMidiEffect() const override { return false; }
-    double getTailLengthSeconds() const override { return 0.5; }
+    double getTailLengthSeconds() const override { return 1.0; }
 
     int getNumPrograms() override { return 1; }
     int getCurrentProgram() override { return 0; }
@@ -41,12 +43,14 @@ public:
     // --- appele depuis l'interface (message thread) ---
     void regenerate();
     void randomizeSeed();
-    std::vector<MelodyNote> getPatternCopy (double& loopBeatsOut);
+    std::vector<MelodyNote> getMelodyCopy (double& loopBeatsOut);
+    std::vector<MelodyNote> getChordsCopy();
+    juce::String getChordText();
     int getPatternVersion() const { return patternVersion.load(); }
     double getPlayheadBeats() const { return playheadBeats.load(); }
     juce::String getPatternName() const;
-    bool writeMidiFile (const juce::File& file);
-    juce::File writeTempMidiFile();
+    bool writeMidiFile (const juce::File& file, Layer layer);
+    juce::File writeTempMidiFile (Layer layer);
 
     std::atomic<bool> previewPlaying { false };
 
@@ -55,10 +59,11 @@ private:
     void timerCallback() override;
     GenParams readParams() const;
 
-    struct Ev { double ppq; bool on; int pitch; int vel; };
+    struct Ev { double ppq; bool on; int pitch; int vel; int ch; };
 
     juce::SpinLock patternLock;
-    std::vector<MelodyNote> pattern;
+    std::vector<MelodyNote> melody, chords;
+    juce::String chordText;
     std::vector<Ev> events;
     double loopBeats = 16.0;
 
@@ -71,7 +76,7 @@ private:
     double internalPpq = 0.0;
     double expectedPpq = 0.0;
     bool wasRunning = false;
-    int activeNote = -1;
+    bool active[2][128] {};
 
     DarkSynth synth;
 

@@ -4,6 +4,13 @@ Plugin (VST3 + AU sur Mac + application Standalone) qui génère des mélodies *
 
 ## Fonctionnalités
 
+**v2 — moteur "producteur"** (style rap FR mélancolique / dark trap, type Ninho, Werenoi) :
+- la mélodie part d'une **progression d'accords** (i–VI–III–VII, i–VII–VI–V, VI–VII–i, i–iv–VI–V…, ou *Auto*)
+- un **motif d'une mesure** (arpège ou ligne) écrit en notes d'accord, **répété** et transposé sur chaque accord
+- seule la **fin de phrase** varie et retombe sur la tonique (ou finit sur un roll)
+- **piste d'accords + basse** (tenus ou rythmés), glissable séparément : `MELO >>` / `ACCORDS >>`
+- en sortie MIDI live : canal 1 = mélodie, canal 2 = accords
+
 - **Rythme** : `Triplets` (triolets de croches, de doubles, de noires, rolls en triolets) · `Straight` (doubles croches, croches pointées, 3-3-2, rolls en triples croches) · `Mix`
 - **Gammes** : 7 modes majeurs, 7 modes du mineur harmonique, 7 du mineur mélodique, 7 du majeur harmonique, 7 du double harmonique, napolitaines, persane, énigmatique, hongroises, pentatoniques, japonaises (Hirajoshi, In Sen, Iwato, Kumoi), Pelog, blues, gamme par tons, diminuées, augmentée, Prometheus, chromatique…
 - **Darkness** : favorise b2, b3, b6, triton, tonique et quinte, avec une tendance descendante

@@ -9,6 +9,7 @@ const juce::Colour accent   { 0xff9d2bff };
 const juce::Colour blood    { 0xffe0234e };
 const juce::Colour text     { 0xffd9d3e6 };
 const juce::Colour dim      { 0xff7a7288 };
+const juce::Colour chord    { 0xff3f6fd8 };
 }
 
 //==============================================================================
@@ -64,14 +65,14 @@ void PianoRoll::paint (juce::Graphics& g)
     g.fillRoundedRectangle (b, 6.0f);
 
     int lo = 127, hi = 0;
-    for (auto& n : notes) { lo = juce::jmin (lo, n.pitch); hi = juce::jmax (hi, n.pitch); }
-    if (notes.empty()) { lo = 48; hi = 72; }
+    for (auto* v : { &melody, &chords })
+        for (auto& n : *v) { lo = juce::jmin (lo, n.pitch); hi = juce::jmax (hi, n.pitch); }
+    if (melody.empty() && chords.empty()) { lo = 48; hi = 72; }
     lo -= 2; hi += 2;
     const int rows = hi - lo + 1;
     const float rowH = b.getHeight() / (float) rows;
     const float bw = b.getWidth() / (float) loopBeats;
 
-    // touches noires
     for (int p = lo; p <= hi; ++p)
     {
         const int pc = p % 12;
@@ -82,27 +83,33 @@ void PianoRoll::paint (juce::Graphics& g)
         }
     }
 
-    // grille : mesures, temps, subdivisions
     for (int i = 0; i <= (int) loopBeats * 12; ++i)
     {
-        const double beat = i / 12.0;
-        const float xx = b.getX() + (float) beat * bw;
-        if (i % 48 == 0)     g.setColour (Col::accent.withAlpha (0.55f));
+        const float xx = b.getX() + (float) (i / 12.0) * bw;
+        if (i % 48 == 0)      g.setColour (Col::accent.withAlpha (0.55f));
         else if (i % 12 == 0) g.setColour (Col::grid.brighter (0.4f));
-        else if (i % 4 == 0)  g.setColour (Col::grid.withAlpha (0.7f));   // triolets
-        else if (i % 3 == 0)  g.setColour (Col::grid.withAlpha (0.35f));  // doubles
+        else if (i % 4 == 0)  g.setColour (Col::grid.withAlpha (0.7f));
+        else if (i % 3 == 0)  g.setColour (Col::grid.withAlpha (0.35f));
         else continue;
         g.drawVerticalLine ((int) xx, b.getY(), b.getBottom());
     }
 
-    for (auto& n : notes)
+    auto rect = [&] (const MelodyNote& n)
     {
-        juce::Rectangle<float> r (b.getX() + (float) n.start * bw,
-                                  b.getBottom() - (float) (n.pitch - lo + 1) * rowH,
-                                  juce::jmax (2.0f, (float) n.length * bw - 1.0f), rowH - 1.0f);
+        return juce::Rectangle<float> (b.getX() + (float) n.start * bw,
+                                       b.getBottom() - (float) (n.pitch - lo + 1) * rowH,
+                                       juce::jmax (2.0f, (float) n.length * bw - 1.0f), juce::jmax (1.0f, rowH - 1.0f));
+    };
+
+    g.setColour (Col::chord.withAlpha (0.55f));
+    for (auto& n : chords)
+        g.fillRoundedRectangle (rect (n), 2.0f);
+
+    for (auto& n : melody)
+    {
         const float v = (float) n.velocity / 127.0f;
         g.setColour (Col::accent.interpolatedWith (Col::blood, v * v));
-        g.fillRoundedRectangle (r, 2.0f);
+        g.fillRoundedRectangle (rect (n), 2.0f);
     }
 
     if (playhead >= 0.0)
@@ -116,20 +123,21 @@ void PianoRoll::paint (juce::Graphics& g)
 void MidiDragZone::paint (juce::Graphics& g)
 {
     auto b = getLocalBounds().toFloat().reduced (1.0f);
-    g.setColour (hover ? Col::accent.withAlpha (0.25f) : Col::panel);
+    const auto c = layer == DarkTripletAudioProcessor::Chords ? Col::chord : Col::accent;
+    g.setColour (hover ? c.withAlpha (0.25f) : Col::panel);
     g.fillRoundedRectangle (b, 5.0f);
-    g.setColour (Col::accent);
+    g.setColour (c);
     g.drawRoundedRectangle (b, 5.0f, 1.2f);
     g.setColour (Col::text);
     g.setFont (juce::FontOptions (13.0f));
-    g.drawText ("GLISSER MIDI >>", getLocalBounds(), juce::Justification::centred);
+    g.drawText (text, getLocalBounds(), juce::Justification::centred);
 }
 
 void MidiDragZone::mouseDrag (const juce::MouseEvent&)
 {
     if (dragging) return;
     dragging = true;
-    auto f = proc.writeTempMidiFile();
+    auto f = proc.writeTempMidiFile (layer);
     if (f.existsAsFile())
         juce::DragAndDropContainer::performExternalDragDropOfFiles ({ f.getFullPathName() }, false, this,
                                                                     [this] { dragging = false; });
@@ -137,14 +145,18 @@ void MidiDragZone::mouseDrag (const juce::MouseEvent&)
 
 //==============================================================================
 DarkTripletAudioProcessorEditor::DarkTripletAudioProcessorEditor (DarkTripletAudioProcessor& p)
-    : AudioProcessorEditor (&p), proc (p), dragZone (p)
+    : AudioProcessorEditor (&p), proc (p),
+      dragMelo (p, DarkTripletAudioProcessor::Melody, "MELO >>"),
+      dragChords (p, DarkTripletAudioProcessor::Chords, "ACCORDS >>")
 {
     setLookAndFeel (&lnf);
 
-    addCombo ("root",  "Tonique");
-    addCombo ("scale", "Gamme / Mode");
-    addCombo ("feel",  "Rythme");
-    addCombo ("bars",  "Mesures");
+    addCombo ("root",      "Tonique",     80);
+    addCombo ("scale",     "Gamme / Mode", 220);
+    addCombo ("prog",      "Progression", 180);
+    addCombo ("chordMode", "Accords",     100);
+    addCombo ("feel",      "Rythme",      110);
+    addCombo ("bars",      "Mesures",     80);
 
     addKnob ("rotation", "Mode rot.");
     addKnob ("octave",   "Octave");
@@ -157,7 +169,7 @@ DarkTripletAudioProcessorEditor::DarkTripletAudioProcessorEditor (DarkTripletAud
     addKnob ("gate",     "Gate");
     addKnob ("seed",     "Seed");
     addKnob ("cutoff",   "Cutoff");
-    addKnob ("glide",    "Glide");
+    addKnob ("release",  "Release");
     addKnob ("volume",   "Volume");
 
     generateBtn.onClick = [this] { proc.randomizeSeed(); };
@@ -167,14 +179,18 @@ DarkTripletAudioProcessorEditor::DarkTripletAudioProcessorEditor (DarkTripletAud
     exportBtn.onClick = [this] { exportMidi(); };
     synthAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (proc.apvts, "synthOn", synthToggle);
 
-    for (auto* c : std::initializer_list<juce::Component*> { &generateBtn, &previewBtn, &exportBtn, &synthToggle, &dragZone, &roll, &info })
+    for (auto* c : std::initializer_list<juce::Component*> { &generateBtn, &previewBtn, &exportBtn, &synthToggle,
+                                                             &dragMelo, &dragChords, &roll, &chordLabel, &info })
         addAndMakeVisible (c);
 
+    chordLabel.setFont (juce::FontOptions (17.0f, juce::Font::bold));
+    chordLabel.setColour (juce::Label::textColourId, Col::text);
+    chordLabel.setJustificationType (juce::Justification::centredLeft);
     info.setColour (juce::Label::textColourId, Col::dim);
     info.setFont (juce::FontOptions (12.0f));
-    info.setJustificationType (juce::Justification::centredLeft);
+    info.setJustificationType (juce::Justification::centredRight);
 
-    setSize (940, 560);
+    setSize (1000, 590);
     startTimerHz (30);
 }
 
@@ -197,9 +213,10 @@ void DarkTripletAudioProcessorEditor::addKnob (const juce::String& id, const juc
     knobs.push_back (std::move (k));
 }
 
-void DarkTripletAudioProcessorEditor::addCombo (const juce::String& id, const juce::String& label)
+void DarkTripletAudioProcessorEditor::addCombo (const juce::String& id, const juce::String& label, int width)
 {
     auto c = std::make_unique<Combo>();
+    c->width = width;
     if (auto* param = dynamic_cast<juce::AudioParameterChoice*> (proc.apvts.getParameter (id)))
         c->box.addItemList (param->choices, 1);
     c->label.setText (label, juce::dontSendNotification);
@@ -214,7 +231,7 @@ void DarkTripletAudioProcessorEditor::exportMidi()
 {
     auto start = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
                      .getChildFile (proc.getPatternName() + ".mid");
-    chooser = std::make_unique<juce::FileChooser> ("Exporter la melodie en MIDI", start, "*.mid");
+    chooser = std::make_unique<juce::FileChooser> ("Exporter en MIDI (melodie + accords)", start, "*.mid");
     chooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles
                               | juce::FileBrowserComponent::warnAboutOverwriting,
                           [this] (const juce::FileChooser& fc)
@@ -222,9 +239,12 @@ void DarkTripletAudioProcessorEditor::exportMidi()
                               auto f = fc.getResult();
                               if (f == juce::File()) return;
                               if (! f.hasFileExtension ("mid")) f = f.withFileExtension ("mid");
-                              const bool ok = proc.writeMidiFile (f);
-                              info.setText (ok ? "Exporte : " + f.getFullPathName() : "Erreur d'export",
-                                            juce::dontSendNotification);
+                              auto melo   = f.getSiblingFile (f.getFileNameWithoutExtension() + "_melo.mid");
+                              auto accord = f.getSiblingFile (f.getFileNameWithoutExtension() + "_accords.mid");
+                              const bool ok = proc.writeMidiFile (melo, DarkTripletAudioProcessor::Melody)
+                                           && proc.writeMidiFile (accord, DarkTripletAudioProcessor::Chords);
+                              info.setText (ok ? "Exporte : " + melo.getFileName() + " + " + accord.getFileName()
+                                               : "Erreur d'export", juce::dontSendNotification);
                           });
 }
 
@@ -235,9 +255,11 @@ void DarkTripletAudioProcessorEditor::timerCallback()
     {
         lastVersion = v;
         double L = 16.0;
-        auto n = proc.getPatternCopy (L);
-        info.setText (juce::String ((int) n.size()) + " notes  |  " + proc.getPatternName(), juce::dontSendNotification);
-        roll.setNotes (std::move (n), L);
+        auto mel = proc.getMelodyCopy (L);
+        auto chd = proc.getChordsCopy();
+        chordLabel.setText (proc.getChordText(), juce::dontSendNotification);
+        info.setText (juce::String ((int) mel.size()) + " notes  |  " + proc.getPatternName(), juce::dontSendNotification);
+        roll.setNotes (std::move (mel), std::move (chd), L);
     }
     roll.setPlayhead (proc.getPlayheadBeats());
 }
@@ -247,31 +269,32 @@ void DarkTripletAudioProcessorEditor::paint (juce::Graphics& g)
     g.fillAll (Col::bg);
     g.setGradientFill (juce::ColourGradient (Col::accent, 20.0f, 0.0f, Col::blood, 320.0f, 0.0f, false));
     g.setFont (juce::FontOptions (24.0f, juce::Font::bold));
-    g.drawText ("DARK TRIPLET GEN", 20, 12, 320, 32, juce::Justification::centredLeft);
+    g.drawText ("DARK TRIPLET GEN", 20, 12, 300, 32, juce::Justification::centredLeft);
 }
 
 void DarkTripletAudioProcessorEditor::resized()
 {
     auto area = getLocalBounds().reduced (16);
     auto top = area.removeFromTop (40);
-    top.removeFromLeft (310);
-    dragZone.setBounds (top.removeFromRight (140).reduced (2));
-    top.removeFromRight (6);
-    exportBtn.setBounds (top.removeFromRight (110).reduced (2));
-    top.removeFromRight (6);
-    previewBtn.setBounds (top.removeFromRight (90).reduced (2));
-    top.removeFromRight (6);
-    generateBtn.setBounds (top.removeFromRight (110).reduced (2));
-    synthToggle.setBounds (top.removeFromRight (80).reduced (2));
+    top.removeFromLeft (290);
+    dragChords.setBounds (top.removeFromRight (115).reduced (2));
+    top.removeFromRight (4);
+    dragMelo.setBounds (top.removeFromRight (100).reduced (2));
+    top.removeFromRight (8);
+    exportBtn.setBounds (top.removeFromRight (105).reduced (2));
+    top.removeFromRight (4);
+    previewBtn.setBounds (top.removeFromRight (85).reduced (2));
+    top.removeFromRight (4);
+    generateBtn.setBounds (top.removeFromRight (100).reduced (2));
+    synthToggle.setBounds (top.removeFromRight (75).reduced (2));
 
     area.removeFromTop (10);
     auto comboRow = area.removeFromTop (50);
-    const int widths[] = { 90, 300, 140, 90 };
-    for (size_t i = 0; i < combos.size(); ++i)
+    for (auto& c : combos)
     {
-        auto col = comboRow.removeFromLeft (widths[i]);
-        combos[i]->label.setBounds (col.removeFromTop (18));
-        combos[i]->box.setBounds (col.reduced (0, 2));
+        auto col = comboRow.removeFromLeft (c->width);
+        c->label.setBounds (col.removeFromTop (18));
+        c->box.setBounds (col.reduced (0, 2));
         comboRow.removeFromLeft (12);
     }
 
@@ -285,8 +308,11 @@ void DarkTripletAudioProcessorEditor::resized()
         k->slider.setBounds (col);
     }
 
-    info.setBounds (area.removeFromBottom (20));
-    area.removeFromTop (8);
+    area.removeFromTop (6);
+    auto infoRow = area.removeFromBottom (24);
+    chordLabel.setBounds (infoRow.removeFromLeft (infoRow.getWidth() / 2));
+    info.setBounds (infoRow);
+    area.removeFromBottom (4);
     roll.setBounds (area);
 }
 

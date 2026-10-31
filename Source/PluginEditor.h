@@ -13,11 +13,14 @@ public:
 class PianoRoll : public juce::Component
 {
 public:
-    void setNotes (std::vector<MelodyNote> n, double loop) { notes = std::move (n); loopBeats = loop; repaint(); }
+    void setNotes (std::vector<MelodyNote> mel, std::vector<MelodyNote> chd, double loop)
+    {
+        melody = std::move (mel); chords = std::move (chd); loopBeats = loop; repaint();
+    }
     void setPlayhead (double b) { if (b != playhead) { playhead = b; repaint(); } }
     void paint (juce::Graphics&) override;
 private:
-    std::vector<MelodyNote> notes;
+    std::vector<MelodyNote> melody, chords;
     double loopBeats = 16.0, playhead = -1.0;
 };
 
@@ -25,7 +28,8 @@ private:
 class MidiDragZone : public juce::Component
 {
 public:
-    explicit MidiDragZone (DarkTripletAudioProcessor& p) : proc (p) {}
+    MidiDragZone (DarkTripletAudioProcessor& p, DarkTripletAudioProcessor::Layer l, juce::String t)
+        : proc (p), layer (l), text (std::move (t)) {}
     void paint (juce::Graphics&) override;
     void mouseDrag (const juce::MouseEvent&) override;
     void mouseUp (const juce::MouseEvent&) override { dragging = false; }
@@ -33,6 +37,8 @@ public:
     void mouseExit (const juce::MouseEvent&) override  { hover = false; repaint(); }
 private:
     DarkTripletAudioProcessor& proc;
+    DarkTripletAudioProcessor::Layer layer;
+    juce::String text;
     bool dragging = false, hover = false;
 };
 
@@ -47,7 +53,7 @@ public:
 private:
     void timerCallback() override;
     void addKnob (const juce::String& id, const juce::String& label);
-    void addCombo (const juce::String& id, const juce::String& label);
+    void addCombo (const juce::String& id, const juce::String& label, int width);
     void exportMidi();
 
     DarkLookAndFeel lnf;
@@ -63,6 +69,7 @@ private:
     {
         juce::ComboBox box;
         juce::Label label;
+        int width = 100;
         std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> att;
     };
     std::vector<std::unique_ptr<Knob>> knobs;
@@ -71,9 +78,9 @@ private:
     juce::TextButton generateBtn { "GENERER" }, previewBtn { "PREVIEW" }, exportBtn { "EXPORT .MID" };
     juce::ToggleButton synthToggle { "Synth" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> synthAtt;
-    MidiDragZone dragZone;
+    MidiDragZone dragMelo, dragChords;
     PianoRoll roll;
-    juce::Label info;
+    juce::Label chordLabel, info;
     std::unique_ptr<juce::FileChooser> chooser;
     int lastVersion = -1;
 

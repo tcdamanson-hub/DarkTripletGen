@@ -1,4 +1,5 @@
 #pragma once
+#include <string>
 #include <vector>
 
 // Une note generee. Temps en noires (beats), boucle commencant a 0.
@@ -12,25 +13,35 @@ struct MelodyNote
 
 struct GenParams
 {
-    int   root         = 1;     // 0 = C ... 11 = B
-    int   scaleIndex   = 7;
+    int   root         = 9;     // 0 = C ... 11 = B
+    int   scaleIndex   = 5;     // Aeolian
     int   rotation     = 0;     // mode de la gamme choisie
     int   octave       = 4;     // octave de la tonique (4 -> C4 = 60)
     int   bars         = 4;
     int   feel         = 0;     // 0 = triolets, 1 = normal (binaire), 2 = mix
-    float density      = 0.6f;  // 0..1  peu de notes -> beaucoup de notes
-    float darkness     = 0.8f;  // 0..1  poids sur b2, b3, b6, triton, tonique, mouvement descendant
-    float rolls        = 0.3f;  // 0..1  rolls en triolets de doubles croches
-    float rests        = 0.25f; // 0..1  silences
+    int   progression  = 0;     // 0 = auto, sinon index dans la liste
+    int   chordMode    = 1;     // 0 = pas d'accords, 1 = tenus, 2 = rythmes
+    float density      = 0.5f;  // 0..1  peu de notes -> beaucoup de notes
+    float darkness     = 0.6f;  // 0..1  notes de passage sombres
+    float rolls        = 0.2f;  // 0..1  rolls en fin de phrase
+    float rests        = 0.2f;  // 0..1  silences dans le motif
     float octaveJumps  = 0.15f; // 0..1  sauts d'octave
     int   rangeOctaves = 2;     // 1..3
-    float gate         = 0.85f; // 0.1..1 longueur des notes
+    float gate         = 0.9f;  // 0.1..1 longueur des notes
     int   seed         = 1337;
+};
+
+struct GenResult
+{
+    std::vector<MelodyNote> melody;
+    std::vector<MelodyNote> chords;      // accords + basse
+    std::vector<std::string> chordNames; // un nom par accord de la boucle
 };
 
 class MelodyGenerator
 {
 public:
-    static std::vector<MelodyNote> generate (const GenParams& p);
+    static GenResult generate (const GenParams& p);
     static std::vector<int> getScaleIntervals (int scaleIndex, int rotation);
+    static std::vector<std::string> getProgressionNames(); // [0] = "Auto"
 };
