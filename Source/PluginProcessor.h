@@ -9,7 +9,7 @@ class DarkTripletAudioProcessor : public juce::AudioProcessor,
                                   private juce::Timer
 {
 public:
-    enum Layer { Melody = 0, Chords = 1, Both = 2 };
+    enum Layer { Melody = 0, Chords = 1, Both = 2, Counter = 3 };
 
     DarkTripletAudioProcessor();
     ~DarkTripletAudioProcessor() override;
@@ -43,8 +43,10 @@ public:
     // --- appele depuis l'interface (message thread) ---
     void regenerate();
     void randomizeSeed();
+    void applyStyle (int style); // charge le preset du style (gamme, rythme, reglages)
     std::vector<MelodyNote> getMelodyCopy (double& loopBeatsOut);
     std::vector<MelodyNote> getChordsCopy();
+    std::vector<MelodyNote> getCounterCopy();
     juce::String getChordText();
     int getPatternVersion() const { return patternVersion.load(); }
     double getPlayheadBeats() const { return playheadBeats.load(); }
@@ -62,7 +64,7 @@ private:
     struct Ev { double ppq; bool on; int pitch; int vel; int ch; };
 
     juce::SpinLock patternLock;
-    std::vector<MelodyNote> melody, chords;
+    std::vector<MelodyNote> melody, chords, counter;
     juce::String chordText;
     std::vector<Ev> events;
     double loopBeats = 16.0;
@@ -76,7 +78,7 @@ private:
     double internalPpq = 0.0;
     double expectedPpq = 0.0;
     bool wasRunning = false;
-    bool active[2][128] {};
+    bool active[3][128] {};
 
     DarkSynth synth;
 

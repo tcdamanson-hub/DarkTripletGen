@@ -21,13 +21,16 @@ struct GenParams
     int   feel         = 0;     // 0 = triolets, 1 = normal (binaire), 2 = mix
     int   progression  = 0;     // 0 = auto, sinon index dans la liste
     int   chordMode    = 1;     // 0 = pas d'accords, 1 = tenus, 2 = rythmes
+    int   motif        = 0;     // 0 = appris (tes MIDI), 1 = topline
+    int   layer2       = 1;     // 0 = off, 1 = 2e couche
+    int   style        = 0;     // 0 = perso, 1 = Ninho, 2 = Werenoi, 3 = Trap dark, 4 = Triolets
     float density      = 0.5f;  // 0..1  peu de notes -> beaucoup de notes
     float darkness     = 0.6f;  // 0..1  notes de passage sombres
-    float rolls        = 0.2f;  // 0..1  rolls en fin de phrase
+    float rolls        = 0.3f;  // 0..1  runs / fioritures rapides
     float rests        = 0.2f;  // 0..1  silences dans le motif
     float octaveJumps  = 0.15f; // 0..1  sauts d'octave
     int   rangeOctaves = 2;     // 1..3
-    float gate         = 0.9f;  // 0.1..1 longueur des notes
+    float gate         = 0.95f; // 0.1..1 longueur des notes (legato)
     int   seed         = 1337;
 };
 
@@ -35,6 +38,7 @@ struct GenResult
 {
     std::vector<MelodyNote> melody;
     std::vector<MelodyNote> chords;      // accords + basse
+    std::vector<MelodyNote> counter;     // 2e couche melodique
     std::vector<std::string> chordNames; // un nom par accord de la boucle
 };
 
@@ -44,4 +48,5 @@ public:
     static GenResult generate (const GenParams& p);
     static std::vector<int> getScaleIntervals (int scaleIndex, int rotation);
     static std::vector<std::string> getProgressionNames(); // [0] = "Auto"
+    static std::vector<std::string> getStyleNames();
 };

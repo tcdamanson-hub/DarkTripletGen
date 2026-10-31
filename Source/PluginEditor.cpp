@@ -10,6 +10,7 @@ const juce::Colour blood    { 0xffe0234e };
 const juce::Colour text     { 0xffd9d3e6 };
 const juce::Colour dim      { 0xff7a7288 };
 const juce::Colour chord    { 0xff3f6fd8 };
+const juce::Colour layer2   { 0xff27b8a4 };
 }
 
 //==============================================================================
@@ -65,9 +66,9 @@ void PianoRoll::paint (juce::Graphics& g)
     g.fillRoundedRectangle (b, 6.0f);
 
     int lo = 127, hi = 0;
-    for (auto* v : { &melody, &chords })
+    for (auto* v : { &melody, &chords, &counter })
         for (auto& n : *v) { lo = juce::jmin (lo, n.pitch); hi = juce::jmax (hi, n.pitch); }
-    if (melody.empty() && chords.empty()) { lo = 48; hi = 72; }
+    if (melody.empty() && chords.empty() && counter.empty()) { lo = 48; hi = 72; }
     lo -= 2; hi += 2;
     const int rows = hi - lo + 1;
     const float rowH = b.getHeight() / (float) rows;
@@ -105,6 +106,10 @@ void PianoRoll::paint (juce::Graphics& g)
     for (auto& n : chords)
         g.fillRoundedRectangle (rect (n), 2.0f);
 
+    g.setColour (Col::layer2.withAlpha (0.8f));
+    for (auto& n : counter)
+        g.fillRoundedRectangle (rect (n), 2.0f);
+
     for (auto& n : melody)
     {
         const float v = (float) n.velocity / 127.0f;
@@ -123,7 +128,8 @@ void PianoRoll::paint (juce::Graphics& g)
 void MidiDragZone::paint (juce::Graphics& g)
 {
     auto b = getLocalBounds().toFloat().reduced (1.0f);
-    const auto c = layer == DarkTripletAudioProcessor::Chords ? Col::chord : Col::accent;
+    const auto c = layer == DarkTripletAudioProcessor::Chords ? Col::chord
+                 : layer == DarkTripletAudioProcessor::Counter ? Col::layer2 : Col::accent;
     g.setColour (hover ? c.withAlpha (0.25f) : Col::panel);
     g.fillRoundedRectangle (b, 5.0f);
     g.setColour (c);
@@ -147,23 +153,38 @@ void MidiDragZone::mouseDrag (const juce::MouseEvent&)
 DarkTripletAudioProcessorEditor::DarkTripletAudioProcessorEditor (DarkTripletAudioProcessor& p)
     : AudioProcessorEditor (&p), proc (p),
       dragMelo (p, DarkTripletAudioProcessor::Melody, "MELO >>"),
+      dragMelo2 (p, DarkTripletAudioProcessor::Counter, "MELO 2 >>"),
       dragChords (p, DarkTripletAudioProcessor::Chords, "ACCORDS >>")
 {
     setLookAndFeel (&lnf);
 
-    addCombo ("root",      "Tonique",     80);
-    addCombo ("scale",     "Gamme / Mode", 220);
-    addCombo ("prog",      "Progression", 180);
-    addCombo ("chordMode", "Accords",     100);
-    addCombo ("feel",      "Rythme",      110);
-    addCombo ("bars",      "Mesures",     80);
+    // Style : boite simple (pas d'attachment) -> un choix utilisateur charge le preset du style
+    styleBox.addItemList (proc.apvts.getParameter ("style") != nullptr
+                              ? dynamic_cast<juce::AudioParameterChoice*> (proc.apvts.getParameter ("style"))->choices
+                              : juce::StringArray(), 1);
+    styleBox.setSelectedItemIndex ((int) proc.apvts.getRawParameterValue ("style")->load(), juce::dontSendNotification);
+    styleBox.onChange = [this] { proc.applyStyle (styleBox.getSelectedItemIndex()); };
+    styleLabel.setText ("Style", juce::dontSendNotification);
+    styleLabel.setFont (juce::FontOptions (12.0f, juce::Font::bold));
+    styleLabel.setColour (juce::Label::textColourId, Col::accent.brighter (0.4f));
+    addAndMakeVisible (styleBox);
+    addAndMakeVisible (styleLabel);
+
+    addCombo ("motif",     "Moteur",      125);
+    addCombo ("layer2",    "Couche 2",    70);
+    addCombo ("root",      "Tonique",     70);
+    addCombo ("scale",     "Gamme / Mode", 170);
+    addCombo ("prog",      "Progression", 150);
+    addCombo ("chordMode", "Accords",     85);
+    addCombo ("feel",      "Rythme",      85);
+    addCombo ("bars",      "Mesures",     60);
 
     addKnob ("rotation", "Mode rot.");
     addKnob ("octave",   "Octave");
     addKnob ("range",    "Etendue");
     addKnob ("density",  "Densite");
     addKnob ("darkness", "Darkness");
-    addKnob ("rolls",    "Rolls");
+    addKnob ("rolls",    "Runs");
     addKnob ("rests",    "Silences");
     addKnob ("octJumps", "Sauts 8ve");
     addKnob ("gate",     "Gate");
@@ -180,7 +201,7 @@ DarkTripletAudioProcessorEditor::DarkTripletAudioProcessorEditor (DarkTripletAud
     synthAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (proc.apvts, "synthOn", synthToggle);
 
     for (auto* c : std::initializer_list<juce::Component*> { &generateBtn, &previewBtn, &exportBtn, &synthToggle,
-                                                             &dragMelo, &dragChords, &roll, &chordLabel, &info })
+                                                             &dragMelo, &dragMelo2, &dragChords, &roll, &chordLabel, &info })
         addAndMakeVisible (c);
 
     chordLabel.setFont (juce::FontOptions (17.0f, juce::Font::bold));
@@ -190,7 +211,7 @@ DarkTripletAudioProcessorEditor::DarkTripletAudioProcessorEditor (DarkTripletAud
     info.setFont (juce::FontOptions (12.0f));
     info.setJustificationType (juce::Justification::centredRight);
 
-    setSize (1000, 590);
+    setSize (1120, 600);
     startTimerHz (30);
 }
 
@@ -241,8 +262,10 @@ void DarkTripletAudioProcessorEditor::exportMidi()
                               if (! f.hasFileExtension ("mid")) f = f.withFileExtension ("mid");
                               auto melo   = f.getSiblingFile (f.getFileNameWithoutExtension() + "_melo.mid");
                               auto accord = f.getSiblingFile (f.getFileNameWithoutExtension() + "_accords.mid");
+                              auto melo2  = f.getSiblingFile (f.getFileNameWithoutExtension() + "_melo2.mid");
                               const bool ok = proc.writeMidiFile (melo, DarkTripletAudioProcessor::Melody)
-                                           && proc.writeMidiFile (accord, DarkTripletAudioProcessor::Chords);
+                                           && proc.writeMidiFile (accord, DarkTripletAudioProcessor::Chords)
+                                           && proc.writeMidiFile (melo2, DarkTripletAudioProcessor::Counter);
                               info.setText (ok ? "Exporte : " + melo.getFileName() + " + " + accord.getFileName()
                                                : "Erreur d'export", juce::dontSendNotification);
                           });
@@ -257,11 +280,15 @@ void DarkTripletAudioProcessorEditor::timerCallback()
         double L = 16.0;
         auto mel = proc.getMelodyCopy (L);
         auto chd = proc.getChordsCopy();
+        auto ctr = proc.getCounterCopy();
         chordLabel.setText (proc.getChordText(), juce::dontSendNotification);
         info.setText (juce::String ((int) mel.size()) + " notes  |  " + proc.getPatternName(), juce::dontSendNotification);
-        roll.setNotes (std::move (mel), std::move (chd), L);
+        roll.setNotes (std::move (mel), std::move (chd), std::move (ctr), L);
     }
     roll.setPlayhead (proc.getPlayheadBeats());
+    const int st = (int) proc.apvts.getRawParameterValue ("style")->load();
+    if (st != styleBox.getSelectedItemIndex())
+        styleBox.setSelectedItemIndex (st, juce::dontSendNotification);
 }
 
 void DarkTripletAudioProcessorEditor::paint (juce::Graphics& g)
@@ -277,9 +304,11 @@ void DarkTripletAudioProcessorEditor::resized()
     auto area = getLocalBounds().reduced (16);
     auto top = area.removeFromTop (40);
     top.removeFromLeft (290);
-    dragChords.setBounds (top.removeFromRight (115).reduced (2));
+    dragChords.setBounds (top.removeFromRight (110).reduced (2));
     top.removeFromRight (4);
-    dragMelo.setBounds (top.removeFromRight (100).reduced (2));
+    dragMelo2.setBounds (top.removeFromRight (100).reduced (2));
+    top.removeFromRight (4);
+    dragMelo.setBounds (top.removeFromRight (90).reduced (2));
     top.removeFromRight (8);
     exportBtn.setBounds (top.removeFromRight (105).reduced (2));
     top.removeFromRight (4);
@@ -290,6 +319,12 @@ void DarkTripletAudioProcessorEditor::resized()
 
     area.removeFromTop (10);
     auto comboRow = area.removeFromTop (50);
+    {
+        auto col = comboRow.removeFromLeft (110);
+        styleLabel.setBounds (col.removeFromTop (18));
+        styleBox.setBounds (col.reduced (0, 2));
+        comboRow.removeFromLeft (12);
+    }
     for (auto& c : combos)
     {
         auto col = comboRow.removeFromLeft (c->width);

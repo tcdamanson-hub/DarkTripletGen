@@ -2,7 +2,28 @@
 
 Plugin (VST3 + AU sur Mac + application Standalone) qui génère des mélodies **dark trap** en **triolets**, en **binaire (normal)** ou en **mix des deux**, sur **57 gammes/modes** — et n'importe quel mode de n'importe quelle gamme grâce à la molette *Mode rot.*
 
+## 2e plugin : DARK TRAP DRUMS
+
+Généré dans le même projet (dossier `Drums/`).
+- Hi-hats, kick et relances de snare **appris de tes MIDI** (116 patterns de hats, 52 de kick, 31 de snare) :
+  triolets, rolls, hats pitchés qui descendent en tierces mineures
+- Snare principal sur le 3 (half-time), open hats en fin de mesure
+- **808** sur le kick, accordée sur les accords (menu Accords, ou en direct depuis Dark Triplet Gen : *808 suit les accords MIDI*)
+- **Tes samples intégrés** : 8 kicks, 10 snares, 6 rims, 9 hats, 8 open hats, 10 808 — un menu par élément
+- Export MIDI par élément : KICK, SNARE, RELANCE, HATS, OPEN, 808, ou TOUT
+- Sortie MIDI live : canal 1 kick, 2 snare, 3 hats, 4 808, 5 open hat, 6 relances
+
 ## Fonctionnalités
+
+**v5 — moteur « Appris (tes MIDI) »** : le générateur s'appuie sur 61 MIDI d'exemple (melodic trap + triolets).
+- 601 dessins d'arpège appris (basse tenue, notes qui laissent sonner, rolls), notés en degrés relatifs à l'accord
+  → appliqués à n'importe quel accord, gamme ou tonalité
+- 33 progressions apprises (i–v, i–iv, i–VI, i–i–VII–VII, i–VII–VI–v…) en mode *Auto*
+- croisement de deux dessins, mutations (octaves, respirations), mesure de variation + rolls en fin de phrase
+- **Couche 2** : contre-chant au-dessus (export `MELO 2 >>`, canal MIDI 3)
+- Le moteur *Topline* (v4) reste disponible dans le menu **Moteur**
+- Les données apprises sont dans `Source/LearnedData.h`. Elles viennent de packs MIDI : usage perso OK,
+  vérifie la licence du pack avant de distribuer le plugin.
 
 **v2 — moteur "producteur"** (style rap FR mélancolique / dark trap, type Ninho, Werenoi) :
 - la mélodie part d'une **progression d'accords** (i–VI–III–VII, i–VII–VI–V, VI–VII–i, i–iv–VI–V…, ou *Auto*)

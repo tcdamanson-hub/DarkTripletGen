@@ -8,7 +8,7 @@ const juce::StringArray rootNames { "C", "C#", "D", "D#", "E", "F", "F#", "G", "
 const int barChoices[] = { 1, 2, 4, 8 };
 
 const char* genParamIds[] = { "root", "scale", "rotation", "octave", "bars", "feel", "prog", "chordMode",
-                              "density", "darkness", "rolls", "rests", "octJumps", "range", "gate", "seed" };
+                              "density", "darkness", "rolls", "rests", "octJumps", "range", "gate", "seed", "style", "motif", "layer2" };
 }
 
 DarkTripletAudioProcessor::DarkTripletAudioProcessor()
@@ -44,6 +44,14 @@ juce::AudioProcessorValueTreeState::ParameterLayout DarkTripletAudioProcessor::c
     auto pct = AudioParameterFloatAttributes().withStringFromValueFunction (
         [] (float v, int) { return String (juce::roundToInt (v * 100.0f)) + " %"; });
 
+    StringArray styleNames;
+    for (auto& s : MelodyGenerator::getStyleNames())
+        styleNames.add (s);
+    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "style", 3 }, "Style", styleNames, 1));
+    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "motif", 5 }, "Engine",
+                                                          StringArray { "Appris (tes MIDI)", "Topline" }, 0));
+    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "layer2", 5 }, "Layer 2",
+                                                          StringArray { "Off", "On" }, 1));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "root", 2 }, "Root", rootNames, 9));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "scale", 2 }, "Scale", scaleNames,
                                                           findScaleIndex ("Aeolian (Natural Minor)")));
@@ -52,25 +60,25 @@ juce::AudioProcessorValueTreeState::ParameterLayout DarkTripletAudioProcessor::c
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "bars", 2 }, "Bars",
                                                           StringArray { "1", "2", "4", "8" }, 2));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "feel", 2 }, "Rhythm",
-                                                          StringArray { "Triolets", "Normal", "Mix" }, 0));
+                                                          StringArray { "Triolets", "Normal", "Mix" }, 1));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "prog", 2 }, "Progression", progNames, 0));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "chordMode", 2 }, "Chords",
                                                           StringArray { "Off", "Tenus", "Rythmes" }, 1));
-    ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "density", 2 },  "Density",      NormalisableRange<float> (0.0f, 1.0f), 0.5f,  pct));
-    ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "darkness", 2 }, "Darkness",     NormalisableRange<float> (0.0f, 1.0f), 0.6f,  pct));
-    ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "rolls", 2 },    "Rolls",        NormalisableRange<float> (0.0f, 1.0f), 0.2f,  pct));
-    ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "rests", 2 },    "Rests",        NormalisableRange<float> (0.0f, 1.0f), 0.2f,  pct));
+    ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "density", 2 },  "Density",      NormalisableRange<float> (0.0f, 1.0f), 0.55f, pct));
+    ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "darkness", 2 }, "Darkness",     NormalisableRange<float> (0.0f, 1.0f), 0.4f,  pct));
+    ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "rolls", 2 },    "Runs",         NormalisableRange<float> (0.0f, 1.0f), 0.3f,  pct));
+    ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "rests", 2 },    "Rests",        NormalisableRange<float> (0.0f, 1.0f), 0.1f,  pct));
     ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "octJumps", 2 }, "Octave Jumps", NormalisableRange<float> (0.0f, 1.0f), 0.15f, pct));
     ps.push_back (std::make_unique<AudioParameterInt>    (ParameterID { "range", 2 },    "Range (oct)", 1, 3, 2));
-    ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "gate", 2 },     "Gate",         NormalisableRange<float> (0.1f, 1.0f), 0.9f,  pct));
+    ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "gate", 2 },     "Gate",         NormalisableRange<float> (0.1f, 1.0f), 0.95f, pct));
     ps.push_back (std::make_unique<AudioParameterInt>    (ParameterID { "seed", 2 },     "Seed",        1, 99999, 1337));
 
     ps.push_back (std::make_unique<AudioParameterBool>   (ParameterID { "synthOn", 2 },  "Synth On", true));
-    NormalisableRange<float> cutRange (300.0f, 12000.0f);
+    NormalisableRange<float> cutRange (300.0f, 16000.0f);
     cutRange.setSkewForCentre (2000.0f);
-    ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "cutoff", 2 }, "Cutoff", cutRange, 3500.0f,
+    ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "cutoff", 2 }, "Cutoff", cutRange, 9000.0f,
         AudioParameterFloatAttributes().withStringFromValueFunction ([] (float v, int) { return String (juce::roundToInt (v)) + " Hz"; })));
-    ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "release", 2 }, "Release", NormalisableRange<float> (0.05f, 3.0f), 0.8f,
+    ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "release", 2 }, "Release", NormalisableRange<float> (0.05f, 3.0f), 0.3f,
         AudioParameterFloatAttributes().withStringFromValueFunction ([] (float v, int) { return String (v, 2) + " s"; })));
     ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "volume", 2 }, "Volume", NormalisableRange<float> (0.0f, 1.0f), 0.7f, pct));
 
@@ -97,6 +105,9 @@ GenParams DarkTripletAudioProcessor::readParams() const
     p.rangeOctaves = (int) v ("range");
     p.gate         = v ("gate");
     p.seed         = (int) v ("seed");
+    p.style        = (int) v ("style");
+    p.motif        = (int) v ("motif");
+    p.layer2       = (int) v ("layer2");
     return p;
 }
 
@@ -117,6 +128,7 @@ void DarkTripletAudioProcessor::regenerate()
     };
     addEvents (res.melody, 1);
     addEvents (res.chords, 2);
+    addEvents (res.counter, 3);
     std::sort (evs.begin(), evs.end(), [] (const Ev& a, const Ev& b)
     {
         if (a.ppq != b.ppq) return a.ppq < b.ppq;
@@ -130,6 +142,7 @@ void DarkTripletAudioProcessor::regenerate()
         const juce::SpinLock::ScopedLockType sl (patternLock);
         melody.swap (res.melody);
         chords.swap (res.chords);
+        counter.swap (res.counter);
         events.swap (evs);
         chordText = names.joinIntoString ("  -  ");
         loopBeats = L;
@@ -149,6 +162,43 @@ void DarkTripletAudioProcessor::randomizeSeed()
     }
 }
 
+void DarkTripletAudioProcessor::applyStyle (int style)
+{
+    struct Preset { const char* scale; int feel, chordMode; float density, darkness, runs, rests, octJumps, gate; };
+    static const Preset presets[] = {
+        { nullptr,                    0, 0, 0,     0,    0,    0,    0,    0    }, // Perso : ne touche a rien
+        { "Aeolian (Natural Minor)",  1, 1, 0.55f, 0.40f, 0.30f, 0.10f, 0.10f, 0.95f }, // Ninho
+        { "Aeolian (Natural Minor)",  2, 1, 0.55f, 0.85f, 0.45f, 0.10f, 0.15f, 0.95f }, // Werenoi
+        { "Phrygian",                 0, 2, 0.50f, 1.00f, 0.40f, 0.15f, 0.20f, 0.90f }, // Trap dark
+        { "Aeolian (Natural Minor)",  0, 1, 0.65f, 0.70f, 0.50f, 0.05f, 0.15f, 0.95f }, // Triolets
+    };
+    style = juce::jlimit (0, 4, style);
+    auto set = [this] (const char* id, float value)
+    {
+        if (auto* prm = apvts.getParameter (id))
+        {
+            prm->beginChangeGesture();
+            prm->setValueNotifyingHost (prm->convertTo0to1 (value));
+            prm->endChangeGesture();
+        }
+    };
+    set ("style", (float) style);
+    if (style == 0) return;
+    const auto& pr = presets[style];
+    set ("scale", (float) findScaleIndex (pr.scale));
+    set ("rotation", 0.0f);
+    set ("prog", 0.0f); // Auto : progressions typiques du style
+    set ("feel", (float) pr.feel);
+    set ("chordMode", (float) pr.chordMode);
+    set ("density", pr.density);
+    set ("darkness", pr.darkness);
+    set ("rolls", pr.runs);
+    set ("rests", pr.rests);
+    set ("octJumps", pr.octJumps);
+    set ("gate", pr.gate);
+    set ("motif", 0.0f);
+}
+
 void DarkTripletAudioProcessor::timerCallback()
 {
     if (needsRegen.exchange (false))
@@ -166,6 +216,12 @@ std::vector<MelodyNote> DarkTripletAudioProcessor::getChordsCopy()
 {
     const juce::SpinLock::ScopedLockType sl (patternLock);
     return chords;
+}
+
+std::vector<MelodyNote> DarkTripletAudioProcessor::getCounterCopy()
+{
+    const juce::SpinLock::ScopedLockType sl (patternLock);
+    return counter;
 }
 
 juce::String DarkTripletAudioProcessor::getChordText()
@@ -190,6 +246,7 @@ bool DarkTripletAudioProcessor::writeMidiFile (const juce::File& file, Layer lay
     double L = 16.0;
     auto mel = getMelodyCopy (L);
     auto chd = getChordsCopy();
+    auto ctr = getCounterCopy();
 
     constexpr int ppqRes = 960;
     auto makeTrack = [&] (const std::vector<MelodyNote>& notes, int ch, const juce::String& name)
@@ -210,6 +267,7 @@ bool DarkTripletAudioProcessor::writeMidiFile (const juce::File& file, Layer lay
     juce::MidiFile mf;
     mf.setTicksPerQuarterNote (ppqRes);
     if (layer == Melody || layer == Both) mf.addTrack (makeTrack (mel, 1, "Melodie"));
+    if (layer == Counter)                 mf.addTrack (makeTrack (ctr, 1, "Melodie 2"));
     if (layer == Chords || layer == Both) mf.addTrack (makeTrack (chd, layer == Both ? 2 : 1, "Accords"));
 
     file.deleteFile();
@@ -223,7 +281,7 @@ juce::File DarkTripletAudioProcessor::writeTempMidiFile (Layer layer)
 {
     auto dir = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("DarkTripletGen");
     dir.createDirectory();
-    auto f = dir.getChildFile (getPatternName() + (layer == Chords ? "_accords" : "_melo") + ".mid");
+    auto f = dir.getChildFile (getPatternName() + (layer == Chords ? "_accords" : layer == Counter ? "_melo2" : "_melo") + ".mid");
     writeMidiFile (f, layer);
     return f;
 }
@@ -273,7 +331,7 @@ void DarkTripletAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 
     auto killAll = [&] (int samplePos)
     {
-        for (int c = 0; c < 2; ++c)
+        for (int c = 0; c < 3; ++c)
             for (int n = 0; n < 128; ++n)
                 if (active[c][n])
                 {

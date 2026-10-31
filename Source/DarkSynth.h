@@ -4,25 +4,35 @@
 #include <array>
 #include <cmath>
 
-// Synthe de pre-ecoute polyphonique (FM simple).
-//  canal 1 = melodie : cloche / piano sombre
-//  canal 2 = accords + basse : nappe douce
+// Piano de pre-ecoute (synthese additive) :
+//  - harmoniques legerement inharmoniques (cordes de piano)
+//  - chaque harmonique s'eteint a sa vitesse (les aigus partent plus vite)
+//  - bruit de marteau, battements entre cordes, etouffoir au relachement
+//  - filtre de brillance + reverb
+//  canal 1 = melodie, canal 2 = accords (plus doux)
 class DarkSynth
 {
 public:
     void prepare (double sampleRate, int maxBlock)
     {
         sr = sampleRate;
-        filter.prepare ({ sr, (juce::uint32) juce::jmax (1, maxBlock), 1 });
+        filter.prepare ({ sr, (juce::uint32) juce::jmax (1, maxBlock), 2 });
         filter.setType (juce::dsp::StateVariableTPTFilterType::lowpass);
-        filter.setResonance (0.7f);
-        for (auto& v : voices) { v.adsr.setSampleRate (sr); v.active = false; }
+        filter.setResonance (0.5f);
+        reverb.setSampleRate (sr);
+        juce::Reverb::Parameters rp;
+        rp.roomSize = 0.62f; rp.damping = 0.45f; rp.wetLevel = 0.22f; rp.dryLevel = 0.85f; rp.width = 1.0f;
+        reverb.setParameters (rp);
+        reverb.reset();
+        filter.reset();
+        for (auto& v : voices) v.active = false;
     }
 
     void setParams (float cutoffHz, float releaseSec, float gain)
     {
-        cutoff = cutoffHz; release = releaseSec; outGain = gain;
-        filter.setCutoffFrequency (juce::jlimit (40.0f, 18000.0f, cutoff));
+        filter.setCutoffFrequency (juce::jlimit (200.0f, 18000.0f, cutoffHz));
+        release = juce::jmax (0.02f, releaseSec);
+        outGain = gain;
     }
 
     void render (juce::AudioBuffer<float>& buf, const juce::MidiBuffer& midi)
@@ -36,65 +46,116 @@ public:
             pos = t;
         }
         renderRange (buf, pos, buf.getNumSamples());
+
+        // brillance + reverb + volume
+        const int num = buf.getNumSamples();
+        auto* L = buf.getWritePointer (0);
+        auto* R = buf.getNumChannels() > 1 ? buf.getWritePointer (1) : nullptr;
+        for (int i = 0; i < num; ++i)
+        {
+            L[i] = filter.processSample (0, L[i]);
+            if (R != nullptr) R[i] = filter.processSample (1, R[i]);
+        }
+        if (R != nullptr) reverb.processStereo (L, R, num);
+        else              reverb.processMono (L, num);
+        for (int c = 0; c < buf.getNumChannels(); ++c)
+        {
+            auto* d = buf.getWritePointer (c);
+            for (int i = 0; i < num; ++i)
+                d[i] = std::tanh (d[i] * outGain * 0.42f) * 0.9f;
+        }
     }
 
 private:
+    static constexpr int NP = 14; // harmoniques max par note
+
     struct Voice
     {
-        bool active = false;
-        int note = -1, channel = 1;
-        double freq = 220.0, pc = 0.0, pm = 0.0;
-        float vel = 1.0f, modEnv = 1.0f, modDecay = 0.999f, index = 2.0f, ratio = 2.0f, level = 1.0f;
-        juce::ADSR adsr;
+        bool active = false, held = false;
+        int note = -1, channel = 1, np = 0, renorm = 0;
         juce::uint32 age = 0;
+        float c[NP] {}, s[NP] {}, cr[NP] {}, sn[NP] {}, amp[NP] {}, dec[NP] {};
+        float rel = 1.0f, relMul = 1.0f;
+        float noise = 0.0f, noiseDec = 0.0f, lp = 0.0f;
+        float panL = 0.7f, panR = 0.7f;
+        float bc = 1.0f, bs = 0.0f, bcr = 1.0f, bsn = 0.0f; // battement lent entre cordes
     };
 
     double sr = 44100.0;
     std::array<Voice, 16> voices;
     juce::dsp::StateVariableTPTFilter<float> filter;
-    float cutoff = 3000.0f, release = 0.6f, outGain = 0.7f;
+    juce::Reverb reverb;
+    juce::Random rnd { 1234 };
+    float release = 0.3f, outGain = 0.7f;
     juce::uint32 counter = 0;
 
     static double mtof (int n) { return 440.0 * std::pow (2.0, (n - 69) / 12.0); }
 
     void handle (const juce::MidiMessage& m)
     {
-        if (m.isNoteOn())
-        {
-            Voice* v = nullptr;
-            for (auto& x : voices) if (! x.active) { v = &x; break; }
-            if (v == nullptr)
-            {
-                v = &voices[0];
-                for (auto& x : voices) if (x.age < v->age) v = &x; // vole la plus ancienne
-            }
-            const bool mel = m.getChannel() == 1;
-            v->active  = true;
-            v->note    = m.getNoteNumber();
-            v->channel = m.getChannel();
-            v->freq    = mtof (v->note);
-            v->pc = v->pm = 0.0;
-            v->vel     = 0.3f + 0.7f * m.getFloatVelocity();
-            v->age     = ++counter;
-            v->ratio   = mel ? 2.0f : 1.0f;
-            v->index   = mel ? 2.6f : 0.8f;
-            v->modEnv  = 1.0f;
-            v->modDecay = (float) std::exp (-1.0 / ((mel ? 0.18 : 0.6) * sr));
-            v->level   = mel ? 0.55f : (v->note < 48 ? 0.45f : 0.22f);
-            v->adsr.setParameters (mel ? juce::ADSR::Parameters { 0.002f, 1.1f, 0.25f, release }
-                                       : juce::ADSR::Parameters { 0.03f, 0.8f, 0.6f, release * 1.2f });
-            v->adsr.noteOn();
-        }
-        else if (m.isNoteOff())
-        {
-            for (auto& v : voices)
-                if (v.active && v.note == m.getNoteNumber() && v.channel == m.getChannel())
-                    v.adsr.noteOff();
-        }
+        if (m.isNoteOn())        noteOn (m.getChannel(), m.getNoteNumber(), m.getFloatVelocity());
+        else if (m.isNoteOff())  noteOff (m.getChannel(), m.getNoteNumber());
         else if (m.isAllNotesOff() || m.isAllSoundOff())
+            for (auto& v : voices) releaseVoice (v);
+    }
+
+    void releaseVoice (Voice& v)
+    {
+        v.held = false;
+        v.relMul = (float) std::exp (-1.0 / (release * sr));
+    }
+
+    void noteOff (int ch, int n)
+    {
+        for (auto& v : voices)
+            if (v.active && v.held && v.note == n && v.channel == ch)
+                releaseVoice (v);
+    }
+
+    void noteOn (int ch, int n, float vel)
+    {
+        Voice* v = nullptr;
+        for (auto& x : voices) if (! x.active) { v = &x; break; }
+        if (v == nullptr)
         {
-            for (auto& v : voices) v.adsr.noteOff();
+            v = &voices[0];
+            for (auto& x : voices) if (x.age < v->age) v = &x; // vole la plus ancienne
         }
+
+        const double f = mtof (n);
+        const float level = (ch == 1 ? 0.36f : ch == 3 ? 0.26f : (n < 48 ? 0.32f : 0.2f)) * (0.25f + 0.75f * vel);
+        const double tau1 = juce::jlimit (0.6, 8.0, 5.0 * std::pow (2.0, -(n - 48) / 18.0));
+        const double B = 0.00012 * std::pow (2.0, (n - 48) / 12.0);   // inharmonicite
+        const double bright = 0.35 + 0.65 * vel;
+        const double twoPi = juce::MathConstants<double>::twoPi;
+
+        v->active = true; v->held = true;
+        v->note = n; v->channel = ch; v->age = ++counter;
+        v->np = 0;
+        for (int k = 1; k <= NP; ++k)
+        {
+            const double fk = k * f * std::sqrt (1.0 + B * k * k);
+            if (fk > sr * 0.45) break;
+            double a = std::pow ((double) k, -1.1) * std::exp (-(k - 1) * (1.0 - bright) * 0.55);
+            if (k == 7) a *= 0.2; // le marteau frappe pres du 1/7 de la corde
+            const double tau = tau1 / (1.0 + 0.35 * (k - 1));
+            const double w = twoPi * fk / sr;
+            const int i = v->np++;
+            v->c[i] = 1.0f; v->s[i] = 0.0f;
+            v->cr[i] = (float) std::cos (w); v->sn[i] = (float) std::sin (w);
+            v->amp[i] = (float) a * level;
+            v->dec[i] = (float) std::exp (-1.0 / (tau * sr));
+        }
+        v->rel = 1.0f; v->relMul = 1.0f;
+        v->noise = 0.35f * vel * level;
+        v->noiseDec = (float) std::exp (-1.0 / (0.004 * sr));
+        v->lp = 0.0f;
+        const float pan = juce::jlimit (-0.6f, 0.6f, (n - 60) / 40.0f);
+        v->panL = std::sqrt (0.5f * (1.0f - pan));
+        v->panR = std::sqrt (0.5f * (1.0f + pan));
+        const double bw = twoPi * (0.6 + 0.8 * rnd.nextDouble()) / sr;
+        v->bc = 1.0f; v->bs = 0.0f; v->bcr = (float) std::cos (bw); v->bsn = (float) std::sin (bw);
+        v->renorm = 0;
     }
 
     void renderRange (juce::AudioBuffer<float>& buf, int start, int end)
@@ -102,26 +163,52 @@ private:
         if (end <= start) return;
         auto* L = buf.getWritePointer (0);
         auto* R = buf.getNumChannels() > 1 ? buf.getWritePointer (1) : nullptr;
-        const double twoPi = juce::MathConstants<double>::twoPi;
 
-        for (int i = start; i < end; ++i)
+        for (auto& v : voices)
         {
-            float s = 0.0f;
-            for (auto& v : voices)
+            if (! v.active) continue;
+            for (int i = start; i < end; ++i)
             {
-                if (! v.active) continue;
-                const float env = v.adsr.getNextSample();
-                if (! v.adsr.isActive()) { v.active = false; continue; }
-                const double mod = std::sin (twoPi * v.pm) * v.index * v.modEnv;
-                s += (float) std::sin (twoPi * v.pc + mod) * env * v.vel * v.level;
-                v.pc += v.freq / sr;              if (v.pc >= 1.0) v.pc -= 1.0;
-                v.pm += v.freq * v.ratio / sr;    if (v.pm >= 1.0) v.pm -= 1.0;
-                v.modEnv *= v.modDecay;
+                const float beat = 1.0f + 0.06f * v.bs;
+                float sum = 0.0f;
+                for (int k = 0; k < v.np; ++k)
+                {
+                    sum += v.s[k] * v.amp[k] * (k < 3 ? beat : 1.0f);
+                    const float nc = v.c[k] * v.cr[k] - v.s[k] * v.sn[k];
+                    const float ns = v.s[k] * v.cr[k] + v.c[k] * v.sn[k];
+                    v.c[k] = nc; v.s[k] = ns;
+                    v.amp[k] *= v.dec[k];
+                }
+                const float bnc = v.bc * v.bcr - v.bs * v.bsn;
+                v.bs = v.bs * v.bcr + v.bc * v.bsn; v.bc = bnc;
+
+                const float nz = (rnd.nextFloat() * 2.0f - 1.0f) * v.noise;
+                v.noise *= v.noiseDec;
+                v.lp += 0.35f * (nz - v.lp);
+                sum += v.lp;
+
+                if (! v.held) v.rel *= v.relMul;
+                sum *= v.rel;
+
+                L[i] += sum * v.panL;
+                if (R != nullptr) R[i] += sum * v.panR;
             }
-            s = filter.processSample (0, s);
-            s = std::tanh (s * 1.2f) * outGain * 0.5f;
-            L[i] += s;
-            if (R != nullptr) R[i] += s;
+
+            // stabilite numerique des oscillateurs
+            if ((v.renorm += end - start) > 512)
+            {
+                v.renorm = 0;
+                for (int k = 0; k < v.np; ++k)
+                {
+                    const float m = 1.0f / std::sqrt (v.c[k] * v.c[k] + v.s[k] * v.s[k]);
+                    v.c[k] *= m; v.s[k] *= m;
+                }
+                const float bm = 1.0f / std::sqrt (v.bc * v.bc + v.bs * v.bs);
+                v.bc *= bm; v.bs *= bm;
+            }
+
+            if (v.rel < 1.0e-4f || (v.np > 0 && v.amp[0] < 1.0e-5f))
+                v.active = false;
         }
     }
 };

@@ -59,3 +59,52 @@ target_link_libraries(DarkTripletGen
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
+
+# =============================================================================
+#  2e plugin : DARK TRAP DRUMS (generateur de drums + tes samples integres)
+# =============================================================================
+file (GLOB DRUM_SAMPLES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/Drums/Samples/*.wav")
+juce_add_binary_data (DarkTrapDrumsSamples
+    HEADER_NAME DrumSamples.h
+    NAMESPACE DrumSamples
+    SOURCES ${DRUM_SAMPLES})
+
+juce_add_plugin (DarkTrapDrums
+    COMPANY_NAME "NightLab"
+    PLUGIN_MANUFACTURER_CODE Nlab
+    PLUGIN_CODE Dtdr
+    FORMATS ${DTG_FORMATS}
+    PRODUCT_NAME "Dark Trap Drums"
+    IS_SYNTH TRUE
+    NEEDS_MIDI_INPUT TRUE
+    NEEDS_MIDI_OUTPUT TRUE
+    IS_MIDI_EFFECT FALSE
+    EDITOR_WANTS_KEYBOARD_FOCUS FALSE
+    COPY_PLUGIN_AFTER_BUILD FALSE
+    VST3_CATEGORIES Instrument Drum Generator)
+
+target_sources (DarkTrapDrums PRIVATE
+    Drums/DrumGenerator.cpp
+    Drums/DrumProcessor.cpp
+    Drums/DrumEditor.cpp)
+
+target_include_directories (DarkTrapDrums PRIVATE Drums Source)
+
+target_compile_definitions (DarkTrapDrums PUBLIC
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_VST3_CAN_REPLACE_VST2=0
+    JUCE_DISPLAY_SPLASH_SCREEN=0)
+
+if (MSVC)
+    target_compile_options (DarkTrapDrums PRIVATE /utf-8)
+endif()
+
+target_link_libraries (DarkTrapDrums
+    PRIVATE
+        DarkTrapDrumsSamples
+        juce::juce_audio_utils
+    PUBLIC
+        juce::juce_recommended_config_flags
+        juce::juce_recommended_lto_flags
+        juce::juce_recommended_warning_flags)

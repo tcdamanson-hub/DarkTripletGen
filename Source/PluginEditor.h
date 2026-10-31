@@ -13,14 +13,14 @@ public:
 class PianoRoll : public juce::Component
 {
 public:
-    void setNotes (std::vector<MelodyNote> mel, std::vector<MelodyNote> chd, double loop)
+    void setNotes (std::vector<MelodyNote> mel, std::vector<MelodyNote> chd, std::vector<MelodyNote> ctr, double loop)
     {
-        melody = std::move (mel); chords = std::move (chd); loopBeats = loop; repaint();
+        melody = std::move (mel); chords = std::move (chd); counter = std::move (ctr); loopBeats = loop; repaint();
     }
     void setPlayhead (double b) { if (b != playhead) { playhead = b; repaint(); } }
     void paint (juce::Graphics&) override;
 private:
-    std::vector<MelodyNote> melody, chords;
+    std::vector<MelodyNote> melody, chords, counter;
     double loopBeats = 16.0, playhead = -1.0;
 };
 
@@ -78,9 +78,10 @@ private:
     juce::TextButton generateBtn { "GENERER" }, previewBtn { "PREVIEW" }, exportBtn { "EXPORT .MID" };
     juce::ToggleButton synthToggle { "Synth" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> synthAtt;
-    MidiDragZone dragMelo, dragChords;
+    MidiDragZone dragMelo, dragMelo2, dragChords;
     PianoRoll roll;
-    juce::Label chordLabel, info;
+    juce::Label chordLabel, info, styleLabel;
+    juce::ComboBox styleBox;
     std::unique_ptr<juce::FileChooser> chooser;
     int lastVersion = -1;
 
