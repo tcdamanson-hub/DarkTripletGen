@@ -34,3 +34,6 @@ jobs:
             build/DarkTripletGen_artefacts/Release/VST3
             build/DarkTripletGen_artefacts/Release/AU
             build/DarkTripletGen_artefacts/Release/Standalone
+            build/DarkTrapDrums_artefacts/Release/VST3
+            build/DarkTrapDrums_artefacts/Release/AU
+            build/DarkTrapDrums_artefacts/Release/Standalone
