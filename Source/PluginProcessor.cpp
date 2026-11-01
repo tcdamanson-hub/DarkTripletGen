@@ -88,9 +88,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout DarkTripletAudioProcessor::c
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instChords", 7 },  "Chords Sound",  instNames, findInst ("Pads", 0)));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instCounter", 7 }, "Layer 2 Sound", instNames, findInst ("Plucks", 0)));
 
-    ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "volMel", 8 },     "Melody Vol",  NormalisableRange<float> (0.0f, 1.5f), 1.0f, pct));
-    ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "volChords", 8 },  "Chords Vol",  NormalisableRange<float> (0.0f, 1.5f), 1.0f, pct));
-    ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "volCounter", 8 }, "Layer 2 Vol", NormalisableRange<float> (0.0f, 1.5f), 1.0f, pct));
+    ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "volMel", 8 },     "Melody Vol",  NormalisableRange<float> (0.0f, 1.5f), 0.12f, pct));
+    ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "volChords", 8 },  "Chords Vol",  NormalisableRange<float> (0.0f, 1.5f), 0.12f, pct));
+    ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "volCounter", 8 }, "Layer 2 Vol", NormalisableRange<float> (0.0f, 1.5f), 0.12f, pct));
 
     ps.push_back (std::make_unique<AudioParameterBool>   (ParameterID { "synthOn", 2 },  "Synth On", true));
     NormalisableRange<float> cutRange (300.0f, 16000.0f);
