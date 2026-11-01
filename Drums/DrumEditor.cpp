@@ -205,7 +205,7 @@ DarkTrapDrumsEditor::DarkTrapDrumsEditor (DarkTrapDrumsProcessor& p)
     addKnob ("volPerc",  "Percs",   true);
     addKnob ("vol808",   "808",     true);
     addKnob ("volFx",    "FX",      true);
-    mixLabel.setText ("MIX (0 = coupe, double-clic = 10 %)", juce::dontSendNotification);
+    mixLabel.setText ("MIX (10 % = normal, 0 = coupe, double-clic = 10 %)", juce::dontSendNotification);
     mixLabel.setFont (juce::FontOptions (12.0f, juce::Font::bold));
     mixLabel.setColour (juce::Label::textColourId, Col::dim);
     addAndMakeVisible (mixLabel);

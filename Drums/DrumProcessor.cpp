@@ -77,7 +77,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout DarkTrapDrumsProcessor::crea
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "sndImpact", 2 }, "Impact Sound", SampleLibrary::namesFor (SampleLibrary::IMPACT), 0));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "sndRiser", 2 },  "Riser Sound",  SampleLibrary::namesFor (SampleLibrary::RISER), 0));
     for (int i = 0; i < 8; ++i)
-        ps.push_back (std::make_unique<AudioParameterFloat> (ParameterID { volIds[i], 4 }, volNames[i], NormalisableRange<float> (0, 1.5f), 0.1f, pct));
+        ps.push_back (std::make_unique<AudioParameterFloat> (ParameterID { volIds[i], 5 }, volNames[i], NormalisableRange<float> (0, 0.3f), 0.1f, pct));
     ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "perc", 2 }, "Percs", NormalisableRange<float> (0, 1), 0.3f, pct));
     ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "fx", 2 }, "FX", NormalisableRange<float> (0, 1), 0.5f, pct));
     return { ps.begin(), ps.end() };
@@ -356,7 +356,8 @@ void DarkTrapDrumsProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         kit.setParams (apvts.getRawParameterValue ("volume")->load(), iv ("sndKick"), iv ("sndSnare"),
                        iv ("sndHat"), iv ("sndOpen"), iv ("snd808"), iv ("sndFill"),
                        iv ("sndClap"), iv ("sndPerc"), iv ("sndImpact"), iv ("sndRiser"));
-        for (int c = 1; c <= 8; ++c) kit.setLaneGain (c, apvts.getRawParameterValue (volIds[c - 1])->load());
+        // 10 % = niveau normal de l'element (x1), 30 % = x3
+        for (int c = 1; c <= 8; ++c) kit.setLaneGain (c, apvts.getRawParameterValue (volIds[c - 1])->load() * 10.0f);
         kit.render (buffer, out);
     }
     midi.swapWith (out); // canal 1 kick, 2 snare, 3 hats, 4 808, 5 open hat, 6 relances, 7 percs, 8 fx
