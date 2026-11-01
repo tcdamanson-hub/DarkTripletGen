@@ -32,8 +32,8 @@ public:
         // mix des instruments samples : chaque couche a sa place dans le spectre
         const juce::dsp::ProcessSpec spec { sr, (juce::uint32) juce::jmax (1, maxBlock), 2 };
         layerBuf.setSize (8, juce::jmax (1, maxBlock));
-        const float hpHz[4] = { 0, 180.0f, 220.0f, 320.0f };   // melodie, accords, couche 2 : on laisse le grave a la 808
-        const float lpHz[4] = { 0, 15000.0f, 7000.0f, 12000.0f }; // les accords restent derriere
+        const float hpHz[4] = { 0, 180.0f, 220.0f, 380.0f };   // melodie, accords, couche 2 : on laisse le grave a la 808
+        const float lpHz[4] = { 0, 16000.0f, 6000.0f, 10000.0f }; // les accords restent derriere
         for (int c = 1; c <= 3; ++c)
         {
             hp[c].prepare (spec); hp[c].setType (juce::dsp::StateVariableTPTFilterType::highpass);
@@ -41,6 +41,22 @@ public:
             lp[c].prepare (spec); lp[c].setType (juce::dsp::StateVariableTPTFilterType::lowpass);
             lp[c].setCutoffFrequency (lpHz[c]); lp[c].setResonance (0.6f); lp[c].reset();
             layerLp[c] = lpHz[c];
+        }
+        // EQ de placement : la melodie ressort (presence), les accords et la couche 2 lui laissent la place
+        const float eqHz[4]   = { 0, 3000.0f, 2600.0f, 1900.0f };
+        const float eqGain[4] = { 0, 3.5f, -5.0f, -2.5f };  // dB
+        const float eqQ[4]    = { 0, 0.8f, 0.9f, 1.0f };
+        for (int c = 1; c <= 3; ++c)
+        {
+            peak[c].prepare (spec);
+            *peak[c].state = *juce::dsp::IIR::Coefficients<float>::makePeakFilter (sr, eqHz[c], eqQ[c], juce::Decibels::decibelsToGain (eqGain[c]));
+            peak[c].reset();
+            layerComp[c].prepare (spec);
+            layerComp[c].setThreshold (c == 1 ? -20.0f : -16.0f);
+            layerComp[c].setRatio (c == 1 ? 3.5f : 2.0f);
+            layerComp[c].setAttack (c == 1 ? 6.0f : 15.0f);
+            layerComp[c].setRelease (110.0f);
+            layerComp[c].reset();
         }
         busComp.prepare (spec);
         busComp.setThreshold (-16.0f); busComp.setRatio (3.0f); busComp.setAttack (8.0f); busComp.setRelease (120.0f);
@@ -108,6 +124,9 @@ public:
             juce::dsp::ProcessContextReplacing<float> ctx (blk);
             hp[c].process (ctx);
             lp[c].process (ctx);
+            peak[c].process (ctx);
+            layerComp[c].process (ctx);
+            if (c == 1) blk.multiplyBy (1.6f);  // compensation : la melodie devant
             bus.addFrom (0, 0, ptrs[0], num);
             bus.addFrom (1, 0, ptrs[1], num);
         }
@@ -153,7 +172,9 @@ private:
     InstrumentPlayer player;
     juce::AudioBuffer<float> layerBuf;          // canaux 2..7 : couches 1..3 en stereo, 0..1 : bus
     juce::dsp::StateVariableTPTFilter<float> hp[4], lp[4];
-    float layerLp[4] = { 0, 15000.0f, 7000.0f, 12000.0f };
+    float layerLp[4] = { 0, 16000.0f, 6000.0f, 10000.0f };
+    juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>> peak[4];
+    juce::dsp::Compressor<float> layerComp[4];
     juce::dsp::Compressor<float> busComp;
     float busGain = 4.5f;
     int inst[4] = { 0, 0, 0, 0 };
@@ -183,7 +204,7 @@ private:
 
     void noteOff (int ch, int n)
     {
-        player.noteOff (ch, n);
+        player.noteOff (ch, (ch == 2 && inst[2] > 0 && n > 74) ? n - 12 : n);
         for (auto& v : voices)
             if (v.active && v.held && v.note == n && v.channel == ch)
                 releaseVoice (v);
@@ -196,7 +217,9 @@ private:
         {
             // accords : la basse grave est laissee a la 808 (sinon un pad transpose 2 octaves plus bas fait de la bouillie)
             if (ch == 2 && n < 48) return;
-            const float lvl = ch == 1 ? 1.0f : ch == 3 ? 0.75f : 0.55f;
+            const float lvl = ch == 1 ? 1.0f : ch == 3 ? 0.6f : 0.32f;
+            // accords trop aigus : une octave plus bas pour ne pas marcher sur la melodie
+            if (ch == 2 && n > 74) n -= 12;
             player.noteOn (ch, n, vel, sel - 1, lvl);
             return;
         }
