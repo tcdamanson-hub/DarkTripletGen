@@ -577,7 +577,17 @@ private:
         return b;
     }
 
-    int pickTemplate (int wantPos, int src, int excludeSrc, bool strictFeel)
+    int pickTemplate (int wantPos, int src, int excludeSrc, bool strictFeel, bool useBank = true)
+    {
+        if (useBank && p.bank > 0)
+        {
+            const int r = pickTemplateImpl (wantPos, src, excludeSrc, strictFeel, true);
+            if (r >= 0 || src >= 0) return r;
+        }
+        return pickTemplateImpl (wantPos, src, excludeSrc, strictFeel, false);
+    }
+
+    int pickTemplateImpl (int wantPos, int src, int excludeSrc, bool strictFeel, bool bankOnly)
     {
         std::vector<float> w ((size_t) learned::numTemplates, 0.0f);
         const float target = 4.0f + p.density * 20.0f;
@@ -588,6 +598,7 @@ private:
             if (strictFeel && p.feel != 2 && t.feel != p.feel) continue;
             if (src >= 0 && t.src != src) continue;
             if (excludeSrc >= 0 && t.src == excludeSrc) continue;
+            if (bankOnly && (int) learned::srcBank[t.src] != p.bank) continue;
             const float d = (float) t.count - target;
             float x = std::exp (-(d * d) / 72.0f) + 0.02f;
             if (wantPos >= 0 && t.pos == wantPos) x *= 2.5f;
@@ -595,7 +606,7 @@ private:
             tot += x;
         }
         if (tot <= 0.0f)
-            return strictFeel ? pickTemplate (wantPos, src, excludeSrc, false) : -1;
+            return strictFeel ? pickTemplateImpl (wantPos, src, excludeSrc, false, bankOnly) : -1;
         return rng.pickWeighted (w);
     }
 
@@ -904,4 +915,9 @@ GenResult MelodyGenerator::generate (const GenParams& p)
 {
     Gen g (p);
     return g.run();
+}
+
+std::vector<std::string> MelodyGenerator::getBankNames()
+{
+    return { "Toutes", "Melodies", "Guitare", "Nexus" };
 }

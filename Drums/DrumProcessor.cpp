@@ -6,8 +6,8 @@ namespace
 const juce::StringArray rootNames { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
 const int barChoices[] = { 2, 4, 8 };
 const char* genIds[] = { "feel", "bars", "root", "prog", "hatDensity", "rolls", "hatPitch", "kickDensity",
-                         "fills", "snareOn3", "bounce", "seed", "openHat" };
-const char* partNames[] = { "kick", "snare", "hats", "808", "openhat", "relances" };
+                         "fills", "snareOn3", "bounce", "seed", "openHat", "perc", "fx" };
+const char* partNames[] = { "kick", "snare", "hats", "808", "openhat", "relances", "percs", "fx" };
 }
 
 DarkTrapDrumsProcessor::DarkTrapDrumsProcessor()
@@ -58,7 +58,16 @@ juce::AudioProcessorValueTreeState::ParameterLayout DarkTrapDrumsProcessor::crea
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "snd808", 1 },   "808 Sound",   SampleLibrary::namesFor (SampleLibrary::BASS), 0));
     StringArray fillNames { "= Snare" };
     for (auto& n : SampleLibrary::namesFor (SampleLibrary::RIM)) fillNames.add ("Rim " + n);
-    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "sndFill", 1 },  "Fill Sound",  fillNames, 0));
+    for (auto& n : SampleLibrary::namesFor (SampleLibrary::CLAP)) fillNames.add ("Clap " + n);
+    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "sndFill", 2 },  "Fill Sound",  fillNames, 0));
+    StringArray clapNames { "Aucun" };
+    clapNames.addArray (SampleLibrary::namesFor (SampleLibrary::CLAP));
+    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "sndClap", 2 },  "Clap Layer",  clapNames, 0));
+    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "sndPerc", 2 },  "Perc Sound",  SampleLibrary::namesFor (SampleLibrary::PERC), 0));
+    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "sndImpact", 2 }, "Impact Sound", SampleLibrary::namesFor (SampleLibrary::IMPACT), 0));
+    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "sndRiser", 2 },  "Riser Sound",  SampleLibrary::namesFor (SampleLibrary::RISER), 0));
+    ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "perc", 2 }, "Percs", NormalisableRange<float> (0, 1), 0.3f, pct));
+    ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "fx", 2 }, "FX", NormalisableRange<float> (0, 1), 0.5f, pct));
     return { ps.begin(), ps.end() };
 }
 
@@ -79,6 +88,8 @@ DrumParams DarkTrapDrumsProcessor::readParams() const
     p.bounce808   = v ("bounce");
     p.seed        = (int) v ("seed");
     p.openHat     = v ("openHat");
+    p.perc        = v ("perc");
+    p.fx          = v ("fx");
     return p;
 }
 
@@ -98,7 +109,7 @@ void DarkTrapDrumsProcessor::regenerate()
         }
     };
     add (res.kick, 1); add (res.snare, 2); add (res.hats, 3); add (res.bass808, 4);
-    add (res.openHats, 5); add (res.fills, 6);
+    add (res.openHats, 5); add (res.fills, 6); add (res.perc, 7); add (res.fx, 8);
     std::sort (evs.begin(), evs.end(), [] (const Ev& a, const Ev& b)
     {
         if (a.ppq != b.ppq) return a.ppq < b.ppq;
@@ -165,9 +176,9 @@ bool DarkTrapDrumsProcessor::writeMidiFile (const juce::File& file, Part part)
     };
     juce::MidiFile mf;
     mf.setTicksPerQuarterNote (ppq);
-    const std::vector<DrumHit>* parts[] = { &r.kick, &r.snare, &r.hats, &r.bass808, &r.openHats, &r.fills };
-    const char* names[] = { "Kick", "Snare", "Hats", "808", "Open Hat", "Relances" };
-    for (int i = 0; i < 6; ++i)
+    const std::vector<DrumHit>* parts[] = { &r.kick, &r.snare, &r.hats, &r.bass808, &r.openHats, &r.fills, &r.perc, &r.fx };
+    const char* names[] = { "Kick", "Snare", "Hats", "808", "Open Hat", "Relances", "Percs", "FX" };
+    for (int i = 0; i < 8; ++i)
         if (part == All || part == i) mf.addTrack (track (*parts[i], names[i]));
 
     file.deleteFile();
@@ -236,7 +247,7 @@ void DarkTrapDrumsProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     juce::MidiBuffer out;
     auto killAll = [&] (int s)
     {
-        for (int c = 0; c < 6; ++c)
+        for (int c = 0; c < 8; ++c)
             for (int n = 0; n < 128; ++n)
                 if (active[c][n]) { out.addEvent (juce::MidiMessage::noteOff (c + 1, n), s); active[c][n] = false; }
         bassSounding = -1;
@@ -321,10 +332,11 @@ void DarkTrapDrumsProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     {
         auto iv = [this] (const char* id) { return (int) apvts.getRawParameterValue (id)->load(); };
         kit.setParams (apvts.getRawParameterValue ("volume")->load(), iv ("sndKick"), iv ("sndSnare"),
-                       iv ("sndHat"), iv ("sndOpen"), iv ("snd808"), iv ("sndFill"));
+                       iv ("sndHat"), iv ("sndOpen"), iv ("snd808"), iv ("sndFill"),
+                       iv ("sndClap"), iv ("sndPerc"), iv ("sndImpact"), iv ("sndRiser"));
         kit.render (buffer, out);
     }
-    midi.swapWith (out); // canal 1 kick, 2 snare, 3 hats, 4 808, 5 open hat, 6 relances
+    midi.swapWith (out); // canal 1 kick, 2 snare, 3 hats, 4 808, 5 open hat, 6 relances, 7 percs, 8 fx
 }
 
 void DarkTrapDrumsProcessor::getStateInformation (juce::MemoryBlock& d)

@@ -8,7 +8,7 @@ const juce::StringArray rootNames { "C", "C#", "D", "D#", "E", "F", "F#", "G", "
 const int barChoices[] = { 1, 2, 4, 8 };
 
 const char* genParamIds[] = { "root", "scale", "rotation", "octave", "bars", "feel", "prog", "chordMode",
-                              "density", "darkness", "rolls", "rests", "octJumps", "range", "gate", "seed", "style", "motif", "layer2" };
+                              "density", "darkness", "rolls", "rests", "octJumps", "range", "gate", "seed", "style", "motif", "layer2", "bank" };
 }
 
 DarkTripletAudioProcessor::DarkTripletAudioProcessor()
@@ -73,6 +73,20 @@ juce::AudioProcessorValueTreeState::ParameterLayout DarkTripletAudioProcessor::c
     ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "gate", 2 },     "Gate",         NormalisableRange<float> (0.1f, 1.0f), 0.95f, pct));
     ps.push_back (std::make_unique<AudioParameterInt>    (ParameterID { "seed", 2 },     "Seed",        1, 99999, 1337));
 
+    StringArray bankNames;
+    for (auto& s : MelodyGenerator::getBankNames()) bankNames.add (s);
+    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "bank", 7 }, "MIDI Bank", bankNames, 0));
+    // instruments de pre-ecoute (tes one-shots)
+    const auto instNames = InstrumentLibrary::menuNames();
+    auto findInst = [&instNames] (const char* prefix, int fallback)
+    {
+        for (int i = 0; i < instNames.size(); ++i) if (instNames[i].startsWith (prefix)) return i;
+        return fallback;
+    };
+    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instMel", 7 },     "Melody Sound",  instNames, findInst ("Bells", 0)));
+    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instChords", 7 },  "Chords Sound",  instNames, findInst ("Pads", 0)));
+    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instCounter", 7 }, "Layer 2 Sound", instNames, findInst ("Plucks", 0)));
+
     ps.push_back (std::make_unique<AudioParameterBool>   (ParameterID { "synthOn", 2 },  "Synth On", true));
     NormalisableRange<float> cutRange (300.0f, 16000.0f);
     cutRange.setSkewForCentre (2000.0f);
@@ -108,6 +122,7 @@ GenParams DarkTripletAudioProcessor::readParams() const
     p.style        = (int) v ("style");
     p.motif        = (int) v ("motif");
     p.layer2       = (int) v ("layer2");
+    p.bank         = (int) v ("bank");
     return p;
 }
 
@@ -396,6 +411,9 @@ void DarkTripletAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 
     if (*apvts.getRawParameterValue ("synthOn") > 0.5f)
     {
+        synth.setInstruments ((int) apvts.getRawParameterValue ("instMel")->load(),
+                              (int) apvts.getRawParameterValue ("instChords")->load(),
+                              (int) apvts.getRawParameterValue ("instCounter")->load());
         synth.setParams (apvts.getRawParameterValue ("cutoff")->load(),
                          apvts.getRawParameterValue ("release")->load(),
                          apvts.getRawParameterValue ("volume")->load());

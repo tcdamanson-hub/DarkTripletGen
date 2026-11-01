@@ -9,7 +9,7 @@ class DarkTrapDrumsProcessor : public juce::AudioProcessor,
                                private juce::Timer
 {
 public:
-    enum Part { Kick = 0, Snare = 1, Hats = 2, Bass = 3, OpenHat = 4, Fills = 5, All = 6 };
+    enum Part { Kick = 0, Snare = 1, Hats = 2, Bass = 3, OpenHat = 4, Fills = 5, Perc = 6, Fx = 7, All = 8 };
 
     DarkTrapDrumsProcessor();
     ~DarkTrapDrumsProcessor() override;
@@ -67,7 +67,7 @@ private:
 
     double sampleRate = 44100.0, internalPpq = 0.0, expectedPpq = 0.0;
     bool wasRunning = false;
-    bool active[6][128] {};
+    bool active[8][128] {};
     bool heldInput[128] {};
     int bassSounding = -1;
 

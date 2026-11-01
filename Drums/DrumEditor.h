@@ -80,7 +80,7 @@ private:
     std::vector<std::unique_ptr<Toggle>> toggles;
 
     juce::TextButton generateBtn { "GENERER" }, previewBtn { "PREVIEW" }, exportBtn { "EXPORT .MID" };
-    DrumDragZone dKick, dSnare, dFill, dHats, dOpen, d808, dAll;
+    DrumDragZone dKick, dSnare, dFill, dHats, dOpen, d808, dPerc, dFx, dAll;
     DrumGrid grid;
     juce::Label info;
     std::unique_ptr<juce::FileChooser> chooser;

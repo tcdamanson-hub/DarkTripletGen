@@ -15,6 +15,8 @@ const juce::Colour hats   { 0xff27b8a4 };
 const juce::Colour bass   { 0xff9d2bff };
 const juce::Colour open   { 0xff7fd4ff };
 const juce::Colour fill   { 0xffc9792c };
+const juce::Colour perc   { 0xff8bd450 };
+const juce::Colour fx     { 0xffb0b8ff };
 }
 
 //==============================================================================
@@ -67,10 +69,10 @@ void DrumGrid::paint (juce::Graphics& g)
     g.setColour (Col::panel);
     g.fillRoundedRectangle (b, 6.0f);
 
-    const char* names[] = { "OPEN", "HATS", "RELANCE", "SNARE", "KICK", "808" };
-    const juce::Colour cols[] = { Col::open, Col::hats, Col::fill, Col::snare, Col::kick, Col::bass };
-    const std::vector<DrumHit>* lanes[] = { &res.openHats, &res.hats, &res.fills, &res.snare, &res.kick, &res.bass808 };
-    constexpr int numLanes = 6;
+    const char* names[] = { "FX", "OPEN", "HATS", "PERC", "RELANCE", "SNARE", "KICK", "808" };
+    const juce::Colour cols[] = { Col::fx, Col::open, Col::hats, Col::perc, Col::fill, Col::snare, Col::kick, Col::bass };
+    const std::vector<DrumHit>* lanes[] = { &res.fx, &res.openHats, &res.hats, &res.perc, &res.fills, &res.snare, &res.kick, &res.bass808 };
+    constexpr int numLanes = 8;
     const float labelW = 64.0f;
     auto area = b.withTrimmedLeft (labelW);
     const float bw = area.getWidth() / (float) loopBeats;
@@ -155,6 +157,8 @@ DarkTrapDrumsEditor::DarkTrapDrumsEditor (DarkTrapDrumsProcessor& p)
       dHats  (p, DarkTrapDrumsProcessor::Hats,  "HATS >>",  Col::hats),
       dOpen  (p, DarkTrapDrumsProcessor::OpenHat, "OPEN >>", Col::open),
       d808   (p, DarkTrapDrumsProcessor::Bass,  "808 >>",   Col::bass),
+      dPerc  (p, DarkTrapDrumsProcessor::Perc,  "PERC >>",  Col::perc),
+      dFx    (p, DarkTrapDrumsProcessor::Fx,    "FX >>",    Col::fx),
       dAll   (p, DarkTrapDrumsProcessor::All,   "TOUT >>",  Col::text)
 {
     setLookAndFeel (&lnf);
@@ -167,12 +171,16 @@ DarkTrapDrumsEditor::DarkTrapDrumsEditor (DarkTrapDrumsProcessor& p)
     addToggle ("follow", "808 suit les accords MIDI");
     addToggle ("kitOn", "Kit");
 
-    addCombo ("sndKick",  "Son kick",    120, true);
-    addCombo ("sndSnare", "Son snare",   120, true);
-    addCombo ("sndFill",  "Son relances", 130, true);
-    addCombo ("sndHat",   "Son hats",    120, true);
-    addCombo ("sndOpen",  "Son open hat", 120, true);
-    addCombo ("snd808",   "Son 808",     120, true);
+    addCombo ("sndKick",   "Son kick",     108, true);
+    addCombo ("sndSnare",  "Son snare",    108, true);
+    addCombo ("sndClap",   "+ Clap",       108, true);
+    addCombo ("sndFill",   "Son relances", 108, true);
+    addCombo ("sndHat",    "Son hats",     108, true);
+    addCombo ("sndOpen",   "Son open hat", 108, true);
+    addCombo ("sndPerc",   "Son perc",     108, true);
+    addCombo ("snd808",    "Son 808",      108, true);
+    addCombo ("sndImpact", "Son impact",   108, true);
+    addCombo ("sndRiser",  "Son riser",    108, true);
 
     addKnob ("hatDensity",  "Hats");
     addKnob ("rolls",       "Rolls");
@@ -180,6 +188,8 @@ DarkTrapDrumsEditor::DarkTrapDrumsEditor (DarkTrapDrumsProcessor& p)
     addKnob ("kickDensity", "Kick");
     addKnob ("fills",       "Relances");
     addKnob ("openHat",     "Open hat");
+    addKnob ("perc",        "Percs");
+    addKnob ("fx",          "FX");
     addKnob ("bounce",      "808 bounce");
     addKnob ("seed",        "Seed");
     addKnob ("volume",      "Volume");
@@ -191,12 +201,12 @@ DarkTrapDrumsEditor::DarkTrapDrumsEditor (DarkTrapDrumsProcessor& p)
     exportBtn.onClick = [this] { exportMidi(); };
 
     for (auto* c : std::initializer_list<juce::Component*> { &generateBtn, &previewBtn, &exportBtn,
-                                                             &dKick, &dSnare, &dFill, &dHats, &dOpen, &d808, &dAll, &grid, &info })
+                                                             &dKick, &dSnare, &dFill, &dHats, &dOpen, &d808, &dPerc, &dFx, &dAll, &grid, &info })
         addAndMakeVisible (c);
     info.setColour (juce::Label::textColourId, Col::dim);
     info.setFont (juce::FontOptions (12.0f));
 
-    setSize (1180, 660);
+    setSize (1240, 690);
     startTimerHz (30);
 }
 
@@ -255,8 +265,8 @@ void DarkTrapDrumsEditor::exportMidi()
                               if (f == juce::File()) return;
                               const auto base = f.getFileNameWithoutExtension();
                               bool ok = proc.writeMidiFile (f.withFileExtension ("mid"), DarkTrapDrumsProcessor::All);
-                              const char* names[] = { "_kick", "_snare", "_hats", "_808", "_openhat", "_relances" };
-                              for (int i = 0; i < 6; ++i)
+                              const char* names[] = { "_kick", "_snare", "_hats", "_808", "_openhat", "_relances", "_percs", "_fx" };
+                              for (int i = 0; i < 8; ++i)
                                   ok = ok && proc.writeMidiFile (f.getSiblingFile (base + names[i] + ".mid"),
                                                                  (DarkTrapDrumsProcessor::Part) i);
                               info.setText (ok ? "Exporte : " + base + " (+ 1 fichier par element)" : "Erreur d'export",
@@ -297,10 +307,10 @@ void DarkTrapDrumsEditor::resized()
 {
     auto area = getLocalBounds().reduced (16);
     auto top = area.removeFromTop (40);
-    top.removeFromLeft (270);
-    for (auto* d : { &dAll, &d808, &dOpen, &dHats, &dFill, &dSnare, &dKick })
+    top.removeFromLeft (250);
+    for (auto* d : { &dAll, &dFx, &d808, &dPerc, &dOpen, &dHats, &dFill, &dSnare, &dKick })
     {
-        d->setBounds (top.removeFromRight (d == &dFill ? 92 : 78).reduced (2));
+        d->setBounds (top.removeFromRight (d == &dFill ? 86 : 70).reduced (2));
         top.removeFromRight (3);
     }
     top.removeFromRight (6);

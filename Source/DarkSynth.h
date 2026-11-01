@@ -3,6 +3,7 @@
 #include <juce_dsp/juce_dsp.h>
 #include <array>
 #include <cmath>
+#include "Instruments.h"
 
 // Piano de pre-ecoute (synthese additive) :
 //  - harmoniques legerement inharmoniques (cordes de piano)
@@ -26,12 +27,20 @@ public:
         reverb.reset();
         filter.reset();
         for (auto& v : voices) v.active = false;
+        player.prepare (sr);
+    }
+
+    // instrument par canal : 0 = piano de synthese, sinon index+1 dans InstrumentLibrary
+    void setInstruments (int melody, int chords, int counterLayer)
+    {
+        inst[1] = melody; inst[2] = chords; inst[3] = counterLayer;
     }
 
     void setParams (float cutoffHz, float releaseSec, float gain)
     {
         filter.setCutoffFrequency (juce::jlimit (200.0f, 18000.0f, cutoffHz));
         release = juce::jmax (0.02f, releaseSec);
+        player.setRelease (release);
         outGain = gain;
     }
 
@@ -85,6 +94,8 @@ private:
     std::array<Voice, 16> voices;
     juce::dsp::StateVariableTPTFilter<float> filter;
     juce::Reverb reverb;
+    InstrumentPlayer player;
+    int inst[4] = { 0, 0, 0, 0 };
     juce::Random rnd { 1234 };
     float release = 0.3f, outGain = 0.7f;
     juce::uint32 counter = 0;
@@ -96,7 +107,10 @@ private:
         if (m.isNoteOn())        noteOn (m.getChannel(), m.getNoteNumber(), m.getFloatVelocity());
         else if (m.isNoteOff())  noteOff (m.getChannel(), m.getNoteNumber());
         else if (m.isAllNotesOff() || m.isAllSoundOff())
+        {
             for (auto& v : voices) releaseVoice (v);
+            player.allOff();
+        }
     }
 
     void releaseVoice (Voice& v)
@@ -107,6 +121,7 @@ private:
 
     void noteOff (int ch, int n)
     {
+        player.noteOff (ch, n);
         for (auto& v : voices)
             if (v.active && v.held && v.note == n && v.channel == ch)
                 releaseVoice (v);
@@ -114,6 +129,13 @@ private:
 
     void noteOn (int ch, int n, float vel)
     {
+        const int sel = (ch >= 1 && ch <= 3) ? inst[ch] : 0;
+        if (sel > 0)
+        {
+            const float lvl = ch == 1 ? 1.25f : ch == 3 ? 0.9f : (n < 48 ? 0.95f : 0.65f);
+            player.noteOn (ch, n, vel, sel - 1, lvl);
+            return;
+        }
         Voice* v = nullptr;
         for (auto& x : voices) if (! x.active) { v = &x; break; }
         if (v == nullptr)
@@ -163,6 +185,7 @@ private:
         if (end <= start) return;
         auto* L = buf.getWritePointer (0);
         auto* R = buf.getNumChannels() > 1 ? buf.getWritePointer (1) : nullptr;
+        player.renderRange (L, R, start, end);
 
         for (auto& v : voices)
         {

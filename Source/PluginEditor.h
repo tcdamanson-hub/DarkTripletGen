@@ -53,7 +53,7 @@ public:
 private:
     void timerCallback() override;
     void addKnob (const juce::String& id, const juce::String& label);
-    void addCombo (const juce::String& id, const juce::String& label, int width);
+    void addCombo (const juce::String& id, const juce::String& label, int width, bool secondRow = false);
     void exportMidi();
 
     DarkLookAndFeel lnf;
@@ -73,7 +73,7 @@ private:
         std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> att;
     };
     std::vector<std::unique_ptr<Knob>> knobs;
-    std::vector<std::unique_ptr<Combo>> combos;
+    std::vector<std::unique_ptr<Combo>> combos, combos2;
 
     juce::TextButton generateBtn { "GENERER" }, previewBtn { "PREVIEW" }, exportBtn { "EXPORT .MID" };
     juce::ToggleButton synthToggle { "Synth" };

@@ -26,12 +26,14 @@ struct DrumParams
     bool  snareOn3    = true;  // snare principal sur le 3e temps (half-time)
     float bounce808   = 0.5f;  // 0..1 envolees d'octave de la 808
     float openHat     = 0.35f; // 0..1 open hats en fin de mesure
+    float perc        = 0.3f;  // 0..1 percussions
+    float fx          = 0.5f;  // 0..1 impact au debut + riser en fin de boucle
     int   seed        = 1337;
 };
 
 struct DrumResult
 {
-    std::vector<DrumHit> kick, snare, fills, hats, openHats, bass808;
+    std::vector<DrumHit> kick, snare, fills, hats, openHats, bass808, perc, fx; // fx : 60 = impact, 62 = riser
     std::vector<int> chordRoots;            // demi-tons (depuis la tonique) de la fondamentale, par mesure
     std::vector<std::string> chordNames;
 };

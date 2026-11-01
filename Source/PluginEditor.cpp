@@ -178,6 +178,10 @@ DarkTripletAudioProcessorEditor::DarkTripletAudioProcessorEditor (DarkTripletAud
     addCombo ("chordMode", "Accords",     85);
     addCombo ("feel",      "Rythme",      85);
     addCombo ("bars",      "Mesures",     60);
+    addCombo ("bank",        "Banque MIDI",   110, true);
+    addCombo ("instMel",     "Son melodie",   190, true);
+    addCombo ("instChords",  "Son accords",   190, true);
+    addCombo ("instCounter", "Son couche 2",  190, true);
 
     addKnob ("rotation", "Mode rot.");
     addKnob ("octave",   "Octave");
@@ -211,7 +215,7 @@ DarkTripletAudioProcessorEditor::DarkTripletAudioProcessorEditor (DarkTripletAud
     info.setFont (juce::FontOptions (12.0f));
     info.setJustificationType (juce::Justification::centredRight);
 
-    setSize (1120, 600);
+    setSize (1120, 660);
     startTimerHz (30);
 }
 
@@ -234,18 +238,33 @@ void DarkTripletAudioProcessorEditor::addKnob (const juce::String& id, const juc
     knobs.push_back (std::move (k));
 }
 
-void DarkTripletAudioProcessorEditor::addCombo (const juce::String& id, const juce::String& label, int width)
+void DarkTripletAudioProcessorEditor::addCombo (const juce::String& id, const juce::String& label, int width, bool secondRow)
 {
     auto c = std::make_unique<Combo>();
     c->width = width;
     if (auto* param = dynamic_cast<juce::AudioParameterChoice*> (proc.apvts.getParameter (id)))
-        c->box.addItemList (param->choices, 1);
+    {
+        // listes d'instruments "Groupe - Nom" : rangees par groupe avec un titre
+        juce::String lastGroup;
+        for (int i = 0; i < param->choices.size(); ++i)
+        {
+            const auto& item = param->choices[i];
+            if (id.startsWith ("inst") && item.contains (" - "))
+            {
+                const auto g = item.upToFirstOccurrenceOf (" - ", false, false);
+                if (g != lastGroup) { c->box.addSectionHeading (g); lastGroup = g; }
+                c->box.addItem (item.fromFirstOccurrenceOf (" - ", false, false), i + 1);
+            }
+            else
+                c->box.addItem (item, i + 1);
+        }
+    }
     c->label.setText (label, juce::dontSendNotification);
     c->label.setFont (juce::FontOptions (12.0f));
     addAndMakeVisible (c->box);
     addAndMakeVisible (c->label);
     c->att = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (proc.apvts, id, c->box);
-    combos.push_back (std::move (c));
+    (secondRow ? combos2 : combos).push_back (std::move (c));
 }
 
 void DarkTripletAudioProcessorEditor::exportMidi()
@@ -331,6 +350,16 @@ void DarkTripletAudioProcessorEditor::resized()
         c->label.setBounds (col.removeFromTop (18));
         c->box.setBounds (col.reduced (0, 2));
         comboRow.removeFromLeft (12);
+    }
+
+    area.removeFromTop (6);
+    auto row2 = area.removeFromTop (48);
+    for (auto& c : combos2)
+    {
+        auto col = row2.removeFromLeft (c->width);
+        c->label.setBounds (col.removeFromTop (16));
+        c->box.setBounds (col.reduced (0, 2));
+        row2.removeFromLeft (12);
     }
 
     area.removeFromTop (8);

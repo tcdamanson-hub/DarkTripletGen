@@ -51,8 +51,16 @@ if(MSVC)
     target_compile_options(DarkTripletGen PRIVATE /utf-8)
 endif()
 
+# one-shots melodiques (keys, bells, pads...) integres pour la pre-ecoute
+file (GLOB INSTRUMENT_SAMPLES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/Instruments/*.wav")
+juce_add_binary_data (DarkTripletInstruments
+    HEADER_NAME InstrumentSamples.h
+    NAMESPACE InstrumentSamples
+    SOURCES ${INSTRUMENT_SAMPLES})
+
 target_link_libraries(DarkTripletGen
     PRIVATE
+        DarkTripletInstruments
         juce::juce_audio_utils
         juce::juce_dsp
     PUBLIC

@@ -110,6 +110,8 @@ public:
         Pat open = buildOpenHats (hats);
         // ---------- 808 ----------
         Pat bass = build808 (kick, r.chordRoots);
+        Pat perc = buildPerc (hats, snare, fills);
+        Pat fx = buildFx();
 
         toHits (hats, r.hats, 3);
         toHits (kick, r.kick, 6);
@@ -117,6 +119,8 @@ public:
         toHits (fills, r.fills, 6);
         toHits (open, r.openHats, 18);
         toHits (bass, r.bass808, -1);
+        toHits (perc, r.perc, 6);
+        toHits (fx, r.fx, 24);
         return r;
     }
 
@@ -298,8 +302,12 @@ private:
 
         if (p.fills > 0.01f)
         {
-            const int a = pick (drumdata::snares, drumdata::num_snares, 8.0f + p.fills * 30.0f, false);
-            Pat F = loadPat (drumdata::snares[a]);
+            const float target = 8.0f + p.fills * 30.0f;
+            Pat F;
+            if (drumdata::num_counters > 0 && rng.chance (0.45f))
+                F = loadPat (drumdata::counters[pick (drumdata::counters, drumdata::num_counters, target * 1.6f, false)]);
+            else
+                F = loadPat (drumdata::snares[pick (drumdata::snares, drumdata::num_snares, target, false)]);
             Pat fills;
             for (auto& e : F)
             {
@@ -363,6 +371,47 @@ private:
                 out.push_back ({ tt, st, base, 88 });
         }
         std::sort (out.begin(), out.end(), [] (const Ev& x, const Ev& y) { return x.t < y.t; });
+        return out;
+    }
+
+    // percussions : quelques coups sur les contretemps libres (motif de relance appris, decale)
+    Pat buildPerc (const Pat& hats, const Pat& snare, const Pat& fills)
+    {
+        Pat out;
+        if (p.perc < 0.01f) return out;
+        Pat src;
+        if (drumdata::num_counters > 0 && rng.chance (0.5f))
+            src = loadPat (drumdata::counters[pick (drumdata::counters, drumdata::num_counters, 10.0f + p.perc * 40.0f, false)]);
+        else
+            src = loadPat (drumdata::snares[pick (drumdata::snares, drumdata::num_snares, 8.0f + p.perc * 24.0f, false)]);
+        const int shift = p.feel == 1 ? 12 : (rng.chance (0.5f) ? 16 : 8);
+        auto busy = [&] (int t)
+        {
+            for (auto* v : { &snare, &fills })
+                for (auto& e : *v) if (std::abs (e.t - t) < 3) return true;
+            return false;
+        };
+        for (int off = 0; off < total; off += 384)
+            for (auto& e : src)
+            {
+                int t = snapStraight ((e.t + shift) % 384) + off;
+                if (t >= total || busy (t)) continue;
+                if (! rng.chance (0.35f + p.perc * 0.6f)) continue;
+                out.push_back ({ t, 6, 0, std::clamp (e.vel - 10, 50, 110) });
+            }
+        (void) hats;
+        dedupe (out);
+        humanize (out, 6);
+        return out;
+    }
+
+    // FX : impact / cymbale sur le 1 de la boucle, riser sur la derniere mesure
+    Pat buildFx()
+    {
+        Pat out;
+        if (p.fx < 0.01f) return out;
+        if (rng.chance (0.4f + p.fx * 0.6f)) out.push_back ({ 0, 24, 0, 100 });   // -> note 60
+        if (rng.chance (p.fx * 0.8f)) out.push_back ({ std::max (0, total - (total >= 192 ? 96 : 48)), 24, 2, 96 }); // -> note 62
         return out;
     }
 

@@ -7,12 +7,13 @@
 
 // =============================================================================
 //  Bibliotheque de sons (tes samples, integres au plugin) + sampler de pre-ecoute
-//  Canaux : 1 kick, 2 snare, 3 hats, 4 808, 5 open hat, 6 relances
+//  Canaux : 1 kick, 2 snare (+ clap), 3 hats, 4 808, 5 open hat, 6 relances,
+//           7 percs, 8 FX (60 = impact, 62 = riser)
 // =============================================================================
 class SampleLibrary
 {
 public:
-    enum Cat { KICK = 0, SNARE, HAT, OPENHAT, BASS, RIM, NUM_CATS };
+    enum Cat { KICK = 0, SNARE, HAT, OPENHAT, BASS, RIM, CLAP, PERC, IMPACT, RISER, NUM_CATS };
 
     struct Sample
     {
@@ -41,22 +42,12 @@ public:
 private:
     std::array<std::vector<Sample>, NUM_CATS> samples;
 
-    static int catOf (const juce::String& f)
+    // fichiers : CATEGORIE__Nom__racine.wav
+    static int catOf (const juce::String& c)
     {
-        if (f.startsWith ("KICK_"))     return KICK;
-        if (f.startsWith ("SNARE_"))    return SNARE;
-        if (f.startsWith ("HI_HAT_"))   return HAT;
-        if (f.startsWith ("OPEN_HAT_")) return OPENHAT;
-        if (f.startsWith ("808_"))      return BASS;
-        if (f.startsWith ("RIM_"))      return RIM;
+        static const char* names[] = { "KICK", "SNARE", "HAT", "OPENHAT", "BASS", "RIM", "CLAP", "PERC", "IMPACT", "RISER" };
+        for (int i = 0; i < NUM_CATS; ++i) if (c == names[i]) return i;
         return -1;
-    }
-
-    // hauteur detectee de tes 808 (analyse : quasi toutes en Do, MOJITO en Sol#)
-    static int bassRoot (const juce::String& n)
-    {
-        if (n == "MOJITO") return 56;   // G#
-        return 60;                      // C
     }
 
     SampleLibrary()
@@ -64,9 +55,12 @@ private:
         juce::WavAudioFormat wav;
         for (int i = 0; i < DrumSamples::namedResourceListSize; ++i)
         {
-            const juce::String file (DrumSamples::originalFilenames[i]);
-            const int cat = catOf (file);
+            const juce::String file = juce::String (DrumSamples::originalFilenames[i]).upToLastOccurrenceOf (".", false, false);
+            const int cat = catOf (file.upToFirstOccurrenceOf ("__", false, false));
             if (cat < 0) continue;
+            const juce::String rest = file.fromFirstOccurrenceOf ("__", false, false);
+            const juce::String nm = rest.upToLastOccurrenceOf ("__", false, false).replaceCharacter ('_', ' ');
+            const int root = rest.fromLastOccurrenceOf ("__", false, false).getIntValue();
             int size = 0;
             const char* data = DrumSamples::getNamedResource (DrumSamples::namedResourceList[i], size);
             if (data == nullptr || size <= 0) continue;
@@ -74,12 +68,11 @@ private:
                 wav.createReaderFor (new juce::MemoryInputStream (data, (size_t) size, false), true));
             if (reader == nullptr) continue;
             Sample s;
-            s.name = file.fromFirstOccurrenceOf ("_", false, false).upToLastOccurrenceOf (".", false, false);
-            if (cat == HAT || cat == OPENHAT) s.name = s.name.fromFirstOccurrenceOf ("HAT_", false, false);
+            s.name = nm.isNotEmpty() ? nm : file;
             s.sampleRate = reader->sampleRate;
             s.data.setSize (1, (int) reader->lengthInSamples);
             reader->read (&s.data, 0, (int) reader->lengthInSamples, 0, true, false);
-            if (cat == BASS) s.rootNote = bassRoot (s.name);
+            s.rootNote = root > 0 ? root : 60;
             samples[(size_t) cat].push_back (std::move (s));
         }
         for (auto& v : samples)
@@ -96,11 +89,14 @@ public:
         for (auto& v : voices) v.active = false;
     }
 
-    // index du son choisi pour chaque categorie ; fillCat : RIM ou SNARE
-    void setParams (float gain, int kick, int snare, int hat, int open, int bass, int fill)
+    // index du son choisi pour chaque categorie
+    // fill : 0 = meme snare, puis rims, puis claps ; clap : 0 = aucun (couche sur le snare)
+    void setParams (float gain, int kick, int snare, int hat, int open, int bass, int fill,
+                    int clap, int perc, int impact, int riser)
     {
         outGain = gain;
         sel[0] = kick; sel[1] = snare; sel[2] = hat; sel[3] = open; sel[4] = bass; sel[5] = fill;
+        sel[6] = clap; sel[7] = perc; sel[8] = impact; sel[9] = riser;
     }
 
     void render (juce::AudioBuffer<float>& buf, const juce::MidiBuffer& midi)
@@ -134,9 +130,9 @@ private:
     };
 
     double sr = 44100.0;
-    std::array<Voice, 24> voices;
+    std::array<Voice, 32> voices;
     float outGain = 0.7f;
-    int sel[6] = { 0, 0, 0, 0, 0, 0 };
+    int sel[10] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
     juce::uint32 counter = 0;
 
     const SampleLibrary::Sample* pick (int cat, int idx) const
@@ -178,18 +174,38 @@ private:
         float level = 1.0f;
         switch (ch)
         {
-            case 1: s = pick (SampleLibrary::KICK, sel[0]);    level = 0.95f; break;
+            case 1: s = pick (SampleLibrary::KICK, sel[0]);    level = 0.85f; break;
             case 2: s = pick (SampleLibrary::SNARE, sel[1]);   level = 0.8f;  break;
             case 3: s = pick (SampleLibrary::HAT, sel[2]);     level = 0.6f;  break;
-            case 4: s = pick (SampleLibrary::BASS, sel[4]);    level = 0.85f; break;
+            case 4: s = pick (SampleLibrary::BASS, sel[4]);    level = 0.68f; break;
             case 5: s = pick (SampleLibrary::OPENHAT, sel[3]); level = 0.55f; break;
-            case 6: s = sel[5] == 0 ? pick (SampleLibrary::SNARE, sel[1]) : pick (SampleLibrary::RIM, sel[5] - 1); level = 0.65f; break;
+            case 6:
+            {
+                const int nr = (int) SampleLibrary::get().list (SampleLibrary::RIM).size();
+                if (sel[5] == 0)       s = pick (SampleLibrary::SNARE, sel[1]);
+                else if (sel[5] <= nr) s = pick (SampleLibrary::RIM, sel[5] - 1);
+                else                   s = pick (SampleLibrary::CLAP, sel[5] - 1 - nr);
+                level = 0.65f; break;
+            }
+            case 7: s = pick (SampleLibrary::PERC, sel[7]); level = 0.55f; break;
+            case 8: s = note >= 62 ? pick (SampleLibrary::RISER, sel[9]) : pick (SampleLibrary::IMPACT, sel[8]); level = 0.5f; break;
             default: return;
         }
         if (s == nullptr) return;
 
         const double baseInc = s->sampleRate / sr;
-        const double ratio = std::pow (2.0, (note - (ch == 4 ? s->rootNote : 60)) / 12.0);
+        const double ratio = ch == 8 ? 1.0 : std::pow (2.0, (note - (ch == 4 ? s->rootNote : 60)) / 12.0);
+
+        if (ch == 2 && sel[6] > 0)
+            if (auto* c = pick (SampleLibrary::CLAP, sel[6] - 1))
+            {
+                Voice& cv = freeVoice();
+                cv = Voice();
+                cv.active = true; cv.s = c; cv.ch = 2; cv.note = note;
+                cv.inc = cv.targetInc = (c->sampleRate / sr) * ratio;
+                cv.gain = 0.6f * (0.3f + 0.7f * vel);
+                cv.age = ++counter;
+            }
 
         // hats : le nouveau coup coupe le precedent (choke), open hat compris
         if (ch == 3 || ch == 5)

@@ -13,6 +13,20 @@ Généré dans le même projet (dossier `Drums/`).
 - Export MIDI par élément : KICK, SNARE, RELANCE, HATS, OPEN, 808, ou TOUT
 - Sortie MIDI live : canal 1 kick, 2 snare, 3 hats, 4 808, 5 open hat, 6 relances
 
+## Nouveautés v7
+
+**Dark Triplet Gen**
+- Réappris avec **tes ~200 nouveaux MIDI** (100 guitares Kontakt + 99 mélodies Nexus) : 1 608 dessins au lieu de 601.
+- Menu **Banque MIDI** : Toutes / Mélodies / Guitare / Nexus.
+- **Vrais instruments** pour la pré-écoute : 70 one-shots tirés de tes packs (keys, piano, bells, plucks, guitare, leads, synths, pads, strings, chœurs, vents). Un son par couche : **Son mélodie**, **Son accords**, **Son couche 2**. « Piano (synthé) » reste disponible.
+
+**Dark Trap Drums**
+- **375 sons** intégrés (avant : 51) : 42 kicks, 61 snares, 16 claps, 25 hats, 37 open hats, 41 808/Reese, 29 rims, 68 percs, 20 impacts/cymbales, 36 risers/transitions.
+- Hats réappris : 154 patterns (avant : 116), dont tes Hihat Trap, VELOCITE, CARATS et les hats des Counter Snare Drill.
+- **Relances** : nouveaux motifs « counter snare » appris.
+- Nouvelles pistes **PERC** (canal 7) et **FX** (canal 8 : note 60 = impact au début, note 62 = riser sur la dernière mesure), avec leurs boutons Percs / FX.
+- **+ Clap** : couche un clap sur le snare. Les relances peuvent aussi jouer un clap.
+
 ## Fonctionnalités
 
 **v5 — moteur « Appris (tes MIDI) »** : le générateur s'appuie sur 61 MIDI d'exemple (melodic trap + triolets).
