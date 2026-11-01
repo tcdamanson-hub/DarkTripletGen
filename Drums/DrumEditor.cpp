@@ -167,6 +167,7 @@ DarkTrapDrumsEditor::DarkTrapDrumsEditor (DarkTrapDrumsProcessor& p)
     addCombo ("bars", "Mesures", 80);
     addCombo ("root", "Tonique (808)", 110);
     addCombo ("prog", "Accords (808)", 180);
+    addCombo ("scale", "Gamme / Mode (808)", 180);
     addToggle ("snareOn3", "Snare sur le 3");
     addToggle ("follow", "808 suit les accords MIDI");
     addToggle ("kitOn", "Kit");
@@ -191,6 +192,8 @@ DarkTrapDrumsEditor::DarkTrapDrumsEditor (DarkTrapDrumsProcessor& p)
     addKnob ("perc",        "Percs");
     addKnob ("fx",          "FX");
     addKnob ("bounce",      "808 bounce");
+    addKnob ("melo808",     "808 notes");
+    addKnob ("rotation",    "Mode rot.");
     addKnob ("seed",        "Seed");
     addKnob ("volume",      "Volume");
 

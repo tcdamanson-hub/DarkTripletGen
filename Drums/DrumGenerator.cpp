@@ -1,6 +1,7 @@
 #include "DrumGenerator.h"
 #include "DrumData.h"
 #include "LearnedData.h"
+#include "Scales.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -56,7 +57,6 @@ const Prog progs[] = {
     { "i - VI - i - VII",    { 0, 5, 0, 6 } },
 };
 constexpr int numProgs = (int) (sizeof (progs) / sizeof (progs[0]));
-const int minorSemis[7] = { 0, 2, 3, 5, 7, 8, 10 };
 const char* noteNames[12] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
 
 class Gen
@@ -70,6 +70,16 @@ public:
         const int bars = std::clamp (p.bars, 1, 8);
         total = bars * 96;
 
+        // ---------- gamme / mode ----------
+        {
+            const auto& all = getScales();
+            const auto& src = all[(size_t) std::clamp (p.scaleIndex, 0, (int) all.size() - 1)].intervals;
+            const int n = (int) src.size();
+            const int rot = ((p.rotation % n) + n) % n;
+            scale.clear();
+            for (int i = 0; i < n; ++i) scale.push_back (((src[(size_t) ((i + rot) % n)] - src[(size_t) rot]) % 12 + 12) % 12);
+        }
+
         // ---------- accords (pour la 808) ----------
         int prog4[4] = { 0, 0, 0, 0 };
         if (p.progression <= 0 || p.progression > numProgs)
@@ -78,9 +88,9 @@ public:
             for (int i = 0; i < learned::numProgs; ++i)
             {
                 const auto& lp = learned::progs[i];
-                bool moves = false, hasII = false;
-                for (int k = 0; k < 4; ++k) { moves |= lp.r[k] != lp.r[0]; hasII |= lp.r[k] == 1; }
-                w.push_back ((float) lp.w * (moves ? 1.0f : 0.35f) * (hasII ? 0.1f : 1.0f));
+                bool moves = false, hasDim = false;
+                for (int k = 0; k < 4; ++k) { moves |= lp.r[k] != lp.r[0]; hasDim |= triad (lp.r[k]) == 2; }
+                w.push_back ((float) lp.w * (moves ? 1.0f : 0.35f) * (hasDim ? 0.1f : 1.0f));
             }
             const auto& lp = learned::progs[rng.pickWeighted (w)];
             for (int k = 0; k < 4; ++k) prog4[k] = lp.r[k];
@@ -90,13 +100,15 @@ public:
 
         for (int b = 0; b < bars; ++b)
         {
-            const int semi = minorSemis[std::clamp (prog4[b % 4], 0, 6)];
+            const int deg = std::clamp (prog4[b % 4], 0, 6);
+            const int semi = degSemi (deg);
             r.chordRoots.push_back (semi);
+            degs.push_back (deg);
             if (b < 4)
             {
                 const int pc = (p.root + semi) % 12;
-                const bool major = prog4[b % 4] == 2 || prog4[b % 4] == 5 || prog4[b % 4] == 6;
-                r.chordNames.push_back (std::string (noteNames[pc]) + (major ? "" : (prog4[b % 4] == 1 ? "dim" : "m")));
+                const int q = triad (deg);
+                r.chordNames.push_back (std::string (noteNames[pc]) + (q == 0 ? "" : q == 1 ? "m" : q == 2 ? "dim" : "+"));
             }
         }
 
@@ -128,6 +140,24 @@ private:
     const DrumParams& p;
     Rng rng;
     int total = 384;
+    std::vector<int> scale { 0, 2, 3, 5, 7, 8, 10 };  // gamme choisie (demi-tons depuis la tonique)
+    std::vector<int> degs;                           // degre de l'accord de chaque mesure
+
+    // degre (peut depasser l'octave ou etre negatif) -> demi-tons depuis la tonique
+    int degSemi (int d) const
+    {
+        const int n = (int) scale.size();
+        const int oct = (d >= 0 ? d / n : -((-d + n - 1) / n));
+        const int i = d - oct * n;
+        return scale[(size_t) i] + 12 * oct;
+    }
+    // qualite de l'accord construit sur le degre : 0 majeur, 1 mineur, 2 diminue, 3 augmente
+    int triad (int d) const
+    {
+        const int t = degSemi (d + 2) - degSemi (d), f = degSemi (d + 4) - degSemi (d);
+        if (t == 4) return f == 8 ? 3 : 0;
+        return f == 6 ? 2 : 1;
+    }
 
     // ----- outils -----
     static Pat loadPat (const drumdata::DPat& dp)
@@ -366,6 +396,16 @@ private:
                 pitch += 12;
                 vel = 92;
             }
+            else if (inBar >= 48 && (next - t) <= 48 && rng.chance (p.melo808 * 0.55f))
+            {
+                // note de passage dans la gamme : quinte, 7e, seconde (b2 en phrygien...) ou degre en dessous
+                static const int offs[] = { 4, 6, 1, -1, 2 };
+                const int deg = (size_t) bar < degs.size() ? degs[(size_t) bar] : 0;
+                const int o = offs[rng.nextInt (5)];
+                pitch = rootPitch (degSemi (deg + o));
+                if (o < 0 && pitch > rootPitch (roots[(size_t) bar])) pitch -= 12;
+                vel = 94;
+            }
             out.push_back ({ t, std::max (6, std::min (next - t, 192)), pitch, vel });
         }
 
@@ -428,7 +468,7 @@ private:
 
     int rootPitch (int semiFromTonic) const
     {
-        int pc = (p.root + semiFromTonic) % 12;
+        int pc = ((p.root + semiFromTonic) % 12 + 12) % 12;
         int pitch = 60 + pc;          // autour de C5 (convention FL : racine d'un canal = C5)
         if (pitch > 66) pitch -= 12;  // reste dans la zone grave F#4..F#5
         return pitch;

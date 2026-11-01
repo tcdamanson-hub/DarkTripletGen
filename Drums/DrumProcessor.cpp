@@ -1,12 +1,13 @@
 #include "DrumProcessor.h"
 #include "DrumEditor.h"
+#include "Scales.h"
 
 namespace
 {
 const juce::StringArray rootNames { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
 const int barChoices[] = { 2, 4, 8 };
 const char* genIds[] = { "feel", "bars", "root", "prog", "hatDensity", "rolls", "hatPitch", "kickDensity",
-                         "fills", "snareOn3", "bounce", "seed", "openHat", "perc", "fx" };
+                         "fills", "snareOn3", "bounce", "seed", "openHat", "perc", "fx", "scale", "rotation", "melo808" };
 // volumes par element, dans l'ordre des canaux 1..8
 const char* volIds[] = { "volKick", "volSnare", "volHat", "vol808", "volOpen", "volFill", "volPerc", "volFx" };
 const char* volNames[] = { "Kick Vol", "Snare Vol", "Hats Vol", "808 Vol", "Open Hat Vol", "Fills Vol", "Perc Vol", "FX Vol" };
@@ -42,6 +43,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout DarkTrapDrumsProcessor::crea
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "bars", 1 }, "Bars", StringArray { "2", "4", "8" }, 1));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "root", 1 }, "Root", rootNames, 9));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "prog", 1 }, "Progression", progNames, 0));
+    StringArray scaleNames;
+    for (auto& sc : getScales()) scaleNames.add (sc.name);
+    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "scale", 4 }, "Scale (808)", scaleNames, findScaleIndex ("Aeolian (Natural Minor)")));
+    ps.push_back (std::make_unique<AudioParameterInt>    (ParameterID { "rotation", 4 }, "Mode Rotation (808)", 0, 11, 0));
+    ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "melo808", 4 }, "808 Notes", NormalisableRange<float> (0, 1), 0.3f, pct));
     ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "hatDensity", 1 }, "Hats", NormalisableRange<float> (0, 1), 0.55f, pct));
     ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "rolls", 1 }, "Rolls", NormalisableRange<float> (0, 1), 0.6f, pct));
     ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "hatPitch", 1 }, "Hat Pitch", NormalisableRange<float> (0, 1), 0.6f, pct));
@@ -85,6 +91,9 @@ DrumParams DarkTrapDrumsProcessor::readParams() const
     p.bars        = barChoices[juce::jlimit (0, 2, (int) v ("bars"))];
     p.root        = (int) v ("root");
     p.progression = (int) v ("prog");
+    p.scaleIndex  = (int) v ("scale");
+    p.rotation    = (int) v ("rotation");
+    p.melo808     = v ("melo808");
     p.hatDensity  = v ("hatDensity");
     p.rolls       = v ("rolls");
     p.hatPitch    = v ("hatPitch");
@@ -124,6 +133,7 @@ void DarkTrapDrumsProcessor::regenerate()
     {
         const juce::SpinLock::ScopedLockType sl (lock);
         pattern = std::move (res);
+        patternRoot = prm.root;
         events.swap (evs);
         loopBeats = L;
     }
@@ -289,12 +299,15 @@ void DarkTrapDrumsProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
                     if (e.on)
                     {
                         int pitch = e.pitch;
-                        if (followedRoot.load() >= 0)
+                        if (followedRoot.load() >= 0 && ! pattern.chordRoots.empty())
                         {
-                            const int oct = e.pitch > 66 ? 12 : 0;
-                            pitch = 60 + followedRoot.load();
-                            if (pitch > 66) pitch -= 12;
-                            pitch += oct;
+                            // on transpose le jeu de la 808 (fondamentale, notes de passage, octaves)
+                            // pour que la fondamentale de la mesure tombe sur l'accord recu en MIDI
+                            const int bar = juce::jlimit (0, (int) pattern.chordRoots.size() - 1, (int) (e.ppq / 4.0));
+                            const int expected = (patternRoot + pattern.chordRoots[(size_t) bar]) % 12;
+                            int delta = ((followedRoot.load() - expected) % 12 + 12) % 12;
+                            if (delta > 6) delta -= 12;
+                            pitch = juce::jlimit (24, 96, e.pitch + delta);
                         }
                         if (bassSounding >= 0) { out.addEvent (juce::MidiMessage::noteOff (4, bassSounding), s); active[3][bassSounding] = false; }
                         out.addEvent (juce::MidiMessage::noteOn (4, pitch, (juce::uint8) e.vel), s);

@@ -17,6 +17,9 @@ struct DrumParams
     int   feel        = 0;     // 0 = triolets, 1 = binaire, 2 = mix
     int   bars        = 4;     // 2, 4 ou 8
     int   root        = 9;     // tonique (0 = C ... 11 = B) pour la 808
+    int   scaleIndex  = 5;     // gamme / mode de la 808 (meme liste que Dark Triplet Gen, 5 = Aeolian)
+    int   rotation    = 0;     // rotation du mode
+    float melo808     = 0.3f;  // 0..1 notes de passage de la 808 dans la gamme
     int   progression = 0;     // 0 = auto (appris), sinon index de la liste
     float hatDensity  = 0.55f; // 0..1
     float rolls       = 0.6f;  // 0..1 rolls de hats

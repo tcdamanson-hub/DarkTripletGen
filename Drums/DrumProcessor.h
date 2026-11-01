@@ -60,6 +60,7 @@ private:
 
     juce::SpinLock lock;
     DrumResult pattern;
+    int patternRoot = 9;
     std::vector<Ev> events;
     double loopBeats = 16.0;
 
