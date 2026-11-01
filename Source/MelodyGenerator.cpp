@@ -602,6 +602,7 @@ private:
             const float d = (float) t.count - target;
             float x = std::exp (-(d * d) / 72.0f) + 0.02f;
             if (wantPos >= 0 && t.pos == wantPos) x *= 2.5f;
+            if (t.derived) x *= 0.4f;   // triolets fabriques : un peu moins souvent que tes vrais triolets
             w[(size_t) i] = x;
             tot += x;
         }
