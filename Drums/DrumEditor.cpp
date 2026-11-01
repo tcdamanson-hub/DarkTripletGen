@@ -194,6 +194,19 @@ DarkTrapDrumsEditor::DarkTrapDrumsEditor (DarkTrapDrumsProcessor& p)
     addKnob ("seed",        "Seed");
     addKnob ("volume",      "Volume");
 
+    addKnob ("volKick",  "Kick",    true);
+    addKnob ("volSnare", "Snare",   true);
+    addKnob ("volFill",  "Relances", true);
+    addKnob ("volHat",   "Hats",    true);
+    addKnob ("volOpen",  "Open hat", true);
+    addKnob ("volPerc",  "Percs",   true);
+    addKnob ("vol808",   "808",     true);
+    addKnob ("volFx",    "FX",      true);
+    mixLabel.setText ("MIX (0 = coupe, double-clic = 100 %)", juce::dontSendNotification);
+    mixLabel.setFont (juce::FontOptions (12.0f, juce::Font::bold));
+    mixLabel.setColour (juce::Label::textColourId, Col::dim);
+    addAndMakeVisible (mixLabel);
+
     generateBtn.onClick = [this] { proc.randomizeSeed(); };
     previewBtn.setClickingTogglesState (true);
     previewBtn.setToggleState (proc.previewPlaying.load(), juce::dontSendNotification);
@@ -206,7 +219,7 @@ DarkTrapDrumsEditor::DarkTrapDrumsEditor (DarkTrapDrumsProcessor& p)
     info.setColour (juce::Label::textColourId, Col::dim);
     info.setFont (juce::FontOptions (12.0f));
 
-    setSize (1240, 690);
+    setSize (1240, 770);
     startTimerHz (30);
 }
 
@@ -216,7 +229,7 @@ DarkTrapDrumsEditor::~DarkTrapDrumsEditor()
     setLookAndFeel (nullptr);
 }
 
-void DarkTrapDrumsEditor::addKnob (const juce::String& id, const juce::String& label)
+void DarkTrapDrumsEditor::addKnob (const juce::String& id, const juce::String& label, bool mix)
 {
     auto k = std::make_unique<Knob>();
     k->slider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 70, 16);
@@ -226,7 +239,8 @@ void DarkTrapDrumsEditor::addKnob (const juce::String& id, const juce::String& l
     addAndMakeVisible (k->slider);
     addAndMakeVisible (k->label);
     k->att = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (proc.apvts, id, k->slider);
-    knobs.push_back (std::move (k));
+    if (mix) k->slider.setDoubleClickReturnValue (true, 1.0);
+    (mix ? mixKnobs : knobs).push_back (std::move (k));
 }
 
 void DarkTrapDrumsEditor::addCombo (const juce::String& id, const juce::String& label, int width, bool sound)
@@ -349,6 +363,16 @@ void DarkTrapDrumsEditor::resized()
     {
         auto col = knobRow.removeFromLeft (kw);
         k->label.setBounds (col.removeFromTop (16));
+        k->slider.setBounds (col);
+    }
+    area.removeFromTop (4);
+    mixLabel.setBounds (area.removeFromTop (16));
+    auto mixRow = area.removeFromTop (72);
+    const int mw = juce::jmin (110, mixRow.getWidth() / (int) mixKnobs.size());
+    for (auto& k : mixKnobs)
+    {
+        auto col = mixRow.removeFromLeft (mw);
+        k->label.setBounds (col.removeFromTop (14));
         k->slider.setBounds (col);
     }
     area.removeFromTop (6);

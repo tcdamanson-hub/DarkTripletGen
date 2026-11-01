@@ -7,6 +7,9 @@ const juce::StringArray rootNames { "C", "C#", "D", "D#", "E", "F", "F#", "G", "
 const int barChoices[] = { 2, 4, 8 };
 const char* genIds[] = { "feel", "bars", "root", "prog", "hatDensity", "rolls", "hatPitch", "kickDensity",
                          "fills", "snareOn3", "bounce", "seed", "openHat", "perc", "fx" };
+// volumes par element, dans l'ordre des canaux 1..8
+const char* volIds[] = { "volKick", "volSnare", "volHat", "vol808", "volOpen", "volFill", "volPerc", "volFx" };
+const char* volNames[] = { "Kick Vol", "Snare Vol", "Hats Vol", "808 Vol", "Open Hat Vol", "Fills Vol", "Perc Vol", "FX Vol" };
 const char* partNames[] = { "kick", "snare", "hats", "808", "openhat", "relances", "percs", "fx" };
 }
 
@@ -66,6 +69,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout DarkTrapDrumsProcessor::crea
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "sndPerc", 2 },  "Perc Sound",  SampleLibrary::namesFor (SampleLibrary::PERC), 0));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "sndImpact", 2 }, "Impact Sound", SampleLibrary::namesFor (SampleLibrary::IMPACT), 0));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "sndRiser", 2 },  "Riser Sound",  SampleLibrary::namesFor (SampleLibrary::RISER), 0));
+    for (int i = 0; i < 8; ++i)
+        ps.push_back (std::make_unique<AudioParameterFloat> (ParameterID { volIds[i], 3 }, volNames[i], NormalisableRange<float> (0, 1.5f), 1.0f, pct));
     ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "perc", 2 }, "Percs", NormalisableRange<float> (0, 1), 0.3f, pct));
     ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "fx", 2 }, "FX", NormalisableRange<float> (0, 1), 0.5f, pct));
     return { ps.begin(), ps.end() };
@@ -274,6 +279,7 @@ void DarkTrapDrumsProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
             {
                 if (e.ppq < pos || e.ppq >= segEnd) continue;
                 const int s = juce::jlimit (0, num - 1, (int) ((consumed + e.ppq - pos) / bps));
+                if (e.on && apvts.getRawParameterValue (volIds[e.ch - 1])->load() <= 0.001f) continue;
                 if (e.ch == 4)
                 {
                     // 808 monophonique, eventuellement re-accordee sur l'entree MIDI
@@ -334,6 +340,7 @@ void DarkTrapDrumsProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         kit.setParams (apvts.getRawParameterValue ("volume")->load(), iv ("sndKick"), iv ("sndSnare"),
                        iv ("sndHat"), iv ("sndOpen"), iv ("snd808"), iv ("sndFill"),
                        iv ("sndClap"), iv ("sndPerc"), iv ("sndImpact"), iv ("sndRiser"));
+        for (int c = 1; c <= 8; ++c) kit.setLaneGain (c, apvts.getRawParameterValue (volIds[c - 1])->load());
         kit.render (buffer, out);
     }
     midi.swapWith (out); // canal 1 kick, 2 snare, 3 hats, 4 808, 5 open hat, 6 relances, 7 percs, 8 fx

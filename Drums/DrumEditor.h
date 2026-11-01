@@ -49,7 +49,7 @@ public:
 
 private:
     void timerCallback() override;
-    void addKnob (const juce::String& id, const juce::String& label);
+    void addKnob (const juce::String& id, const juce::String& label, bool mix = false);
     void addCombo (const juce::String& id, const juce::String& label, int width, bool sound = false);
     void addToggle (const juce::String& id, const juce::String& label);
     void exportMidi();
@@ -75,7 +75,8 @@ private:
         juce::ToggleButton button;
         std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> att;
     };
-    std::vector<std::unique_ptr<Knob>> knobs;
+    std::vector<std::unique_ptr<Knob>> knobs, mixKnobs;
+    juce::Label mixLabel;
     std::vector<std::unique_ptr<Combo>> combos, soundCombos;
     std::vector<std::unique_ptr<Toggle>> toggles;
 

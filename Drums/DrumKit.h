@@ -99,6 +99,9 @@ public:
         sel[6] = clap; sel[7] = perc; sel[8] = impact; sel[9] = riser;
     }
 
+    // volume par piste (index = canal 1..8), 0 = coupe
+    void setLaneGain (int ch, float g) { if (ch >= 1 && ch <= 8) laneGain[ch] = juce::jmax (0.0f, g); }
+
     void render (juce::AudioBuffer<float>& buf, const juce::MidiBuffer& midi)
     {
         int pos = 0;
@@ -133,6 +136,7 @@ private:
     std::array<Voice, 32> voices;
     float outGain = 0.7f;
     int sel[10] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+    float laneGain[9] = { 1, 1, 1, 1, 1, 1, 1, 1, 1 };
     juce::uint32 counter = 0;
 
     const SampleLibrary::Sample* pick (int cat, int idx) const
@@ -248,7 +252,7 @@ private:
                 const int i0 = (int) v.pos;
                 if (i0 + 1 >= len) { v.active = false; break; }
                 const float fr = (float) (v.pos - i0);
-                float x = (d[i0] + (d[i0 + 1] - d[i0]) * fr) * v.gain;
+                float x = (d[i0] + (d[i0 + 1] - d[i0]) * fr) * v.gain * laneGain[v.ch];
                 if (v.releasing) { v.rel *= v.relMul; x *= v.rel; if (v.rel < 1.0e-4f) { v.active = false; break; } }
                 L[i] += x;
                 if (R != nullptr) R[i] += x;
