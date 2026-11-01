@@ -60,8 +60,9 @@ private:
             s.name = rest.upToLastOccurrenceOf ("__", false, false).replaceCharacter ('_', ' ');
             s.rootNote = juce::jlimit (12, 120, rest.fromLastOccurrenceOf ("__", false, false).getIntValue());
             s.sampleRate = reader->sampleRate;
-            s.data.setSize (1, (int) reader->lengthInSamples);
-            reader->read (&s.data, 0, (int) reader->lengthInSamples, 0, true, false);
+            const int nch = reader->numChannels > 1 ? 2 : 1;
+            s.data.setSize (nch, (int) reader->lengthInSamples);
+            reader->read (&s.data, 0, (int) reader->lengthInSamples, 0, true, nch > 1);
             samples.push_back (std::move (s));
         }
         std::sort (samples.begin(), samples.end(), [] (const Sample& a, const Sample& b)
@@ -69,7 +70,8 @@ private:
     }
 };
 
-// Lecteur polyphonique des one-shots (mono -> centre, enveloppe attaque/relache)
+// Lecteur polyphonique des one-shots : stereo, interpolation Hermite (plus propre
+// que lineaire quand on transpose), une sortie stereo par couche (1 melodie, 2 accords, 3 couche 2)
 class InstrumentPlayer
 {
 public:
@@ -94,8 +96,8 @@ public:
         *v = Voice();
         v->active = true; v->held = true; v->s = s; v->ch = ch; v->note = note;
         v->inc = (s->sampleRate / sr) * std::pow (2.0, (note - s->rootNote) / 12.0);
-        v->gain = level * (0.25f + 0.75f * vel);
-        v->attMul = (float) (1.0 / (0.004 * sr));
+        v->gain = level * (0.3f + 0.7f * vel);
+        v->attMul = (float) (1.0 / (0.003 * sr));
         v->age = ++counter;
     }
 
@@ -107,24 +109,32 @@ public:
 
     void allOff() { for (auto& v : voices) if (v.active) startRelease (v, 0.05f); }
 
-    void renderRange (float* L, float* R, int start, int end)
+    // L[c] / R[c] : buffers de la couche c (1..3)
+    void renderRange (float* const* L, float* const* R, int start, int end)
     {
         for (auto& v : voices)
         {
             if (! v.active) continue;
-            const float* d = v.s->data.getReadPointer (0);
+            const int c = juce::jlimit (1, 3, v.ch);
+            float* outL = L[c];
+            float* outR = R[c];
+            const float* dL = v.s->data.getReadPointer (0);
+            const float* dR = v.s->data.getReadPointer (v.s->data.getNumChannels() > 1 ? 1 : 0);
             const int len = v.s->data.getNumSamples();
+            const float lg = layerGain[c];
             for (int i = start; i < end; ++i)
             {
                 const int i0 = (int) v.pos;
-                if (i0 + 1 >= len) { v.active = false; break; }
-                const float fr = (float) (v.pos - i0);
-                float x = d[i0] + (d[i0 + 1] - d[i0]) * fr;
+                if (i0 + 2 >= len) { v.active = false; break; }
+                const float t = (float) (v.pos - i0);
+                const int im = i0 > 0 ? i0 - 1 : 0;
+                float xl = hermite (dL[im], dL[i0], dL[i0 + 1], dL[i0 + 2], t);
+                float xr = hermite (dR[im], dR[i0], dR[i0 + 1], dR[i0 + 2], t);
                 if (v.att < 1.0f) v.att = juce::jmin (1.0f, v.att + v.attMul);
-                x *= v.gain * v.att * layerGain[juce::jlimit (0, 3, v.ch)];
-                if (! v.held) { v.rel *= v.relMul; x *= v.rel; if (v.rel < 1.0e-4f) { v.active = false; break; } }
-                L[i] += x;
-                if (R != nullptr) R[i] += x;
+                float g = v.gain * v.att * lg;
+                if (! v.held) { v.rel *= v.relMul; g *= v.rel; if (v.rel < 1.0e-4f) { v.active = false; break; } }
+                outL[i] += xl * g;
+                outR[i] += xr * g;
                 v.pos += v.inc;
             }
         }
@@ -141,6 +151,16 @@ private:
         juce::uint32 age = 0;
     };
 
+    static float hermite (float xm1, float x0, float x1, float x2, float t)
+    {
+        const float c = (x1 - xm1) * 0.5f;
+        const float v = x0 - x1;
+        const float w = c + v;
+        const float a = w + v + (x2 - x0) * 0.5f;
+        const float b = w + a;
+        return ((((a * t) - b) * t + c) * t + x0);
+    }
+
     void startRelease (Voice& v, float sec)
     {
         v.held = false;
@@ -151,5 +171,5 @@ private:
     float release = 0.3f;
     float layerGain[4] = { 1, 1, 1, 1 };
     juce::uint32 counter = 0;
-    std::array<Voice, 48> voices;
+    std::array<Voice, 64> voices;
 };

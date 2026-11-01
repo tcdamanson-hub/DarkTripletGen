@@ -28,6 +28,23 @@ public:
         filter.reset();
         for (auto& v : voices) v.active = false;
         player.prepare (sr);
+
+        // mix des instruments samples : chaque couche a sa place dans le spectre
+        const juce::dsp::ProcessSpec spec { sr, (juce::uint32) juce::jmax (1, maxBlock), 2 };
+        layerBuf.setSize (8, juce::jmax (1, maxBlock));
+        const float hpHz[4] = { 0, 180.0f, 220.0f, 320.0f };   // melodie, accords, couche 2 : on laisse le grave a la 808
+        const float lpHz[4] = { 0, 15000.0f, 7000.0f, 12000.0f }; // les accords restent derriere
+        for (int c = 1; c <= 3; ++c)
+        {
+            hp[c].prepare (spec); hp[c].setType (juce::dsp::StateVariableTPTFilterType::highpass);
+            hp[c].setCutoffFrequency (hpHz[c]); hp[c].setResonance (0.6f); hp[c].reset();
+            lp[c].prepare (spec); lp[c].setType (juce::dsp::StateVariableTPTFilterType::lowpass);
+            lp[c].setCutoffFrequency (lpHz[c]); lp[c].setResonance (0.6f); lp[c].reset();
+            layerLp[c] = lpHz[c];
+        }
+        busComp.prepare (spec);
+        busComp.setThreshold (-16.0f); busComp.setRatio (3.0f); busComp.setAttack (8.0f); busComp.setRelease (120.0f);
+        busComp.reset();
     }
 
     // instrument par canal : 0 = piano de synthese, sinon index+1 dans InstrumentLibrary
@@ -46,6 +63,8 @@ public:
     void setParams (float cutoffHz, float releaseSec, float gain)
     {
         filter.setCutoffFrequency (juce::jlimit (200.0f, 18000.0f, cutoffHz));
+        for (int c = 1; c <= 3; ++c)
+            lp[c].setCutoffFrequency (juce::jlimit (300.0f, 18000.0f, juce::jmin (cutoffHz * 1.6f, layerLp[c])));
         release = juce::jmax (0.02f, releaseSec);
         player.setRelease (release);
         outGain = gain;
@@ -53,6 +72,9 @@ public:
 
     void render (juce::AudioBuffer<float>& buf, const juce::MidiBuffer& midi)
     {
+        if (layerBuf.getNumSamples() < buf.getNumSamples())
+            layerBuf.setSize (8, buf.getNumSamples(), false, false, true);
+        layerBuf.clear();
         int pos = 0;
         for (const auto meta : midi)
         {
@@ -74,6 +96,33 @@ public:
         }
         if (R != nullptr) reverb.processStereo (L, R, num);
         else              reverb.processMono (L, num);
+
+        // instruments samples : filtres par couche, compresseur de bus, pas de reverb en plus
+        // (tes sons ont deja leur espace)
+        juce::AudioBuffer<float> bus (layerBuf.getArrayOfWritePointers(), 2, num);
+        bus.clear();
+        for (int c = 1; c <= 3; ++c)
+        {
+            float* ptrs[2] = { layerBuf.getWritePointer (c * 2), layerBuf.getWritePointer (c * 2 + 1) };
+            juce::dsp::AudioBlock<float> blk (ptrs, 2, (size_t) num);
+            juce::dsp::ProcessContextReplacing<float> ctx (blk);
+            hp[c].process (ctx);
+            lp[c].process (ctx);
+            bus.addFrom (0, 0, ptrs[0], num);
+            bus.addFrom (1, 0, ptrs[1], num);
+        }
+        {
+            juce::dsp::AudioBlock<float> blk (bus);
+            juce::dsp::ProcessContextReplacing<float> ctx (blk);
+            busComp.process (ctx);
+        }
+        for (int i = 0; i < num; ++i)
+        {
+            L[i] += bus.getSample (0, i) * busGain;
+            if (R != nullptr) R[i] += bus.getSample (1, i) * busGain;
+            else L[i] += bus.getSample (1, i) * busGain;
+        }
+
         for (int c = 0; c < buf.getNumChannels(); ++c)
         {
             auto* d = buf.getWritePointer (c);
@@ -102,6 +151,11 @@ private:
     juce::dsp::StateVariableTPTFilter<float> filter;
     juce::Reverb reverb;
     InstrumentPlayer player;
+    juce::AudioBuffer<float> layerBuf;          // canaux 2..7 : couches 1..3 en stereo, 0..1 : bus
+    juce::dsp::StateVariableTPTFilter<float> hp[4], lp[4];
+    float layerLp[4] = { 0, 15000.0f, 7000.0f, 12000.0f };
+    juce::dsp::Compressor<float> busComp;
+    float busGain = 4.5f;
     int inst[4] = { 0, 0, 0, 0 };
     float layerGain[4] = { 1, 1, 1, 1 };
     juce::Random rnd { 1234 };
@@ -140,7 +194,9 @@ private:
         const int sel = (ch >= 1 && ch <= 3) ? inst[ch] : 0;
         if (sel > 0)
         {
-            const float lvl = ch == 1 ? 1.25f : ch == 3 ? 0.9f : (n < 48 ? 0.95f : 0.65f);
+            // accords : la basse grave est laissee a la 808 (sinon un pad transpose 2 octaves plus bas fait de la bouillie)
+            if (ch == 2 && n < 48) return;
+            const float lvl = ch == 1 ? 1.0f : ch == 3 ? 0.75f : 0.55f;
             player.noteOn (ch, n, vel, sel - 1, lvl);
             return;
         }
@@ -193,7 +249,9 @@ private:
         if (end <= start) return;
         auto* L = buf.getWritePointer (0);
         auto* R = buf.getNumChannels() > 1 ? buf.getWritePointer (1) : nullptr;
-        player.renderRange (L, R, start, end);
+        float* pl[4] = { nullptr, layerBuf.getWritePointer (2), layerBuf.getWritePointer (4), layerBuf.getWritePointer (6) };
+        float* pr[4] = { nullptr, layerBuf.getWritePointer (3), layerBuf.getWritePointer (5), layerBuf.getWritePointer (7) };
+        player.renderRange (pl, pr, start, end);
 
         for (auto& v : voices)
         {
