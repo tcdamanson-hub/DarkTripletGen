@@ -24,7 +24,7 @@ struct GenParams
     int   motif        = 0;     // 0 = appris (tes MIDI), 1 = topline
     int   layer2       = 1;     // 0 = off, 1 = 2e couche
     int   style        = 0;     // 0 = perso, 1 = Ninho, 2 = Werenoi, 3 = Trap dark, 4 = Triolets
-    int   bank         = 0;     // banque MIDI apprise : 0 = toutes, 1 = melodies, 2 = guitare, 3 = Nexus
+    int   bank         = 0;     // banque MIDI apprise : 0 = toutes, 1 = melodies, 2 = guitare, 3 = Nexus, 4 = Melodic (variations)
     float density      = 0.5f;  // 0..1  peu de notes -> beaucoup de notes
     float darkness     = 0.6f;  // 0..1  notes de passage sombres
     float rolls        = 0.3f;  // 0..1  runs / fioritures rapides

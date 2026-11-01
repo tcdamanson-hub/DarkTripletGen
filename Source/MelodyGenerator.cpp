@@ -595,14 +595,19 @@ private:
         for (int i = 0; i < learned::numTemplates; ++i)
         {
             const auto& t = learned::templates[i];
-            if (strictFeel && p.feel != 2 && t.feel != p.feel) continue;
+            // banque 4 "Melodic" = les variations fabriquees, quel que soit le rythme ; les autres banques ne les utilisent jamais
+            if (p.bank == 4) { if (! t.derived) continue; }
+            else
+            {
+                if (t.derived) continue;
+                if (strictFeel && p.feel != 2 && t.feel != p.feel) continue;
+            }
             if (src >= 0 && t.src != src) continue;
             if (excludeSrc >= 0 && t.src == excludeSrc) continue;
-            if (bankOnly && (int) learned::srcBank[t.src] != p.bank) continue;
+            if (bankOnly && p.bank != 4 && (int) learned::srcBank[t.src] != p.bank) continue;
             const float d = (float) t.count - target;
             float x = std::exp (-(d * d) / 72.0f) + 0.02f;
             if (wantPos >= 0 && t.pos == wantPos) x *= 2.5f;
-            if (t.derived) x *= 0.4f;   // triolets fabriques : un peu moins souvent que tes vrais triolets
             w[(size_t) i] = x;
             tot += x;
         }
@@ -920,5 +925,5 @@ GenResult MelodyGenerator::generate (const GenParams& p)
 
 std::vector<std::string> MelodyGenerator::getBankNames()
 {
-    return { "Toutes", "Melodies", "Guitare", "Nexus" };
+    return { "Toutes", "Melodies", "Guitare", "Nexus", "Melodic" };
 }
