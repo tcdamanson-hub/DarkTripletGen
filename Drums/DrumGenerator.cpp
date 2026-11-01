@@ -184,6 +184,15 @@ private:
 
     int snapStraight (int t) const { return (p.feel == 1) ? (int) std::lround (t / 6.0) * 6 : t; }
 
+    // cale une frappe sur la grille du rythme choisi :
+    // triolets -> doubles-croches de triolet (4 ticks), normal -> triples-croches (3 ticks)
+    int snapGrid (int t) const
+    {
+        if (p.feel == 0) return (int) std::lround (t / 4.0) * 4;
+        if (p.feel == 1) return (int) std::lround (t / 3.0) * 3;
+        return t;
+    }
+
     Pat buildHats()
     {
         const float target = 50.0f + p.hatDensity * 110.0f;
@@ -304,17 +313,19 @@ private:
         {
             const float target = 8.0f + p.fills * 30.0f;
             Pat F;
-            if (drumdata::num_counters > 0 && rng.chance (0.45f))
-                F = loadPat (drumdata::counters[pick (drumdata::counters, drumdata::num_counters, target * 1.6f, false)]);
+            const bool useCounter = drumdata::num_counters > 0
+                                    && (p.feel == 1 ? rng.chance (0.7f) : p.feel == 2 ? rng.chance (0.35f) : false);
+            if (useCounter)
+                F = loadPat (drumdata::counters[pick (drumdata::counters, drumdata::num_counters, target * 1.6f, true)]);
             else
-                F = loadPat (drumdata::snares[pick (drumdata::snares, drumdata::num_snares, target, false)]);
+                F = loadPat (drumdata::snares[pick (drumdata::snares, drumdata::num_snares, target, true)]);
             Pat fills;
             for (auto& e : F)
             {
                 const int bar = e.t / 96;
                 const float keep = (bar == 3 || bar == 1) ? std::min (1.0f, p.fills * 1.6f) : p.fills * 0.8f;
                 if (! rng.chance (keep)) continue;
-                const int t = snapStraight (e.t);
+                const int t = snapGrid (e.t);
                 if (p.snareOn3 && std::abs ((t % 96) - 48) <= 2) continue; // deja le snare principal
                 fills.push_back ({ t, e.dur, std::clamp (e.pitch, -12, 12), std::min (e.vel, 100) });
             }
@@ -380,7 +391,7 @@ private:
         Pat out;
         if (p.perc < 0.01f) return out;
         Pat src;
-        if (drumdata::num_counters > 0 && rng.chance (0.5f))
+        if (drumdata::num_counters > 0 && p.feel != 0 && rng.chance (0.5f))
             src = loadPat (drumdata::counters[pick (drumdata::counters, drumdata::num_counters, 10.0f + p.perc * 40.0f, false)]);
         else
             src = loadPat (drumdata::snares[pick (drumdata::snares, drumdata::num_snares, 8.0f + p.perc * 24.0f, false)]);
@@ -394,7 +405,7 @@ private:
         for (int off = 0; off < total; off += 384)
             for (auto& e : src)
             {
-                int t = snapStraight ((e.t + shift) % 384) + off;
+                int t = snapGrid ((e.t + shift) % 384) + off;
                 if (t >= total || busy (t)) continue;
                 if (! rng.chance (0.35f + p.perc * 0.6f)) continue;
                 out.push_back ({ t, 6, 0, std::clamp (e.vel - 10, 50, 110) });
