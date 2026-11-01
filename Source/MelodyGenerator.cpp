@@ -772,6 +772,8 @@ private:
             const int b2 = pickTemplate (-1, -1, srcA, true);
             if (b2 >= 0) A = splice (A, tplNotes (b2));        // croisement : debut de l'un, fin de l'autre
         }
+        // variations : accords et motif de base identiques, details differents
+        if (p.variation > 0) rng = Rng (p.seed * 7919 + p.variation * 104729);
         mutate (A, 0.5f);
 
         // ----- fin de phrase -----
@@ -926,4 +928,9 @@ GenResult MelodyGenerator::generate (const GenParams& p)
 std::vector<std::string> MelodyGenerator::getBankNames()
 {
     return { "Toutes", "Melodies", "Guitare", "Nexus", "Melodic" };
+}
+
+std::vector<std::string> MelodyGenerator::getVariationNames()
+{
+    return { "Originale", "Variation 1", "Variation 2", "Variation 3" };
 }

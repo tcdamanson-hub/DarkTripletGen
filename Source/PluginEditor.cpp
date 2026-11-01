@@ -178,10 +178,11 @@ DarkTripletAudioProcessorEditor::DarkTripletAudioProcessorEditor (DarkTripletAud
     addCombo ("chordMode", "Accords",     85);
     addCombo ("feel",      "Rythme",      85);
     addCombo ("bars",      "Mesures",     60);
+    addCombo ("variation",   "Variation",     110, true);
     addCombo ("bank",        "Banque MIDI",   110, true);
-    addCombo ("instMel",     "Son melodie",   190, true);
-    addCombo ("instChords",  "Son accords",   190, true);
-    addCombo ("instCounter", "Son couche 2",  190, true);
+    addCombo ("instMel",     "Son melodie",   170, true);
+    addCombo ("instChords",  "Son accords",   170, true);
+    addCombo ("instCounter", "Son couche 2",  170, true);
 
     addKnob ("rotation", "Mode rot.");
     addKnob ("octave",   "Octave");

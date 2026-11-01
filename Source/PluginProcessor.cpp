@@ -8,7 +8,7 @@ const juce::StringArray rootNames { "C", "C#", "D", "D#", "E", "F", "F#", "G", "
 const int barChoices[] = { 1, 2, 4, 8 };
 
 const char* genParamIds[] = { "root", "scale", "rotation", "octave", "bars", "feel", "prog", "chordMode",
-                              "density", "darkness", "rolls", "rests", "octJumps", "range", "gate", "seed", "style", "motif", "layer2", "bank" };
+                              "density", "darkness", "rolls", "rests", "octJumps", "range", "gate", "seed", "style", "motif", "layer2", "bank", "variation" };
 }
 
 DarkTripletAudioProcessor::DarkTripletAudioProcessor()
@@ -74,6 +74,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout DarkTripletAudioProcessor::c
     ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "gate", 2 },     "Gate",         NormalisableRange<float> (0.1f, 1.0f), 0.95f, pct));
     ps.push_back (std::make_unique<AudioParameterInt>    (ParameterID { "seed", 2 },     "Seed",        1, 99999, 1337));
 
+    StringArray varNames;
+    for (auto& s : MelodyGenerator::getVariationNames()) varNames.add (s);
+    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "variation", 9 }, "Variation", varNames, 0));
     StringArray bankNames;
     for (auto& s : MelodyGenerator::getBankNames()) bankNames.add (s);
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "bank", 7 }, "MIDI Bank", bankNames, 0));
@@ -128,6 +131,7 @@ GenParams DarkTripletAudioProcessor::readParams() const
     p.motif        = (int) v ("motif");
     p.layer2       = (int) v ("layer2");
     p.bank         = (int) v ("bank");
+    p.variation    = (int) v ("variation");
     return p;
 }
 
@@ -177,6 +181,8 @@ void DarkTripletAudioProcessor::randomizeSeed()
     {
         const int s = 1 + juce::Random::getSystemRandom().nextInt (99998);
         history.beforeGenerate();
+        if (auto* var = apvts.getParameter ("variation"))
+            if (var->getValue() != 0.0f) { var->beginChangeGesture(); var->setValueNotifyingHost (0.0f); var->endChangeGesture(); }
         p->beginChangeGesture();
         p->setValueNotifyingHost (p->convertTo0to1 ((float) s));
         p->endChangeGesture();

@@ -33,6 +33,7 @@ struct GenParams
     int   rangeOctaves = 2;     // 1..3
     float gate         = 0.95f; // 0.1..1 longueur des notes (legato)
     int   seed         = 1337;
+    int   variation    = 0;     // 0 = originale, 1..3 = variations (memes accords et meme motif de base)
 };
 
 struct GenResult
@@ -51,4 +52,5 @@ public:
     static std::vector<std::string> getProgressionNames(); // [0] = "Auto"
     static std::vector<std::string> getStyleNames();
     static std::vector<std::string> getBankNames();
+    static std::vector<std::string> getVariationNames();
 };
