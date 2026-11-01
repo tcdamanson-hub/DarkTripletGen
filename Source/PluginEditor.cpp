@@ -245,7 +245,7 @@ void DarkTripletAudioProcessorEditor::addKnob (const juce::String& id, const juc
     addAndMakeVisible (k->slider);
     addAndMakeVisible (k->label);
     k->att = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (proc.apvts, id, k->slider);
-    if (mix) k->slider.setDoubleClickReturnValue (true, 0.12);
+    if (mix) k->slider.setDoubleClickReturnValue (true, 0.1);
     (mix ? mixKnobs : knobs).push_back (std::move (k));
 }
 

@@ -87,6 +87,17 @@ public:
     {
         sr = sampleRate;
         for (auto& v : voices) v.active = false;
+        // mix : un filtre coupe-bas par element pour que chacun garde sa place
+        const double hpHz[9] = { 0, 30, 120, 400, 28, 300, 150, 200, 150 };
+        for (int c = 1; c <= 8; ++c)
+        {
+            hpf[c].setCoefficients (juce::IIRCoefficients::makeHighPass (sr, hpHz[c], 0.7071));
+            hpf[c].reset();
+        }
+        kickEnv = 0.0f; compEnv = 0.0f;
+        duckRel = (float) std::exp (-1.0 / (0.09 * sr));
+        compAtt = (float) std::exp (-1.0 / (0.004 * sr));
+        compRel = (float) std::exp (-1.0 / (0.12 * sr));
     }
 
     // index du son choisi pour chaque categorie
@@ -104,20 +115,43 @@ public:
 
     void render (juce::AudioBuffer<float>& buf, const juce::MidiBuffer& midi)
     {
+        const int num = buf.getNumSamples();
+        if (lanes.getNumSamples() < num) lanes.setSize (9, num, false, false, true);
+        lanes.clear();
         int pos = 0;
         for (const auto meta : midi)
         {
-            const int t = juce::jlimit (0, buf.getNumSamples(), meta.samplePosition);
-            renderRange (buf, pos, t);
+            const int t = juce::jlimit (0, num, meta.samplePosition);
+            renderRange (pos, t);
             handle (meta.getMessage());
             pos = t;
         }
-        renderRange (buf, pos, buf.getNumSamples());
-        for (int c = 0; c < buf.getNumChannels(); ++c)
+        renderRange (pos, num);
+
+        // ---- mix des elements ----
+        for (int c = 1; c <= 8; ++c)
+            hpf[c].processSamples (lanes.getWritePointer (c), num);
+        auto* L = buf.getWritePointer (0);
+        auto* R = buf.getNumChannels() > 1 ? buf.getWritePointer (1) : nullptr;
+        const float* kick = lanes.getReadPointer (1);
+        const float* bass = lanes.getReadPointer (4);
+        for (int i = 0; i < num; ++i)
         {
-            auto* d = buf.getWritePointer (c);
-            for (int i = 0; i < buf.getNumSamples(); ++i)
-                d[i] = std::tanh (d[i] * outGain * 1.1f) * 0.9f;
+            // la 808 se pousse un peu quand le kick frappe (side-chain) : plus de punch, moins de bouillie
+            const float k = std::abs (kick[i]);
+            kickEnv = k > kickEnv ? k : kickEnv * duckRel;
+            const float duck = 1.0f - 0.45f * juce::jmin (1.0f, kickEnv * 2.5f);
+            float mono = bass[i] * duck;
+            for (int c = 1; c <= 8; ++c) if (c != 4) mono += lanes.getSample (c, i);
+            // compresseur de bus doux (colle les elements ensemble)
+            const float a = std::abs (mono);
+            compEnv = a > compEnv ? a + (compEnv - a) * compAtt : a + (compEnv - a) * compRel;
+            const float thr = 0.35f;
+            float g = 1.0f;
+            if (compEnv > thr) g = std::pow (thr / compEnv, 1.0f - 1.0f / 2.5f);
+            const float y = std::tanh (mono * g * 1.25f * outGain * 1.1f) * 0.9f;
+            L[i] += y;
+            if (R != nullptr) R[i] += y;
         }
     }
 
@@ -137,6 +171,9 @@ private:
     float outGain = 0.7f;
     int sel[10] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
     float laneGain[9] = { 1, 1, 1, 1, 1, 1, 1, 1, 1 };
+    juce::AudioBuffer<float> lanes { 9, 512 };   // un buffer mono par element (canaux 1..8)
+    juce::IIRFilter hpf[9];
+    float kickEnv = 0, compEnv = 0, duckRel = 0.999f, compAtt = 0.99f, compRel = 0.999f;
     juce::uint32 counter = 0;
 
     const SampleLibrary::Sample* pick (int cat, int idx) const
@@ -178,21 +215,21 @@ private:
         float level = 1.0f;
         switch (ch)
         {
-            case 1: s = pick (SampleLibrary::KICK, sel[0]);    level = 0.85f; break;
-            case 2: s = pick (SampleLibrary::SNARE, sel[1]);   level = 0.8f;  break;
-            case 3: s = pick (SampleLibrary::HAT, sel[2]);     level = 0.6f;  break;
-            case 4: s = pick (SampleLibrary::BASS, sel[4]);    level = 0.68f; break;
-            case 5: s = pick (SampleLibrary::OPENHAT, sel[3]); level = 0.55f; break;
+            case 1: s = pick (SampleLibrary::KICK, sel[0]);    level = 1.0f;  break;
+            case 2: s = pick (SampleLibrary::SNARE, sel[1]);   level = 0.9f;  break;
+            case 3: s = pick (SampleLibrary::HAT, sel[2]);     level = 0.8f;  break;
+            case 4: s = pick (SampleLibrary::BASS, sel[4]);    level = 0.85f; break;
+            case 5: s = pick (SampleLibrary::OPENHAT, sel[3]); level = 0.7f;  break;
             case 6:
             {
                 const int nr = (int) SampleLibrary::get().list (SampleLibrary::RIM).size();
                 if (sel[5] == 0)       s = pick (SampleLibrary::SNARE, sel[1]);
                 else if (sel[5] <= nr) s = pick (SampleLibrary::RIM, sel[5] - 1);
                 else                   s = pick (SampleLibrary::CLAP, sel[5] - 1 - nr);
-                level = 0.65f; break;
+                level = 0.75f; break;
             }
-            case 7: s = pick (SampleLibrary::PERC, sel[7]); level = 0.55f; break;
-            case 8: s = note >= 62 ? pick (SampleLibrary::RISER, sel[9]) : pick (SampleLibrary::IMPACT, sel[8]); level = 0.5f; break;
+            case 7: s = pick (SampleLibrary::PERC, sel[7]); level = 0.7f;  break;
+            case 8: s = note >= 62 ? pick (SampleLibrary::RISER, sel[9]) : pick (SampleLibrary::IMPACT, sel[8]); level = 0.6f; break;
             default: return;
         }
         if (s == nullptr) return;
@@ -237,11 +274,9 @@ private:
         v.age = ++counter;
     }
 
-    void renderRange (juce::AudioBuffer<float>& buf, int start, int end)
+    void renderRange (int start, int end)
     {
         if (end <= start) return;
-        auto* L = buf.getWritePointer (0);
-        auto* R = buf.getNumChannels() > 1 ? buf.getWritePointer (1) : nullptr;
         for (auto& v : voices)
         {
             if (! v.active || v.s == nullptr) continue;
@@ -254,8 +289,7 @@ private:
                 const float fr = (float) (v.pos - i0);
                 float x = (d[i0] + (d[i0 + 1] - d[i0]) * fr) * v.gain * laneGain[v.ch];
                 if (v.releasing) { v.rel *= v.relMul; x *= v.rel; if (v.rel < 1.0e-4f) { v.active = false; break; } }
-                L[i] += x;
-                if (R != nullptr) R[i] += x;
+                lanes.getWritePointer (juce::jlimit (1, 8, v.ch))[i] += x;
                 v.inc += (v.targetInc - v.inc) * 0.0015;  // glide 808
                 v.pos += v.inc;
             }

@@ -77,7 +77,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout DarkTrapDrumsProcessor::crea
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "sndImpact", 2 }, "Impact Sound", SampleLibrary::namesFor (SampleLibrary::IMPACT), 0));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "sndRiser", 2 },  "Riser Sound",  SampleLibrary::namesFor (SampleLibrary::RISER), 0));
     for (int i = 0; i < 8; ++i)
-        ps.push_back (std::make_unique<AudioParameterFloat> (ParameterID { volIds[i], 3 }, volNames[i], NormalisableRange<float> (0, 1.5f), 1.0f, pct));
+        ps.push_back (std::make_unique<AudioParameterFloat> (ParameterID { volIds[i], 4 }, volNames[i], NormalisableRange<float> (0, 1.5f), 0.1f, pct));
     ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "perc", 2 }, "Percs", NormalisableRange<float> (0, 1), 0.3f, pct));
     ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "fx", 2 }, "FX", NormalisableRange<float> (0, 1), 0.5f, pct));
     return { ps.begin(), ps.end() };
