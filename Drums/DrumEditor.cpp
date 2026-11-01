@@ -205,7 +205,7 @@ DarkTrapDrumsEditor::DarkTrapDrumsEditor (DarkTrapDrumsProcessor& p)
     addKnob ("volPerc",  "Percs",   true);
     addKnob ("vol808",   "808",     true);
     addKnob ("volFx",    "FX",      true);
-    mixLabel.setText ("MIX (10 % = normal, 0 = coupe, double-clic = 10 %)", juce::dontSendNotification);
+    mixLabel.setText ("MIX (0 = coupe, double-clic = 100 %)", juce::dontSendNotification);
     mixLabel.setFont (juce::FontOptions (12.0f, juce::Font::bold));
     mixLabel.setColour (juce::Label::textColourId, Col::dim);
     addAndMakeVisible (mixLabel);
@@ -248,7 +248,7 @@ void DarkTrapDrumsEditor::addKnob (const juce::String& id, const juce::String& l
     addAndMakeVisible (k->slider);
     addAndMakeVisible (k->label);
     k->att = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (proc.apvts, id, k->slider);
-    if (mix) k->slider.setDoubleClickReturnValue (true, 0.1);
+    if (mix) k->slider.setDoubleClickReturnValue (true, 1.0);
     (mix ? mixKnobs : knobs).push_back (std::move (k));
 }
 
