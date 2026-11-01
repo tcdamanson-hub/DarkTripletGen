@@ -75,6 +75,7 @@ class InstrumentPlayer
 public:
     void prepare (double sampleRate) { sr = sampleRate; for (auto& v : voices) v.active = false; }
     void setRelease (float sec) { release = juce::jmax (0.02f, sec); }
+    void setLayerGains (const float* g) { for (int i = 0; i < 4; ++i) layerGain[i] = g[i]; }
 
     void noteOn (int ch, int note, float vel, int sampleIndex, float level)
     {
@@ -120,7 +121,7 @@ public:
                 const float fr = (float) (v.pos - i0);
                 float x = d[i0] + (d[i0 + 1] - d[i0]) * fr;
                 if (v.att < 1.0f) v.att = juce::jmin (1.0f, v.att + v.attMul);
-                x *= v.gain * v.att;
+                x *= v.gain * v.att * layerGain[juce::jlimit (0, 3, v.ch)];
                 if (! v.held) { v.rel *= v.relMul; x *= v.rel; if (v.rel < 1.0e-4f) { v.active = false; break; } }
                 L[i] += x;
                 if (R != nullptr) R[i] += x;
@@ -148,6 +149,7 @@ private:
 
     double sr = 44100.0;
     float release = 0.3f;
+    float layerGain[4] = { 1, 1, 1, 1 };
     juce::uint32 counter = 0;
     std::array<Voice, 48> voices;
 };

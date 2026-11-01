@@ -87,6 +87,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout DarkTripletAudioProcessor::c
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instChords", 7 },  "Chords Sound",  instNames, findInst ("Pads", 0)));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instCounter", 7 }, "Layer 2 Sound", instNames, findInst ("Plucks", 0)));
 
+    ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "volMel", 8 },     "Melody Vol",  NormalisableRange<float> (0.0f, 1.5f), 1.0f, pct));
+    ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "volChords", 8 },  "Chords Vol",  NormalisableRange<float> (0.0f, 1.5f), 1.0f, pct));
+    ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "volCounter", 8 }, "Layer 2 Vol", NormalisableRange<float> (0.0f, 1.5f), 1.0f, pct));
+
     ps.push_back (std::make_unique<AudioParameterBool>   (ParameterID { "synthOn", 2 },  "Synth On", true));
     NormalisableRange<float> cutRange (300.0f, 16000.0f);
     cutRange.setSkewForCentre (2000.0f);
@@ -386,6 +390,8 @@ void DarkTripletAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
                 const int s = juce::jlimit (0, numSamples - 1,
                                             (int) ((consumed + e.ppq - pos) / beatsPerSample));
                 bool& a = active[e.ch - 1][e.pitch];
+                if (e.on && apvts.getRawParameterValue (e.ch == 1 ? "volMel" : e.ch == 2 ? "volChords" : "volCounter")->load() <= 0.001f)
+                    continue; // couche coupee : pas de note
                 if (e.on)
                 {
                     if (a) out.addEvent (juce::MidiMessage::noteOff (e.ch, e.pitch), s);
@@ -411,6 +417,9 @@ void DarkTripletAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 
     if (*apvts.getRawParameterValue ("synthOn") > 0.5f)
     {
+        synth.setLayerGains (apvts.getRawParameterValue ("volMel")->load(),
+                             apvts.getRawParameterValue ("volChords")->load(),
+                             apvts.getRawParameterValue ("volCounter")->load());
         synth.setInstruments ((int) apvts.getRawParameterValue ("instMel")->load(),
                               (int) apvts.getRawParameterValue ("instChords")->load(),
                               (int) apvts.getRawParameterValue ("instCounter")->load());

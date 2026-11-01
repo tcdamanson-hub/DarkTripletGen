@@ -31,6 +31,13 @@ public:
     }
 
     // instrument par canal : 0 = piano de synthese, sinon index+1 dans InstrumentLibrary
+    // volume par couche (canal 1 melodie, 2 accords, 3 couche 2), 0 = coupe
+    void setLayerGains (float melody, float chords, float counterLayer)
+    {
+        layerGain[1] = melody; layerGain[2] = chords; layerGain[3] = counterLayer;
+        player.setLayerGains (layerGain);
+    }
+
     void setInstruments (int melody, int chords, int counterLayer)
     {
         inst[1] = melody; inst[2] = chords; inst[3] = counterLayer;
@@ -96,6 +103,7 @@ private:
     juce::Reverb reverb;
     InstrumentPlayer player;
     int inst[4] = { 0, 0, 0, 0 };
+    float layerGain[4] = { 1, 1, 1, 1 };
     juce::Random rnd { 1234 };
     float release = 0.3f, outGain = 0.7f;
     juce::uint32 counter = 0;
@@ -213,6 +221,7 @@ private:
                 if (! v.held) v.rel *= v.relMul;
                 sum *= v.rel;
 
+                sum *= layerGain[juce::jlimit (0, 3, v.channel)];
                 L[i] += sum * v.panL;
                 if (R != nullptr) R[i] += sum * v.panR;
             }

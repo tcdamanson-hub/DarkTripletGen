@@ -196,6 +196,9 @@ DarkTripletAudioProcessorEditor::DarkTripletAudioProcessorEditor (DarkTripletAud
     addKnob ("cutoff",   "Cutoff");
     addKnob ("release",  "Release");
     addKnob ("volume",   "Volume");
+    addKnob ("volMel",     "Vol melodie", true);
+    addKnob ("volChords",  "Vol accords", true);
+    addKnob ("volCounter", "Vol couche 2", true);
 
     generateBtn.onClick = [this] { proc.randomizeSeed(); };
     previewBtn.setClickingTogglesState (true);
@@ -215,7 +218,7 @@ DarkTripletAudioProcessorEditor::DarkTripletAudioProcessorEditor (DarkTripletAud
     info.setFont (juce::FontOptions (12.0f));
     info.setJustificationType (juce::Justification::centredRight);
 
-    setSize (1120, 660);
+    setSize (1120, 680);
     startTimerHz (30);
 }
 
@@ -225,7 +228,7 @@ DarkTripletAudioProcessorEditor::~DarkTripletAudioProcessorEditor()
     setLookAndFeel (nullptr);
 }
 
-void DarkTripletAudioProcessorEditor::addKnob (const juce::String& id, const juce::String& label)
+void DarkTripletAudioProcessorEditor::addKnob (const juce::String& id, const juce::String& label, bool mix)
 {
     auto k = std::make_unique<Knob>();
     k->slider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 70, 16);
@@ -235,7 +238,8 @@ void DarkTripletAudioProcessorEditor::addKnob (const juce::String& id, const juc
     addAndMakeVisible (k->slider);
     addAndMakeVisible (k->label);
     k->att = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (proc.apvts, id, k->slider);
-    knobs.push_back (std::move (k));
+    if (mix) k->slider.setDoubleClickReturnValue (true, 1.0);
+    (mix ? mixKnobs : knobs).push_back (std::move (k));
 }
 
 void DarkTripletAudioProcessorEditor::addCombo (const juce::String& id, const juce::String& label, int width, bool secondRow)
@@ -353,13 +357,20 @@ void DarkTripletAudioProcessorEditor::resized()
     }
 
     area.removeFromTop (6);
-    auto row2 = area.removeFromTop (48);
+    auto row2 = area.removeFromTop (68);
     for (auto& c : combos2)
     {
         auto col = row2.removeFromLeft (c->width);
         c->label.setBounds (col.removeFromTop (16));
-        c->box.setBounds (col.reduced (0, 2));
+        c->box.setBounds (col.removeFromTop (30).reduced (0, 2));
         row2.removeFromLeft (12);
+    }
+    // volumes par couche (0 = coupe, double-clic = 100 %)
+    for (auto& k : mixKnobs)
+    {
+        auto col = row2.removeFromLeft (juce::jmin (110, row2.getWidth() / 3));
+        k->label.setBounds (col.removeFromTop (14));
+        k->slider.setBounds (col);
     }
 
     area.removeFromTop (8);
