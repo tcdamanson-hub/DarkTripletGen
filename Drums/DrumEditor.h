@@ -80,6 +80,7 @@ private:
     std::vector<std::unique_ptr<Combo>> combos, soundCombos;
     std::vector<std::unique_ptr<Toggle>> toggles;
 
+    juce::TextButton backBtn { "<" }, fwdBtn { ">" };
     juce::TextButton generateBtn { "GENERER" }, previewBtn { "PREVIEW" }, exportBtn { "EXPORT .MID" };
     DrumDragZone dKick, dSnare, dFill, dHats, dOpen, d808, dPerc, dFx, dAll;
     DrumGrid grid;

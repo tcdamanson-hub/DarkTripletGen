@@ -3,6 +3,7 @@
 #include <atomic>
 #include "MelodyGenerator.h"
 #include "DarkSynth.h"
+#include "GenHistory.h"
 
 class DarkTripletAudioProcessor : public juce::AudioProcessor,
                                   private juce::AudioProcessorValueTreeState::Listener,
@@ -43,6 +44,7 @@ public:
     // --- appele depuis l'interface (message thread) ---
     void regenerate();
     void randomizeSeed();
+    GenHistory history;
     void applyStyle (int style); // charge le preset du style (gamme, rythme, reglages)
     std::vector<MelodyNote> getMelodyCopy (double& loopBeatsOut);
     std::vector<MelodyNote> getChordsCopy();

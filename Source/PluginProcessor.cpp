@@ -13,7 +13,8 @@ const char* genParamIds[] = { "root", "scale", "rotation", "octave", "bars", "fe
 
 DarkTripletAudioProcessor::DarkTripletAudioProcessor()
     : AudioProcessor (BusesProperties().withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
-      apvts (*this, nullptr, "STATE", createLayout())
+      apvts (*this, nullptr, "STATE", createLayout()),
+      history (apvts, std::vector<juce::String> (std::begin (genParamIds), std::end (genParamIds)))
 {
     for (auto* id : genParamIds)
         apvts.addParameterListener (id, this);
@@ -175,9 +176,11 @@ void DarkTripletAudioProcessor::randomizeSeed()
     if (auto* p = apvts.getParameter ("seed"))
     {
         const int s = 1 + juce::Random::getSystemRandom().nextInt (99998);
+        history.beforeGenerate();
         p->beginChangeGesture();
         p->setValueNotifyingHost (p->convertTo0to1 ((float) s));
         p->endChangeGesture();
+        history.afterGenerate();
     }
 }
 

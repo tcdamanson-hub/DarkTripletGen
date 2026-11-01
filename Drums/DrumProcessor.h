@@ -3,6 +3,7 @@
 #include <atomic>
 #include "DrumGenerator.h"
 #include "DrumKit.h"
+#include "GenHistory.h"
 
 class DarkTrapDrumsProcessor : public juce::AudioProcessor,
                                private juce::AudioProcessorValueTreeState::Listener,
@@ -39,6 +40,7 @@ public:
 
     void regenerate();
     void randomizeSeed();
+    GenHistory history;
     DrumResult getPatternCopy (double& loopBeats);
     int getPatternVersion() const { return patternVersion.load(); }
     double getPlayheadBeats() const { return playheadBeats.load(); }

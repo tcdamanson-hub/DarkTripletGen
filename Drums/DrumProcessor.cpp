@@ -15,7 +15,8 @@ const char* partNames[] = { "kick", "snare", "hats", "808", "openhat", "relances
 
 DarkTrapDrumsProcessor::DarkTrapDrumsProcessor()
     : AudioProcessor (BusesProperties().withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
-      apvts (*this, nullptr, "STATE", createLayout())
+      apvts (*this, nullptr, "STATE", createLayout()),
+      history (apvts, std::vector<juce::String> (std::begin (genIds), std::end (genIds)))
 {
     for (auto* id : genIds) apvts.addParameterListener (id, this);
     regenerate();
@@ -134,9 +135,11 @@ void DarkTrapDrumsProcessor::randomizeSeed()
 {
     if (auto* p = apvts.getParameter ("seed"))
     {
+        history.beforeGenerate();
         p->beginChangeGesture();
         p->setValueNotifyingHost (p->convertTo0to1 ((float) (1 + juce::Random::getSystemRandom().nextInt (99998))));
         p->endChangeGesture();
+        history.afterGenerate();
     }
 }
 

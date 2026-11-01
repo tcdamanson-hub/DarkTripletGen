@@ -208,6 +208,12 @@ DarkTrapDrumsEditor::DarkTrapDrumsEditor (DarkTrapDrumsProcessor& p)
     addAndMakeVisible (mixLabel);
 
     generateBtn.onClick = [this] { proc.randomizeSeed(); };
+    backBtn.onClick = [this] { proc.history.back(); };
+    fwdBtn.onClick  = [this] { proc.history.forward(); };
+    backBtn.setTooltip ("Revenir a la generation precedente");
+    fwdBtn.setTooltip ("Generation suivante");
+    addAndMakeVisible (backBtn);
+    addAndMakeVisible (fwdBtn);
     previewBtn.setClickingTogglesState (true);
     previewBtn.setToggleState (proc.previewPlaying.load(), juce::dontSendNotification);
     previewBtn.onClick = [this] { proc.previewPlaying = previewBtn.getToggleState(); };
@@ -290,6 +296,8 @@ void DarkTrapDrumsEditor::exportMidi()
 
 void DarkTrapDrumsEditor::timerCallback()
 {
+    backBtn.setEnabled (proc.history.canBack());
+    fwdBtn.setEnabled (proc.history.canForward());
     const int v = proc.getPatternVersion();
     if (v != lastVersion)
     {
@@ -313,24 +321,26 @@ void DarkTrapDrumsEditor::paint (juce::Graphics& g)
 {
     g.fillAll (Col::bg);
     g.setGradientFill (juce::ColourGradient (Col::accent, 20.0f, 0.0f, Col::violet, 300.0f, 0.0f, false));
-    g.setFont (juce::FontOptions (24.0f, juce::Font::bold));
-    g.drawText ("DARK TRAP DRUMS", 20, 12, 300, 32, juce::Justification::centredLeft);
+    g.setFont (juce::FontOptions (20.0f, juce::Font::bold));
+    g.drawText ("DARK TRAP DRUMS", 20, 12, 190, 32, juce::Justification::centredLeft);
 }
 
 void DarkTrapDrumsEditor::resized()
 {
     auto area = getLocalBounds().reduced (16);
     auto top = area.removeFromTop (40);
-    top.removeFromLeft (250);
+    top.removeFromLeft (200);
     for (auto* d : { &dAll, &dFx, &d808, &dPerc, &dOpen, &dHats, &dFill, &dSnare, &dKick })
     {
-        d->setBounds (top.removeFromRight (d == &dFill ? 86 : 70).reduced (2));
+        d->setBounds (top.removeFromRight (d == &dFill ? 80 : 64).reduced (2));
         top.removeFromRight (3);
     }
     top.removeFromRight (6);
     exportBtn.setBounds (top.removeFromRight (100).reduced (2));
     previewBtn.setBounds (top.removeFromRight (80).reduced (2));
+    fwdBtn.setBounds (top.removeFromRight (30).reduced (2));
     generateBtn.setBounds (top.removeFromRight (95).reduced (2));
+    backBtn.setBounds (top.removeFromRight (30).reduced (2));
 
     area.removeFromTop (10);
     auto row = area.removeFromTop (50);

@@ -201,6 +201,12 @@ DarkTripletAudioProcessorEditor::DarkTripletAudioProcessorEditor (DarkTripletAud
     addKnob ("volCounter", "Vol couche 2", true);
 
     generateBtn.onClick = [this] { proc.randomizeSeed(); };
+    backBtn.onClick = [this] { proc.history.back(); };
+    fwdBtn.onClick  = [this] { proc.history.forward(); };
+    backBtn.setTooltip ("Revenir a la generation precedente");
+    fwdBtn.setTooltip ("Generation suivante");
+    addAndMakeVisible (backBtn);
+    addAndMakeVisible (fwdBtn);
     previewBtn.setClickingTogglesState (true);
     previewBtn.setToggleState (proc.previewPlaying.load(), juce::dontSendNotification);
     previewBtn.onClick = [this] { proc.previewPlaying = previewBtn.getToggleState(); };
@@ -296,6 +302,8 @@ void DarkTripletAudioProcessorEditor::exportMidi()
 
 void DarkTripletAudioProcessorEditor::timerCallback()
 {
+    backBtn.setEnabled (proc.history.canBack());
+    fwdBtn.setEnabled (proc.history.canForward());
     const int v = proc.getPatternVersion();
     if (v != lastVersion)
     {
@@ -337,7 +345,9 @@ void DarkTripletAudioProcessorEditor::resized()
     top.removeFromRight (4);
     previewBtn.setBounds (top.removeFromRight (85).reduced (2));
     top.removeFromRight (4);
+    fwdBtn.setBounds (top.removeFromRight (30).reduced (2));
     generateBtn.setBounds (top.removeFromRight (100).reduced (2));
+    backBtn.setBounds (top.removeFromRight (30).reduced (2));
     synthToggle.setBounds (top.removeFromRight (75).reduced (2));
 
     area.removeFromTop (10);

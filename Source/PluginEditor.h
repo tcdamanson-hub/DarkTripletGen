@@ -75,6 +75,7 @@ private:
     std::vector<std::unique_ptr<Knob>> knobs, mixKnobs;
     std::vector<std::unique_ptr<Combo>> combos, combos2;
 
+    juce::TextButton backBtn { "<" }, fwdBtn { ">" };
     juce::TextButton generateBtn { "GENERER" }, previewBtn { "PREVIEW" }, exportBtn { "EXPORT .MID" };
     juce::ToggleButton synthToggle { "Synth" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> synthAtt;
