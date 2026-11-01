@@ -2,13 +2,13 @@
 
 namespace Col
 {
-const juce::Colour bg     { 0xff0b0a10 };
-const juce::Colour panel  { 0xff15121d };
-const juce::Colour grid   { 0xff241f2e };
-const juce::Colour accent { 0xffe0234e };
-const juce::Colour violet { 0xff9d2bff };
-const juce::Colour text   { 0xffd9d3e6 };
-const juce::Colour dim    { 0xff7a7288 };
+const juce::Colour bg     = Raizer::space;
+const juce::Colour panel  { 0x990a0d24 };
+const juce::Colour grid   { 0xff1c2148 };
+const juce::Colour accent = Raizer::cyan;
+const juce::Colour violet = Raizer::nebula;
+const juce::Colour text   = Raizer::text;
+const juce::Colour dim    = Raizer::dim;
 const juce::Colour kick   { 0xffe0234e };
 const juce::Colour snare  { 0xfff2a33a };
 const juce::Colour hats   { 0xff27b8a4 };
@@ -17,49 +17,6 @@ const juce::Colour open   { 0xff7fd4ff };
 const juce::Colour fill   { 0xffc9792c };
 const juce::Colour perc   { 0xff8bd450 };
 const juce::Colour fx     { 0xffb0b8ff };
-}
-
-//==============================================================================
-DrumLookAndFeel::DrumLookAndFeel()
-{
-    setColour (juce::Slider::textBoxTextColourId, Col::text);
-    setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
-    setColour (juce::Label::textColourId, Col::text);
-    setColour (juce::ComboBox::backgroundColourId, Col::panel);
-    setColour (juce::ComboBox::outlineColourId, Col::grid);
-    setColour (juce::ComboBox::textColourId, Col::text);
-    setColour (juce::ComboBox::arrowColourId, Col::accent);
-    setColour (juce::PopupMenu::backgroundColourId, Col::panel);
-    setColour (juce::PopupMenu::textColourId, Col::text);
-    setColour (juce::PopupMenu::highlightedBackgroundColourId, Col::accent.withAlpha (0.5f));
-    setColour (juce::TextButton::buttonColourId, Col::panel);
-    setColour (juce::TextButton::buttonOnColourId, Col::accent);
-    setColour (juce::TextButton::textColourOffId, Col::text);
-    setColour (juce::TextButton::textColourOnId, juce::Colours::white);
-    setColour (juce::ToggleButton::textColourId, Col::text);
-    setColour (juce::ToggleButton::tickColourId, Col::accent);
-}
-
-void DrumLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int w, int h, float pos,
-                                        float a0, float a1, juce::Slider&)
-{
-    auto b = juce::Rectangle<int> (x, y, w, h).toFloat().reduced (4.0f);
-    const float r = juce::jmin (b.getWidth(), b.getHeight()) * 0.5f;
-    const auto c = b.getCentre();
-    const float ang = a0 + pos * (a1 - a0);
-    juce::Path track, val;
-    track.addCentredArc (c.x, c.y, r - 3, r - 3, 0, a0, a1, true);
-    val.addCentredArc (c.x, c.y, r - 3, r - 3, 0, a0, ang, true);
-    g.setColour (Col::grid);
-    g.strokePath (track, juce::PathStrokeType (3.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-    g.setGradientFill (juce::ColourGradient (Col::violet, c.x - r, c.y, Col::accent, c.x + r, c.y, false));
-    g.strokePath (val, juce::PathStrokeType (3.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-    g.setColour (Col::panel.brighter (0.15f));
-    g.fillEllipse (c.x - r * 0.62f, c.y - r * 0.62f, r * 1.24f, r * 1.24f);
-    juce::Path p;
-    p.addRoundedRectangle (-1.5f, -r * 0.6f, 3.0f, r * 0.35f, 1.5f);
-    g.setColour (Col::text);
-    g.fillPath (p, juce::AffineTransform::rotation (ang).translated (c.x, c.y));
 }
 
 //==============================================================================
@@ -228,7 +185,7 @@ DarkTrapDrumsEditor::DarkTrapDrumsEditor (DarkTrapDrumsProcessor& p)
     info.setColour (juce::Label::textColourId, Col::dim);
     info.setFont (juce::FontOptions (12.0f));
 
-    setSize (1240, 770);
+    setSize (1240, 790);
     startTimerHz (30);
 }
 
@@ -318,14 +275,21 @@ void DarkTrapDrumsEditor::timerCallback()
     if (fr >= 0) info.setText ("808 suit l'entree MIDI : " + juce::String (nn[fr]), juce::dontSendNotification);
     else if (info.getText().startsWith ("808 suit")) lastVersion = -1;
     grid.setPlayhead (proc.getPlayheadBeats());
+    {
+        const double ph = proc.getPlayheadBeats();
+        const float target = ph >= 0.0 ? (float) std::pow (1.0 - std::fmod (ph, 1.0), 3.0) : 0.0f;
+        if (std::abs (target - pulse) > 0.01f) { pulse = target; repaint (0, 0, 80, 80); }
+    }
 }
 
 void DarkTrapDrumsEditor::paint (juce::Graphics& g)
 {
-    g.fillAll (Col::bg);
-    g.setGradientFill (juce::ColourGradient (Col::accent, 20.0f, 0.0f, Col::violet, 300.0f, 0.0f, false));
-    g.setFont (juce::FontOptions (20.0f, juce::Font::bold));
-    g.drawText ("DARK TRAP DRUMS", 20, 12, 190, 32, juce::Justification::centredLeft);
+    if (bgImg.getWidth() != getWidth() || bgImg.getHeight() != getHeight())
+        bgImg = Raizer::makeBackground (getWidth(), getHeight());
+    g.drawImageAt (bgImg, 0, 0);
+    for (auto& r : panelRects) if (! r.isEmpty()) Raizer::drawPanel (g, r);
+    Raizer::drawOrb (g, { 36.0f, 36.0f }, 14.0f, pulse);
+    Raizer::drawTitle (g, { 62.0f, 18.0f, 150.0f, 40.0f }, "RAIZER DA VST", "Drums");
 }
 
 void DarkTrapDrumsEditor::resized()
@@ -347,6 +311,7 @@ void DarkTrapDrumsEditor::resized()
 
     area.removeFromTop (10);
     auto row = area.removeFromTop (50);
+    panelRects[0] = row.toFloat().expanded (8.0f, 3.0f);
     for (auto& c : combos)
     {
         auto col = row.removeFromLeft (c->width);
@@ -359,8 +324,9 @@ void DarkTrapDrumsEditor::resized()
     for (size_t i = 0; i < toggles.size(); ++i)
         toggles[i]->button.setBounds (row.removeFromLeft (tw[i]));
 
-    area.removeFromTop (6);
+    area.removeFromTop (8);
     auto srow = area.removeFromTop (46);
+    panelRects[1] = srow.toFloat().expanded (8.0f, 3.0f);
     for (auto& c : soundCombos)
     {
         auto col = srow.removeFromLeft (c->width);
@@ -371,6 +337,7 @@ void DarkTrapDrumsEditor::resized()
 
     area.removeFromTop (8);
     auto knobRow = area.removeFromTop (100);
+    panelRects[2] = knobRow.toFloat().expanded (8.0f, 3.0f);
     const int kw = knobRow.getWidth() / (int) knobs.size();
     for (auto& k : knobs)
     {
@@ -378,9 +345,11 @@ void DarkTrapDrumsEditor::resized()
         k->label.setBounds (col.removeFromTop (16));
         k->slider.setBounds (col);
     }
-    area.removeFromTop (4);
-    mixLabel.setBounds (area.removeFromTop (16));
-    auto mixRow = area.removeFromTop (72);
+    area.removeFromTop (8);
+    auto mixArea = area.removeFromTop (88);
+    panelRects[3] = mixArea.toFloat().expanded (8.0f, 3.0f);
+    mixLabel.setBounds (mixArea.removeFromTop (16));
+    auto mixRow = mixArea;
     const int mw = juce::jmin (110, mixRow.getWidth() / (int) mixKnobs.size());
     for (auto& k : mixKnobs)
     {
@@ -388,9 +357,10 @@ void DarkTrapDrumsEditor::resized()
         k->label.setBounds (col.removeFromTop (14));
         k->slider.setBounds (col);
     }
-    area.removeFromTop (6);
+    area.removeFromTop (10);
     info.setBounds (area.removeFromBottom (22));
     grid.setBounds (area);
+    panelRects[4] = area.toFloat().expanded (6.0f);
 }
 
 juce::AudioProcessorEditor* DarkTrapDrumsProcessor::createEditor()

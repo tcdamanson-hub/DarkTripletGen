@@ -2,60 +2,15 @@
 
 namespace Col
 {
-const juce::Colour bg       { 0xff0b0a10 };
-const juce::Colour panel    { 0xff15121d };
-const juce::Colour grid     { 0xff241f2e };
-const juce::Colour accent   { 0xff9d2bff };
-const juce::Colour blood    { 0xffe0234e };
-const juce::Colour text     { 0xffd9d3e6 };
-const juce::Colour dim      { 0xff7a7288 };
-const juce::Colour chord    { 0xff3f6fd8 };
-const juce::Colour layer2   { 0xff27b8a4 };
-}
-
-//==============================================================================
-DarkLookAndFeel::DarkLookAndFeel()
-{
-    setColour (juce::Slider::textBoxTextColourId, Col::text);
-    setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
-    setColour (juce::Label::textColourId, Col::text);
-    setColour (juce::ComboBox::backgroundColourId, Col::panel);
-    setColour (juce::ComboBox::outlineColourId, Col::grid);
-    setColour (juce::ComboBox::textColourId, Col::text);
-    setColour (juce::ComboBox::arrowColourId, Col::accent);
-    setColour (juce::PopupMenu::backgroundColourId, Col::panel);
-    setColour (juce::PopupMenu::textColourId, Col::text);
-    setColour (juce::PopupMenu::highlightedBackgroundColourId, Col::accent.withAlpha (0.5f));
-    setColour (juce::TextButton::buttonColourId, Col::panel);
-    setColour (juce::TextButton::buttonOnColourId, Col::accent);
-    setColour (juce::TextButton::textColourOffId, Col::text);
-    setColour (juce::TextButton::textColourOnId, juce::Colours::white);
-    setColour (juce::ToggleButton::textColourId, Col::text);
-    setColour (juce::ToggleButton::tickColourId, Col::accent);
-}
-
-void DarkLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int w, int h, float pos,
-                                        float a0, float a1, juce::Slider&)
-{
-    auto b = juce::Rectangle<int> (x, y, w, h).toFloat().reduced (4.0f);
-    const float r = juce::jmin (b.getWidth(), b.getHeight()) * 0.5f;
-    const auto c = b.getCentre();
-    const float ang = a0 + pos * (a1 - a0);
-
-    juce::Path track, val;
-    track.addCentredArc (c.x, c.y, r - 3, r - 3, 0, a0, a1, true);
-    val.addCentredArc (c.x, c.y, r - 3, r - 3, 0, a0, ang, true);
-    g.setColour (Col::grid);
-    g.strokePath (track, juce::PathStrokeType (3.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-    g.setGradientFill (juce::ColourGradient (Col::accent, c.x - r, c.y, Col::blood, c.x + r, c.y, false));
-    g.strokePath (val, juce::PathStrokeType (3.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-
-    g.setColour (Col::panel.brighter (0.15f));
-    g.fillEllipse (c.x - r * 0.62f, c.y - r * 0.62f, r * 1.24f, r * 1.24f);
-    juce::Path p;
-    p.addRoundedRectangle (-1.5f, -r * 0.6f, 3.0f, r * 0.35f, 1.5f);
-    g.setColour (Col::text);
-    g.fillPath (p, juce::AffineTransform::rotation (ang).translated (c.x, c.y));
+const juce::Colour bg       = Raizer::space;
+const juce::Colour panel    { 0x990a0d24 };
+const juce::Colour grid     { 0xff1c2148 };
+const juce::Colour accent   = Raizer::cyan;     // melodie
+const juce::Colour blood    = Raizer::magenta;
+const juce::Colour text     = Raizer::text;
+const juce::Colour dim      = Raizer::dim;
+const juce::Colour chord    { 0xff6b4dff };     // accords
+const juce::Colour layer2   { 0xff58f0c0 };     // couche 2
 }
 
 //==============================================================================
@@ -225,7 +180,7 @@ DarkTripletAudioProcessorEditor::DarkTripletAudioProcessorEditor (DarkTripletAud
     info.setFont (juce::FontOptions (12.0f));
     info.setJustificationType (juce::Justification::centredRight);
 
-    setSize (1120, 680);
+    setSize (1120, 700);
     startTimerHz (30);
 }
 
@@ -318,6 +273,11 @@ void DarkTripletAudioProcessorEditor::timerCallback()
         roll.setNotes (std::move (mel), std::move (chd), std::move (ctr), L);
     }
     roll.setPlayhead (proc.getPlayheadBeats());
+    {
+        const double ph = proc.getPlayheadBeats();
+        const float target = ph >= 0.0 ? (float) std::pow (1.0 - std::fmod (ph, 1.0), 3.0) : 0.0f;
+        if (std::abs (target - pulse) > 0.01f) { pulse = target; repaint (0, 0, 90, 80); }
+    }
     const int st = (int) proc.apvts.getRawParameterValue ("style")->load();
     if (st != styleBox.getSelectedItemIndex())
         styleBox.setSelectedItemIndex (st, juce::dontSendNotification);
@@ -325,10 +285,12 @@ void DarkTripletAudioProcessorEditor::timerCallback()
 
 void DarkTripletAudioProcessorEditor::paint (juce::Graphics& g)
 {
-    g.fillAll (Col::bg);
-    g.setGradientFill (juce::ColourGradient (Col::accent, 20.0f, 0.0f, Col::blood, 320.0f, 0.0f, false));
-    g.setFont (juce::FontOptions (24.0f, juce::Font::bold));
-    g.drawText ("DARK TRIPLET GEN", 20, 12, 300, 32, juce::Justification::centredLeft);
+    if (bgImg.getWidth() != getWidth() || bgImg.getHeight() != getHeight())
+        bgImg = Raizer::makeBackground (getWidth(), getHeight());
+    g.drawImageAt (bgImg, 0, 0);
+    for (auto& r : panelRects) if (! r.isEmpty()) Raizer::drawPanel (g, r);
+    Raizer::drawOrb (g, { 40.0f, 36.0f }, 15.0f, pulse);
+    Raizer::drawTitle (g, { 70.0f, 18.0f, 230.0f, 40.0f }, "RAIZER DA VST", "Melodies & accords - dark trap");
 }
 
 void DarkTripletAudioProcessorEditor::resized()
@@ -353,6 +315,7 @@ void DarkTripletAudioProcessorEditor::resized()
 
     area.removeFromTop (10);
     auto comboRow = area.removeFromTop (50);
+    panelRects[0] = comboRow.toFloat().expanded (8.0f, 4.0f);
     {
         auto col = comboRow.removeFromLeft (110);
         styleLabel.setBounds (col.removeFromTop (18));
@@ -369,6 +332,7 @@ void DarkTripletAudioProcessorEditor::resized()
 
     area.removeFromTop (6);
     auto row2 = area.removeFromTop (68);
+    panelRects[1] = row2.toFloat().expanded (8.0f, 2.0f);
     for (auto& c : combos2)
     {
         auto col = row2.removeFromLeft (c->width);
@@ -386,6 +350,7 @@ void DarkTripletAudioProcessorEditor::resized()
 
     area.removeFromTop (8);
     auto knobRow = area.removeFromTop (100);
+    panelRects[2] = knobRow.toFloat().expanded (8.0f, 4.0f);
     const int kw = knobRow.getWidth() / (int) knobs.size();
     for (auto& k : knobs)
     {
@@ -394,12 +359,13 @@ void DarkTripletAudioProcessorEditor::resized()
         k->slider.setBounds (col);
     }
 
-    area.removeFromTop (6);
+    area.removeFromTop (14);
     auto infoRow = area.removeFromBottom (24);
     chordLabel.setBounds (infoRow.removeFromLeft (infoRow.getWidth() / 2));
     info.setBounds (infoRow);
     area.removeFromBottom (4);
     roll.setBounds (area);
+    panelRects[3] = area.toFloat().expanded (6.0f);
 }
 
 juce::AudioProcessorEditor* DarkTripletAudioProcessor::createEditor()

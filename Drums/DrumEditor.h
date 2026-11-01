@@ -1,14 +1,9 @@
 #pragma once
 #include <juce_audio_utils/juce_audio_utils.h>
 #include "DrumProcessor.h"
+#include "RaizerTheme.h"
 
-class DrumLookAndFeel : public juce::LookAndFeel_V4
-{
-public:
-    DrumLookAndFeel();
-    void drawRotarySlider (juce::Graphics&, int x, int y, int w, int h, float pos,
-                           float a0, float a1, juce::Slider&) override;
-};
+class DrumLookAndFeel : public Raizer::LookAndFeel {};
 
 class DrumGrid : public juce::Component
 {
@@ -87,6 +82,9 @@ private:
     juce::Label info;
     std::unique_ptr<juce::FileChooser> chooser;
     int lastVersion = -1;
+    juce::Image bgImg;
+    juce::Rectangle<float> panelRects[5];
+    float pulse = 0.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DarkTrapDrumsEditor)
 };

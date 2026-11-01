@@ -1,14 +1,9 @@
 #pragma once
 #include <juce_audio_utils/juce_audio_utils.h>
 #include "PluginProcessor.h"
+#include "RaizerTheme.h"
 
-class DarkLookAndFeel : public juce::LookAndFeel_V4
-{
-public:
-    DarkLookAndFeel();
-    void drawRotarySlider (juce::Graphics&, int x, int y, int w, int h, float pos,
-                           float startAngle, float endAngle, juce::Slider&) override;
-};
+class DarkLookAndFeel : public Raizer::LookAndFeel {};
 
 class PianoRoll : public juce::Component
 {
@@ -85,6 +80,9 @@ private:
     juce::ComboBox styleBox;
     std::unique_ptr<juce::FileChooser> chooser;
     int lastVersion = -1;
+    juce::Image bgImg;
+    juce::Rectangle<float> panelRects[4];
+    float pulse = 0.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DarkTripletAudioProcessorEditor)
 };
