@@ -83,9 +83,12 @@ public:
     {
         const auto* s = InstrumentLibrary::get().at (sampleIndex);
         if (s == nullptr) return;
-        // meme note sur le meme canal : on relache l'ancienne
+        // decoupe : une nouvelle note coupe les notes deja en cours sur la meme couche
+        // (les notes jouees ensemble, a moins de 25 ms, restent : accords, doubles notes)
+        const juce::int64 window = (juce::int64) (0.025 * sr);
         for (auto& v : voices)
-            if (v.active && v.ch == ch && v.note == note && v.held) startRelease (v, 0.03f);
+            if (v.active && v.ch == ch && (v.note == note || now - v.start > window))
+                startRelease (v, ch == 2 ? 0.12f : 0.06f);
         Voice* v = nullptr;
         for (auto& x : voices) if (! x.active) { v = &x; break; }
         if (v == nullptr)
@@ -99,6 +102,7 @@ public:
         v->gain = level * (0.3f + 0.7f * vel);
         v->attMul = (float) (1.0 / (0.003 * sr));
         v->age = ++counter;
+        v->start = now;
     }
 
     void noteOff (int ch, int note)
@@ -112,6 +116,7 @@ public:
     // L[c] / R[c] : buffers de la couche c (1..3)
     void renderRange (float* const* L, float* const* R, int start, int end)
     {
+        if (end > start) now += end - start;
         for (auto& v : voices)
         {
             if (! v.active) continue;
@@ -149,6 +154,7 @@ private:
         float gain = 1, att = 0, attMul = 0.01f, rel = 1, relMul = 1;
         int ch = 0, note = 0;
         juce::uint32 age = 0;
+        juce::int64 start = 0;
     };
 
     static float hermite (float xm1, float x0, float x1, float x2, float t)
@@ -172,4 +178,5 @@ private:
     float layerGain[4] = { 1, 1, 1, 1 };
     juce::uint32 counter = 0;
     std::array<Voice, 64> voices;
+    juce::int64 now = 0;
 };
