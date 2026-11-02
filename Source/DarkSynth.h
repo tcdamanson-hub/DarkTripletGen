@@ -113,33 +113,19 @@ public:
         if (R != nullptr) reverb.processStereo (L, R, num);
         else              reverb.processMono (L, num);
 
-        // instruments samples : filtres par couche, compresseur de bus, pas de reverb en plus
-        // (tes sons ont deja leur espace)
-        juce::AudioBuffer<float> bus (layerBuf.getArrayOfWritePointers(), 2, num);
-        bus.clear();
+        // instruments samples : lecture simple et propre, comme le kit de drums
+        // (pas d'EQ, pas de compresseur, pas de reverb ajoutee : le son de ton sample tel quel)
         for (int c = 1; c <= 3; ++c)
         {
-            float* ptrs[2] = { layerBuf.getWritePointer (c * 2), layerBuf.getWritePointer (c * 2 + 1) };
-            juce::dsp::AudioBlock<float> blk (ptrs, 2, (size_t) num);
-            juce::dsp::ProcessContextReplacing<float> ctx (blk);
-            hp[c].process (ctx);
-            lp[c].process (ctx);
-            peak[c].process (ctx);
-            layerComp[c].process (ctx);
-            if (c == 1) blk.multiplyBy (1.6f);  // compensation : la melodie devant
-            bus.addFrom (0, 0, ptrs[0], num);
-            bus.addFrom (1, 0, ptrs[1], num);
-        }
-        {
-            juce::dsp::AudioBlock<float> blk (bus);
-            juce::dsp::ProcessContextReplacing<float> ctx (blk);
-            busComp.process (ctx);
-        }
-        for (int i = 0; i < num; ++i)
-        {
-            L[i] += bus.getSample (0, i) * busGain;
-            if (R != nullptr) R[i] += bus.getSample (1, i) * busGain;
-            else L[i] += bus.getSample (1, i) * busGain;
+            const float g = sampleLevel[c];
+            const float* sl = layerBuf.getReadPointer (c * 2);
+            const float* sr2 = layerBuf.getReadPointer (c * 2 + 1);
+            for (int i = 0; i < num; ++i)
+            {
+                L[i] += sl[i] * g;
+                if (R != nullptr) R[i] += sr2[i] * g;
+                else L[i] += sr2[i] * g;
+            }
         }
 
         for (int c = 0; c < buf.getNumChannels(); ++c)
@@ -176,7 +162,7 @@ private:
     juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>> peak[4];
     juce::dsp::Compressor<float> layerComp[4];
     juce::dsp::Compressor<float> busComp;
-    float busGain = 4.5f;
+    float sampleLevel[4] = { 0, 2.8f, 3.0f, 3.5f };   // melodie, accords, contre-melo
     int inst[4] = { 0, 0, 0, 0 };
     float layerGain[4] = { 1, 1, 1, 1 };
     juce::Random rnd { 1234 };
@@ -225,7 +211,7 @@ private:
         {
             // notes trop graves pour un son samples : remontees d'octave (la 808 garde le grave)
             n = liftNote (ch, n);
-            const float lvl = ch == 1 ? 1.0f : ch == 3 ? 1.6f : 0.9f;
+            const float lvl = 1.0f;
 
             player.noteOn (ch, n, vel, sel - 1, lvl);
             return;

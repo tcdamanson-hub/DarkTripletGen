@@ -83,12 +83,9 @@ public:
     {
         const auto* s = InstrumentLibrary::get().at (sampleIndex);
         if (s == nullptr) return;
-        // decoupe : une nouvelle note coupe les notes deja en cours sur la meme couche
-        // (les notes jouees ensemble, a moins de 25 ms, restent : accords, doubles notes)
-        const juce::int64 window = (juce::int64) (0.025 * sr);
+        // meme note deja en cours sur la meme couche : on la relache (pas d'empilement de la meme note)
         for (auto& v : voices)
-            if (v.active && v.ch == ch && (v.note == note || now - v.start > window))
-                startRelease (v, ch == 2 ? 0.12f : 0.06f);
+            if (v.active && v.ch == ch && v.note == note) startRelease (v, 0.04f);
         Voice* v = nullptr;
         for (auto& x : voices) if (! x.active) { v = &x; break; }
         if (v == nullptr)
