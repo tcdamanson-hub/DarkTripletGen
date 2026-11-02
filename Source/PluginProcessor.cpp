@@ -8,7 +8,7 @@ const juce::StringArray rootNames { "C", "C#", "D", "D#", "E", "F", "F#", "G", "
 const int barChoices[] = { 1, 2, 4, 8 };
 
 const char* genParamIds[] = { "root", "scale", "rotation", "octave", "bars", "feel", "prog", "chordMode",
-                              "density", "darkness", "rolls", "rests", "octJumps", "range", "gate", "seed", "style", "motif", "layer2", "bank", "variation" };
+                              "density", "darkness", "rolls", "rests", "octJumps", "range", "gate", "seed", "style", "motif", "layer2", "bank", "variation", "tension" };
 }
 
 DarkTripletAudioProcessor::DarkTripletAudioProcessor()
@@ -49,8 +49,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout DarkTripletAudioProcessor::c
     for (auto& s : MelodyGenerator::getStyleNames())
         styleNames.add (s);
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "style", 3 }, "Style", styleNames, 1));
-    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "motif", 10 }, "Engine",
-                                                          StringArray { "Phrases (tes MIDI)", "Topline", "Melange" }, 0));
+    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "motif", 11 }, "Engine",
+                                                          StringArray { "Accords d'abord", "Topline", "Melange", "Phrases" }, 0));
+    ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "tension", 11 }, "Tension", NormalisableRange<float> (0.0f, 1.0f), 0.3f, pct));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "layer2", 5 }, "Counter Melody",
                                                           StringArray { "Off", "On" }, 1));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "root", 2 }, "Root", rootNames, 9));
@@ -132,6 +133,7 @@ GenParams DarkTripletAudioProcessor::readParams() const
     p.layer2       = (int) v ("layer2");
     p.bank         = (int) v ("bank");
     p.variation    = (int) v ("variation");
+    p.tension      = v ("tension");
     return p;
 }
 

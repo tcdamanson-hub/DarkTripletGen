@@ -144,11 +144,9 @@ public:
 
     GenResult run()
     {
-        // 0 = phrases completes de tes MIDI (avec leurs accords) ; une progression choisie a la main -> moteur "melange"
-        if (p.motif == 0)
-            return (p.progression > 0) ? runLearned() : runPhrase();
-        if (p.motif == 2)
-            return runLearned();
+        if (p.motif == 0) return runChordFirst();
+        if (p.motif == 2) return runLearned();
+        if (p.motif == 3) return (p.progression > 0) ? runLearned() : runPhrase();
 
         GenResult res;
         totalTicks = p.bars * 96;
@@ -728,6 +726,162 @@ private:
     //  MOTEUR "PHRASES" : comme pour les drums, une phrase entiere d'un de tes
     //  MIDI (jusqu'a 8 mesures) avec SES accords, transposee dans ta gamme
     // =========================================================================
+    // =========================================================================
+    //  MOTEUR "ACCORDS D'ABORD" (methode Scaler / Captain / Melody Sauce)
+    //   1. la grille d'accords commande tout
+    //   2. le rythme et le dessin (monte / descend) viennent d'une phrase de tes MIDI
+    //   3. chaque note est choisie sur l'accord en cours : notes de l'accord sur les
+    //      temps forts, notes de passage dosees par "Tension"
+    //   4. contre-melo = notes de l'accord sous la melodie
+    // =========================================================================
+    struct RNote { int on, dur, step, vel; };
+
+    // ligne du haut d'une phrase (la melodie), mesure par mesure
+    std::vector<std::vector<RNote>> topLine (const learned::Phrase& ph) const
+    {
+        std::vector<std::vector<RNote>> bars ((size_t) std::max (1, (int) ph.nbars));
+        std::vector<RNote> all;
+        for (int i = 0; i < ph.count; ++i)
+        {
+            const auto& x = learned::phraseNotes[ph.start + i];
+            if (x.step < -2) continue;                 // basse / accompagnement
+            all.push_back ({ x.on, x.dur, x.step, x.vel });
+        }
+        std::sort (all.begin(), all.end(), [] (const RNote& a, const RNote& b) { return a.on != b.on ? a.on < b.on : a.step > b.step; });
+        for (size_t i = 0; i < all.size(); )
+        {
+            size_t j = i;
+            while (j < all.size() && all[j].on - all[i].on <= 2) ++j;
+            const auto& t = all[i];                     // note la plus haute de l'instant
+            const int b = t.on / 96;
+            if (b >= 0 && b < (int) bars.size()) bars[(size_t) b].push_back ({ t.on % 96, t.dur, t.step, t.vel });
+            i = j;
+        }
+        return bars;
+    }
+
+    int pickPhrase (int excludeIdx, float notesPerBar)
+    {
+        auto weights = [&] (bool useFeel, bool useBank)
+        {
+            std::vector<float> w ((size_t) learned::numPhrases, 0.0f);
+            for (int i = 0; i < learned::numPhrases; ++i)
+            {
+                if (i == excludeIdx) continue;
+                const auto& ph = learned::phrases[i];
+                if (useBank && p.bank >= 1 && p.bank <= 3 && (int) learned::srcBank[ph.src] != p.bank) continue;
+                if (useFeel && p.feel != 2 && ph.feel != p.feel) continue;
+                const float d = (float) ph.count / (float) ph.nbars - notesPerBar;
+                w[(size_t) i] = std::exp (-(d * d) / 120.0f) + 0.03f;
+            }
+            return w;
+        };
+        int idx = rng.pickWeighted (weights (true, true));
+        if (idx < 0) idx = rng.pickWeighted (weights (false, true));
+        if (idx < 0) idx = rng.pickWeighted (weights (false, false));
+        return idx;
+    }
+
+    bool isTone7 (const Chord& c, int d) const
+    {
+        const int k = mod (d - c.r, n);
+        return k == 0 || k == c.t3 || k == c.t5 || (use7th() && k == c.t7);
+    }
+
+    GenResult runChordFirst()
+    {
+        GenResult res;
+        totalTicks = p.bars * 96;
+        if (p.root > 6) base -= 12;
+
+        const int idx = pickPhrase (-1, 3.0f + p.density * 10.0f);
+        if (idx < 0) { if (p.root > 6) base += 12; return runLearned(); }
+        const auto& ph = learned::phrases[idx];
+        const int nb = std::max (1, (int) ph.nbars);
+        auto rhythm = topLine (ph);
+
+        // ---------- 1. grille d'accords ----------
+        int degs[8];
+        if (p.progression > 0 && p.progression <= numProgs)
+            for (int b = 0; b < 8; ++b) degs[b] = progs[p.progression - 1].deg[b % 4];
+        else
+        {
+            int last = 0;
+            for (int b = 0; b < 8; ++b) { int d = ph.roots[b % nb]; if (d < 0) d = last; degs[b] = last = d; }
+        }
+        for (int b = 0; b < p.bars; ++b)
+            slots.push_back ({ b * 96, (b + 1) * 96, makeChord (degs[b % 8]) });
+        for (int b = 0; b < std::min (4, p.bars); ++b)
+            res.chordNames.push_back (chordName (slots[(size_t) b].c));
+
+        // variations : meme grille, meme rythme, autres choix de notes
+        if (p.variation > 0) rng = Rng (p.seed * 7919 + p.variation * 104729);
+
+        // ---------- 2 + 3. melodie : rythme de ta phrase, notes choisies sur l'accord ----------
+        const int lo = 0, hi = n + std::min (n, 2 + 2 * p.rangeOctaves);   // registre (degres depuis la tonique)
+        int prev = -1, prevSrc = 0;
+        std::vector<PNote> mel;
+        std::vector<int> melDeg;   // degre de la melodie a chaque note (pour la contre-melo)
+        std::vector<int> barFirst; // memoire du motif (mesure 1 -> 3)
+        for (int b = 0; b < p.bars; ++b)
+        {
+            const auto& c = slots[(size_t) b].c;
+            const auto& rb = rhythm[(size_t) (b % nb)];
+            const bool lastBar = (b == p.bars - 1);
+            for (size_t k = 0; k < rb.size(); ++k)
+            {
+                const auto& x = rb[k];
+                const int tick = b * 96 + x.on;
+                if (tick >= totalTicks) continue;
+                const bool lastNote = lastBar && k + 1 == rb.size();
+                const bool strong = (x.on % 48 == 0) || x.dur >= 24 || lastNote;
+                // dessin d'origine : la note monte, descend ou reste
+                const int move = (prev < 0) ? 0 : std::clamp (x.step - prevSrc, -3, 3);
+                int desired = (prev < 0) ? (c.r % n) + n / 2 + 1 : prev + move;
+                desired = std::clamp (desired, lo, hi);
+                const bool passing = ! strong && rng.chance (p.tension);
+                int best = desired, bestScore = 1 << 30;
+                for (int d = lo; d <= hi; ++d)
+                {
+                    if (! passing && ! isTone7 (c, d)) continue;
+                    if (passing && prev >= 0 && std::abs (d - prev) > 2) continue;   // note de passage = pas conjoint
+                    int sc = std::abs (d - desired) * 10 + (prev >= 0 ? std::max (0, std::abs (d - prev) - 4) * 8 : 0);
+                    if (move != 0 && prev >= 0 && (d - prev) * move < 0) sc += 15;     // respecte le sens du dessin
+                    if (lastNote) sc -= (mod (d - c.r, n) == 0) ? 12 : 0;              // fin sur la fondamentale
+                    sc += rng.nextInt (4);
+                    if (sc < bestScore) { bestScore = sc; best = d; }
+                }
+                prev = best; prevSrc = x.step;
+                const int midi = std::clamp (midiC (best, c), 0, 127);
+                int dur = std::max (2, std::min ((int) std::lround (x.dur * (0.4 + 0.6 * p.gate)), totalTicks - tick));
+                if (lastNote) dur = std::max (dur, std::min (36, totalTicks - tick));
+                mel.push_back ({ tick, dur, midi, std::clamp (x.vel, 40, 127) });
+                melDeg.push_back (best);
+            }
+        }
+        toMelody (mel, res.melody);
+
+        // ---------- 4. contre-melo : notes de l'accord sous la melodie, sur les temps ----------
+        if (p.layer2 > 0)
+        {
+            std::vector<PNote> cm;
+            for (size_t i = 0; i < mel.size(); ++i)
+            {
+                const auto& m = mel[i];
+                if (m.tick % 24 != 0 && m.dur < 18) continue;
+                const auto& c = slots[(size_t) std::min ((int) slots.size() - 1, m.tick / 96)].c;
+                int d = melDeg[i] - 1;
+                while (d > melDeg[i] - 7 && ! isChordTone (c, d)) --d;   // premiere note de l'accord en dessous
+                if (! isChordTone (c, d)) continue;
+                cm.push_back ({ m.tick, m.dur, std::clamp (midiC (d, c), 0, 127), std::max (1, m.vel - 20) });
+            }
+            toMelody (cm, res.counter);
+        }
+
+        if (p.chordMode > 0) renderChords (res);
+        return res;
+    }
+
     GenResult runPhrase()
     {
         GenResult res;

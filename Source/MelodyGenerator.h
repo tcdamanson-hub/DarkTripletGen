@@ -21,7 +21,7 @@ struct GenParams
     int   feel         = 0;     // 0 = triolets, 1 = normal (binaire), 2 = mix
     int   progression  = 0;     // 0 = auto, sinon index dans la liste
     int   chordMode    = 1;     // 0 = pas d'accords, 1 = tenus, 2 = rythmes
-    int   motif        = 0;     // 0 = appris (tes MIDI), 1 = topline
+    int   motif        = 0;     // 0 = accords d'abord, 1 = topline, 2 = melange, 3 = phrases
     int   layer2       = 1;     // 0 = off, 1 = 2e couche
     int   style        = 0;     // 0 = perso, 1 = Ninho, 2 = Werenoi, 3 = Trap dark, 4 = Triolets
     int   bank         = 0;     // banque MIDI apprise : 0 = toutes, 1 = melodies, 2 = guitare, 3 = Nexus, 4 = Melodic (variations)
@@ -33,7 +33,8 @@ struct GenParams
     int   rangeOctaves = 2;     // 1..3
     float gate         = 0.95f; // 0.1..1 longueur des notes (legato)
     int   seed         = 1337;
-    int   variation    = 0;     // 0 = originale, 1..3 = variations (memes accords et meme motif de base)
+    int   variation    = 0;
+    float tension      = 0.3f;  // 0..1 : 0 = que des notes de l'accord, 1 = beaucoup de notes de passage     // 0 = originale, 1..3 = variations (memes accords et meme motif de base)
 };
 
 struct GenResult

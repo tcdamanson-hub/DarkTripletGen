@@ -143,6 +143,7 @@ DarkTripletAudioProcessorEditor::DarkTripletAudioProcessorEditor (DarkTripletAud
     addKnob ("octave",   "Octave");
     addKnob ("range",    "Etendue");
     addKnob ("density",  "Densite");
+    addKnob ("tension",  "Tension");
     addKnob ("darkness", "Darkness");
     addKnob ("rolls",    "Runs");
     addKnob ("rests",    "Silences");
