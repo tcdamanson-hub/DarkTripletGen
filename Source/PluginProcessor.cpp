@@ -49,8 +49,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout DarkTripletAudioProcessor::c
     for (auto& s : MelodyGenerator::getStyleNames())
         styleNames.add (s);
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "style", 3 }, "Style", styleNames, 1));
-    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "motif", 5 }, "Engine",
-                                                          StringArray { "Appris (tes MIDI)", "Topline" }, 0));
+    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "motif", 10 }, "Engine",
+                                                          StringArray { "Phrases (tes MIDI)", "Topline", "Melange" }, 0));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "layer2", 5 }, "Layer 2",
                                                           StringArray { "Off", "On" }, 1));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "root", 2 }, "Root", rootNames, 9));

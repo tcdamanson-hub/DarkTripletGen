@@ -144,7 +144,10 @@ public:
 
     GenResult run()
     {
+        // 0 = phrases completes de tes MIDI (avec leurs accords) ; une progression choisie a la main -> moteur "melange"
         if (p.motif == 0)
+            return (p.progression > 0) ? runLearned() : runPhrase();
+        if (p.motif == 2)
             return runLearned();
 
         GenResult res;
@@ -719,6 +722,104 @@ private:
         if (b.empty()) return 0.0f;
         float s = 0; for (auto& x : b) s += (float) x.step;
         return s / (float) b.size();
+    }
+
+    // =========================================================================
+    //  MOTEUR "PHRASES" : comme pour les drums, une phrase entiere d'un de tes
+    //  MIDI (jusqu'a 8 mesures) avec SES accords, transposee dans ta gamme
+    // =========================================================================
+    GenResult runPhrase()
+    {
+        GenResult res;
+        totalTicks = p.bars * 96;
+        if (p.root > 6) base -= 12;
+
+        const float target = 4.0f + p.density * 20.0f;      // notes par mesure
+        auto weights = [&] (bool useFeel, bool useBank)
+        {
+            std::vector<float> w ((size_t) learned::numPhrases, 0.0f);
+            for (int i = 0; i < learned::numPhrases; ++i)
+            {
+                const auto& ph = learned::phrases[i];
+                if (useBank && p.bank >= 1 && p.bank <= 3 && (int) learned::srcBank[ph.src] != p.bank) continue;
+                if (useFeel && p.feel != 2 && ph.feel != p.feel) continue;
+                const float d = (float) ph.count / (float) ph.nbars - target;
+                w[(size_t) i] = std::exp (-(d * d) / 120.0f) + 0.03f;
+            }
+            return w;
+        };
+        int idx = rng.pickWeighted (weights (true, true));
+        if (idx < 0) idx = rng.pickWeighted (weights (false, true));
+        if (idx < 0) idx = rng.pickWeighted (weights (false, false));
+        if (idx < 0) { if (p.root > 6) base += 12; return runLearned(); }
+        const auto& ph = learned::phrases[idx];
+        const int nb = std::max (1, (int) ph.nbars);
+
+        // variations : on part d'une autre mesure de la meme phrase et on retouche legerement
+        const int off = (p.variation > 0 && nb >= 4) ? (p.variation * 2) % nb : 0;
+
+        // accords d'origine de la phrase
+        int lastDeg = 0;
+        for (int b = 0; b < p.bars; ++b)
+        {
+            int deg = ph.roots[(b + off) % nb];
+            if (deg < 0) deg = lastDeg;
+            lastDeg = deg;
+            slots.push_back ({ b * 96, (b + 1) * 96, makeChord (deg) });
+        }
+        for (int b = 0; b < std::min (4, p.bars); ++b)
+            res.chordNames.push_back (chordName (slots[(size_t) b].c));
+
+        std::vector<PNote> mel;
+        for (int b = 0; b < p.bars; ++b)
+        {
+            const int sb = (b + off) % nb;
+            for (int i = 0; i < ph.count; ++i)
+            {
+                const auto& x = learned::phraseNotes[ph.start + i];
+                if (x.on / 96 != sb) continue;
+                const int tick = b * 96 + x.on % 96;
+                if (tick >= totalTicks) continue;
+                int midi = midiC (stepToDeg (x.step), slots[(size_t) b].c);
+                // variation 2 : notes les plus aigues une octave plus bas ; variation 3 : on allege les notes rapides
+                if (p.variation == 2 && midi > base + 14) midi -= 12;
+                if (p.variation == 3 && x.dur <= 6 && rng.chance (0.4f)) continue;
+                while (midi > 127) midi -= 12;
+                while (midi < 0) midi += 12;
+                const int dur = std::max (2, std::min ((int) std::lround (x.dur * (0.4 + 0.6 * p.gate)), totalTicks - tick));
+                mel.push_back ({ tick, dur, midi, std::clamp ((int) x.vel, 1, 127) });
+            }
+        }
+        // separation propre : la note du haut = melodie, le reste (accords / basse d'origine) = couche accords
+        std::sort (mel.begin(), mel.end(), [] (const PNote& x, const PNote& y) { return x.tick != y.tick ? x.tick < y.tick : x.midi > y.midi; });
+        std::vector<PNote> top, low;
+        const int floorMidi = base - 5;   // en dessous : basse / accompagnement
+        for (size_t i = 0; i < mel.size(); )
+        {
+            size_t j = i;
+            while (j < mel.size() && mel[j].tick - mel[i].tick <= 2) ++j;
+            bool topTaken = false;
+            for (size_t k = i; k < j; ++k)
+            {
+                if (! topTaken && mel[k].midi >= floorMidi) { top.push_back (mel[k]); topTaken = true; }
+                else low.push_back (mel[k]);
+            }
+            i = j;
+        }
+        if (top.empty()) top.swap (low);
+        toMelody (top, res.melody);
+        if (p.chordMode > 0)
+        {
+            if (low.size() >= (size_t) std::max (2, p.bars))
+            {
+                std::vector<MelodyNote> ch;
+                toMelody (low, ch);
+                res.chords = ch;   // les vrais accords de ta phrase
+            }
+            else
+                renderChords (res); // phrase sans accompagnement : accords simples sur ses fondamentales
+        }
+        return res;
     }
 
     GenResult runLearned()
