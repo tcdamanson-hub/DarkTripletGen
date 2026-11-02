@@ -53,6 +53,8 @@ endif()
 
 # one-shots melodiques (keys, bells, pads...) integres pour la pre-ecoute
 file (GLOB INSTRUMENT_SAMPLES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/Instruments/*.wav")
+# fichier toujours present pour que la liste ne soit jamais vide (ignore par le plugin)
+list (APPEND INSTRUMENT_SAMPLES "${CMAKE_CURRENT_SOURCE_DIR}/Instruments/placeholder.txt")
 juce_add_binary_data (DarkTripletInstruments
     HEADER_NAME InstrumentSamples.h
     NAMESPACE InstrumentSamples
