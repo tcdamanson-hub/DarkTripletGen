@@ -51,7 +51,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout DarkTripletAudioProcessor::c
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "style", 3 }, "Style", styleNames, 1));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "motif", 10 }, "Engine",
                                                           StringArray { "Phrases (tes MIDI)", "Topline", "Melange" }, 0));
-    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "layer2", 5 }, "Layer 2",
+    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "layer2", 5 }, "Counter Melody",
                                                           StringArray { "Off", "On" }, 1));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "root", 2 }, "Root", rootNames, 9));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "scale", 2 }, "Scale", scaleNames,
@@ -89,11 +89,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout DarkTripletAudioProcessor::c
     };
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instMel", 7 },     "Melody Sound",  instNames, findInst ("Bells", 0)));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instChords", 7 },  "Chords Sound",  instNames, findInst ("Piano - ", 0)));
-    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instCounter", 7 }, "Layer 2 Sound", instNames, findInst ("Plucks", 0)));
+    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instCounter", 7 }, "Counter Melody Sound", instNames, findInst ("Plucks", 0)));
 
     ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "volMel", 9 },     "Melody Vol",  NormalisableRange<float> (0.0f, 1.5f), 0.1f, pct));
     ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "volChords", 9 },  "Chords Vol",  NormalisableRange<float> (0.0f, 1.5f), 0.1f, pct));
-    ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "volCounter", 9 }, "Layer 2 Vol", NormalisableRange<float> (0.0f, 1.5f), 0.1f, pct));
+    ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "volCounter", 9 }, "Counter Melody Vol", NormalisableRange<float> (0.0f, 1.5f), 0.1f, pct));
 
     ps.push_back (std::make_unique<AudioParameterBool>   (ParameterID { "synthOn", 2 },  "Synth On", true));
     NormalisableRange<float> cutRange (300.0f, 16000.0f);
@@ -309,7 +309,7 @@ juce::File DarkTripletAudioProcessor::writeTempMidiFile (Layer layer)
 {
     auto dir = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("DarkTripletGen");
     dir.createDirectory();
-    auto f = dir.getChildFile (getPatternName() + (layer == Chords ? "_accords" : layer == Counter ? "_melo2" : "_melo") + ".mid");
+    auto f = dir.getChildFile (getPatternName() + (layer == Chords ? "_accords" : layer == Counter ? "_contre_melo" : "_melo") + ".mid");
     writeMidiFile (f, layer);
     return f;
 }

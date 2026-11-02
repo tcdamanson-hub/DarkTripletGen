@@ -807,18 +807,35 @@ private:
             i = j;
         }
         if (top.empty()) top.swap (low);
-        toMelody (top, res.melody);
-        if (p.chordMode > 0)
+
+        // couche 2 : l'accompagnement d'origine de ta phrase, sinon une harmonie a la tierce sur les notes longues
+        std::vector<PNote> second;
+        if (low.size() >= (size_t) std::max (2, p.bars))
         {
-            if (low.size() >= (size_t) std::max (2, p.bars))
-            {
-                std::vector<MelodyNote> ch;
-                toMelody (low, ch);
-                res.chords = ch;   // les vrais accords de ta phrase
-            }
-            else
-                renderChords (res); // phrase sans accompagnement : accords simples sur ses fondamentales
+            double mean = 0; for (auto& x : low) mean += x.midi; mean /= (double) low.size();
+            const int shift = (int) std::lround ((base - 2 - mean) / 12.0) * 12;   // ramene l'accompagnement dans le registre
+            for (auto x : low) { x.midi += shift; x.vel = std::min (x.vel, 96); second.push_back (x); }
         }
+        else
+        {
+            for (auto& x : top)
+            {
+                if (x.dur < 12) continue;
+                const int b = std::min ((int) slots.size() - 1, x.tick / 96);
+                // tierce diatonique au-dessus : on retrouve le degre de la note puis +2 degres
+                int best = 0, bestErr = 99;
+                for (int d = -14; d <= 21; ++d)
+                {
+                    const int e = std::abs (midiC (d, slots[(size_t) b].c) - x.midi);
+                    if (e < bestErr) { bestErr = e; best = d; }
+                }
+                second.push_back ({ x.tick, x.dur, midiC (best + 2, slots[(size_t) b].c), std::max (1, x.vel - 18) });
+            }
+        }
+
+        toMelody (top, res.melody);
+        if (p.layer2 > 0 && ! second.empty()) toMelody (second, res.counter);
+        if (p.chordMode > 0) renderChords (res);   // accords propres sur les vrais accords de ta phrase
         return res;
     }
 

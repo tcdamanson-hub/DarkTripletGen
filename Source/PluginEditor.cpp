@@ -108,7 +108,7 @@ void MidiDragZone::mouseDrag (const juce::MouseEvent&)
 DarkTripletAudioProcessorEditor::DarkTripletAudioProcessorEditor (DarkTripletAudioProcessor& p)
     : AudioProcessorEditor (&p), proc (p),
       dragMelo (p, DarkTripletAudioProcessor::Melody, "MELO >>"),
-      dragMelo2 (p, DarkTripletAudioProcessor::Counter, "MELO 2 >>"),
+      dragMelo2 (p, DarkTripletAudioProcessor::Counter, "CONTRE-MELO >>"),
       dragChords (p, DarkTripletAudioProcessor::Chords, "ACCORDS >>")
 {
     setLookAndFeel (&lnf);
@@ -126,7 +126,7 @@ DarkTripletAudioProcessorEditor::DarkTripletAudioProcessorEditor (DarkTripletAud
     addAndMakeVisible (styleLabel);
 
     addCombo ("motif",     "Moteur",      125);
-    addCombo ("layer2",    "Couche 2",    70);
+    addCombo ("layer2",    "Contre-melo",    85);
     addCombo ("root",      "Tonique",     70);
     addCombo ("scale",     "Gamme / Mode", 170);
     addCombo ("prog",      "Progression", 150);
@@ -137,7 +137,7 @@ DarkTripletAudioProcessorEditor::DarkTripletAudioProcessorEditor (DarkTripletAud
     addCombo ("bank",        "Banque MIDI",   110, true);
     addCombo ("instMel",     "Son melodie",   170, true);
     addCombo ("instChords",  "Son accords",   170, true);
-    addCombo ("instCounter", "Son couche 2",  170, true);
+    addCombo ("instCounter", "Son contre-melo",  170, true);
 
     addKnob ("rotation", "Mode rot.");
     addKnob ("octave",   "Octave");
@@ -154,7 +154,7 @@ DarkTripletAudioProcessorEditor::DarkTripletAudioProcessorEditor (DarkTripletAud
     addKnob ("volume",   "Volume");
     addKnob ("volMel",     "Vol melodie", true);
     addKnob ("volChords",  "Vol accords", true);
-    addKnob ("volCounter", "Vol couche 2", true);
+    addKnob ("volCounter", "Vol contre-melo", true);
 
     generateBtn.onClick = [this] { proc.randomizeSeed(); };
     backBtn.onClick = [this] { proc.history.back(); };
@@ -247,7 +247,7 @@ void DarkTripletAudioProcessorEditor::exportMidi()
                               if (! f.hasFileExtension ("mid")) f = f.withFileExtension ("mid");
                               auto melo   = f.getSiblingFile (f.getFileNameWithoutExtension() + "_melo.mid");
                               auto accord = f.getSiblingFile (f.getFileNameWithoutExtension() + "_accords.mid");
-                              auto melo2  = f.getSiblingFile (f.getFileNameWithoutExtension() + "_melo2.mid");
+                              auto melo2  = f.getSiblingFile (f.getFileNameWithoutExtension() + "_contre_melo.mid");
                               const bool ok = proc.writeMidiFile (melo, DarkTripletAudioProcessor::Melody)
                                            && proc.writeMidiFile (accord, DarkTripletAudioProcessor::Chords)
                                            && proc.writeMidiFile (melo2, DarkTripletAudioProcessor::Counter);
@@ -300,7 +300,7 @@ void DarkTripletAudioProcessorEditor::resized()
     top.removeFromLeft (290);
     dragChords.setBounds (top.removeFromRight (110).reduced (2));
     top.removeFromRight (4);
-    dragMelo2.setBounds (top.removeFromRight (100).reduced (2));
+    dragMelo2.setBounds (top.removeFromRight (125).reduced (2));
     top.removeFromRight (4);
     dragMelo.setBounds (top.removeFromRight (90).reduced (2));
     top.removeFromRight (8);
