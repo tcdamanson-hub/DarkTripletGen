@@ -88,7 +88,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout DarkTripletAudioProcessor::c
         return fallback;
     };
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instMel", 7 },     "Melody Sound",  instNames, findInst ("Bells", 0)));
-    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instChords", 7 },  "Chords Sound",  instNames, findInst ("Pads", 0)));
+    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instChords", 7 },  "Chords Sound",  instNames, findInst ("Piano - ", 0)));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instCounter", 7 }, "Layer 2 Sound", instNames, findInst ("Plucks", 0)));
 
     ps.push_back (std::make_unique<AudioParameterFloat>  (ParameterID { "volMel", 9 },     "Melody Vol",  NormalisableRange<float> (0.0f, 1.5f), 0.1f, pct));
