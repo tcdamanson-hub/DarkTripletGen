@@ -820,7 +820,7 @@ private:
         {
             for (auto& x : top)
             {
-                if (x.dur < 12) continue;
+                if (x.dur < 12 && x.tick % 24 != 0) continue;   // notes longues ou sur les temps
                 const int b = std::min ((int) slots.size() - 1, x.tick / 96);
                 // tierce diatonique au-dessus : on retrouve le degre de la note puis +2 degres
                 int best = 0, bestErr = 99;

@@ -204,10 +204,18 @@ private:
 
     void noteOff (int ch, int n)
     {
-        player.noteOff (ch, (ch == 2 && inst[2] > 0 && n > 74) ? n - 12 : n);
+        player.noteOff (ch, (ch >= 1 && ch <= 3 && inst[ch] > 0) ? liftNote (ch, n) : n);
         for (auto& v : voices)
             if (v.active && v.held && v.note == n && v.channel == ch)
                 releaseVoice (v);
+    }
+
+    // registre des sons samples : accords et contre-melo entre Do 3 et Re 5, melodie au-dessus de Do 3
+    static int liftNote (int ch, int n)
+    {
+        while (n < 48) n += 12;
+        if (ch == 2) while (n > 74) n -= 12;
+        return n;
     }
 
     void noteOn (int ch, int n, float vel)
@@ -215,11 +223,10 @@ private:
         const int sel = (ch >= 1 && ch <= 3) ? inst[ch] : 0;
         if (sel > 0)
         {
-            // accords : la basse grave est laissee a la 808 (sinon un pad transpose 2 octaves plus bas fait de la bouillie)
-            if (ch == 2 && n < 48) return;
-            const float lvl = ch == 1 ? 1.0f : ch == 3 ? 0.6f : 0.32f;
-            // accords trop aigus : une octave plus bas pour ne pas marcher sur la melodie
-            if (ch == 2 && n > 74) n -= 12;
+            // notes trop graves pour un son samples : remontees d'octave (la 808 garde le grave)
+            n = liftNote (ch, n);
+            const float lvl = ch == 1 ? 1.0f : ch == 3 ? 1.6f : 0.9f;
+
             player.noteOn (ch, n, vel, sel - 1, lvl);
             return;
         }
