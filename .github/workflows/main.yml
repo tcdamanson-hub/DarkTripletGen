@@ -37,3 +37,12 @@ jobs:
             build/DarkTrapDrums_artefacts/Release/VST3
             build/DarkTrapDrums_artefacts/Release/AU
             build/DarkTrapDrums_artefacts/Release/Standalone
+
+      - name: Upload RANTIPOP
+        uses: actions/upload-artifact@v4
+        with:
+          name: RANTIPOP-MELODIE-${{ runner.os }}
+          path: |
+            build/RantipopMelodie_artefacts/Release/VST3
+            build/RantipopMelodie_artefacts/Release/AU
+            build/RantipopMelodie_artefacts/Release/Standalone
