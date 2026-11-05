@@ -109,6 +109,7 @@ void RantiProcessor::stepSong (int dir)
     for (size_t i = 0; i < list.size(); ++i) if (list[i] == g.song) idx = (int) i;
     idx = (idx + dir + (int) list.size()) % (int) list.size();
     g.song = list[(size_t) idx];
+    g.cross = -1;
     for (int r = 0; r < 4; ++r) g.stem[(size_t) r] = 0;
     if (g.genre == 0 && g.bass808 < 0) g.bass808 = Generator::random808 (songs[g.song].bpm, rng);
     g.transpose = Generator::transposeFor (songs[g.song].key, keyChoice);
