@@ -244,6 +244,27 @@ public:
             const auto* set = SoundBank::get().drums (drumCategory (g.genre, l, g.clapVariant));
             g.kit[(size_t) l] = (set != nullptr && ! set->empty()) ? rng.nextInt ((int) set->size()) : 0;
         }
+        // afro : chaque percu prend une seule famille (congas, djembes, talking drum...) ; on evite les sons qui ne sont pas afro
+        if (g.genre == 1)
+        {
+            auto family = [] (const juce::String& n) { return n.trimEnd().upToLastOccurrenceOf (" ", false, false); };
+            for (int l : { (int) LPercA, (int) LPercB, (int) LPercC, (int) LHat2 })
+                if (const auto* set = SoundBank::get().drums (drumCategory (1, l, 0)); set != nullptr && ! set->empty())
+                {
+                    std::vector<juce::String> fams;
+                    for (auto& smp : *set)
+                    {
+                        const auto f = family (smp.name);
+                        if (f == "Doumbek" || f == "Frame Drum" || f == "Metal" || f == "Click") continue;
+                        if (std::find (fams.begin(), fams.end(), f) == fams.end()) fams.push_back (f);
+                    }
+                    if (fams.empty()) continue;
+                    const auto fam = fams[(size_t) rng.nextInt ((int) fams.size())];
+                    std::vector<int> idx;
+                    for (size_t i = 0; i < set->size(); ++i) if (family ((*set)[i].name) == fam) idx.push_back ((int) i);
+                    g.kit[(size_t) l] = idx[(size_t) rng.nextInt ((int) idx.size())];
+                }
+        }
         // pop : un kit complet et coherent (tous les sons du meme kit)
         if (g.genre == 2)
             if (const auto* kicks = SoundBank::get().drums ("PP_KICK"); kicks != nullptr && ! kicks->empty())

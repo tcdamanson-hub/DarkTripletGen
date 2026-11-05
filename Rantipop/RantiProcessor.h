@@ -41,6 +41,7 @@ public:
     void goBack();
     void goForward();
     void setGenre (int g);
+    void applyGenreSounds (int genre);
     void setGroove (int grooveIndex);
     void stepSong (int dir);         // MIDI precedent / suivant du genre
     void setKey (int keyChoice);     // 0 = auto
