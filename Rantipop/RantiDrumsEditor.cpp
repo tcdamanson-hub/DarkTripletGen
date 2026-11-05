@@ -250,6 +250,10 @@ void RantiDrumsEditor::drawPlanet (juce::Graphics& g, juce::Point<float> c, floa
         thin.startNewSubPath (P (66, 162)); thin.lineTo (P (74, 150)); thin.lineTo (P (84, 158));
         thin.startNewSubPath (P (184, 158)); thin.lineTo (P (176, 150)); thin.lineTo (P (168, 160));
         thin.startNewSubPath (P (146, 178)); thin.quadraticTo (P (150, 202), P (162, 196)); thin.quadraticTo (P (172, 190), P (160, 170));
+        // le smiley tourne avec la planete
+        const float faceVis = ranti::spinPath (face, c, r, spin);
+        ranti::spinPath (thin, c, r, spin);
+        juce::ignoreUnused (faceVis);
         for (auto [w, a] : { std::pair<float, float> { 16.0f, 0.08f }, { 10.0f, 0.18f }, { 6.0f, 0.4f } })
         {
             g.setColour (cyan.withAlpha (a));

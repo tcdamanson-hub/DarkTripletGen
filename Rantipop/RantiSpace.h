@@ -132,3 +132,34 @@ inline void drawOrbitSpark (juce::Graphics& g, juce::Point<float> c, float k, fl
     }
 }
 } // namespace ranti
+
+namespace ranti
+{
+// le visage tourne avec la planete : chaque point est place sur la sphere puis tourne autour de l'axe vertical ;
+// ce qui passe derriere disparait. Renvoie la visibilite (0..1) pour attenuer la lueur pres du bord.
+inline float spinPath (juce::Path& p, juce::Point<float> c, float r, float phase)
+{
+    const float th = phase * juce::MathConstants<float>::twoPi;
+    juce::Path out;
+    juce::PathFlatteningIterator it (p, {}, 0.6f);
+    bool penDown = false;
+    while (it.next())
+    {
+        for (int e = 0; e < 2; ++e)
+        {
+            const float x = e == 0 ? it.x1 : it.x2, y = e == 0 ? it.y1 : it.y2;
+            const float dy = juce::jlimit (-0.98f, 0.98f, (y - c.y) / r);
+            const float lat = std::asin (dy), rc = r * std::cos (lat);
+            const float lon = std::asin (juce::jlimit (-0.98f, 0.98f, (x - c.x) / rc)) + th;
+            const bool vis = std::cos (lon) > 0.0f;
+            const juce::Point<float> q (c.x + rc * std::sin (lon), y);
+            if (! vis) { penDown = false; continue; }
+            if (e == 0 && (it.subPathIndex == 0 || ! penDown)) { out.startNewSubPath (q); penDown = true; }
+            else if (e == 1) { if (! penDown) { out.startNewSubPath (q); penDown = true; } else out.lineTo (q); }
+        }
+        if (it.closesSubPath) penDown = false;
+    }
+    p = out;
+    return juce::jmax (0.0f, std::cos (th));
+}
+} // namespace ranti
