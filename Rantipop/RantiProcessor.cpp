@@ -80,7 +80,7 @@ void RantiProcessor::applyState (const GenState& g, bool pushHistory)
 void RantiProcessor::generate()
 {
     const auto cur = getState();
-    applyState (Generator::randomState (cur.genre, keyChoice, cur.song, rng), true);
+    applyState (Generator::randomState (cur.genre, keyChoice, cur.song, rng, modeChoice), true);
 }
 
 void RantiProcessor::goBack()    { if (canGoBack())    applyState (history[(size_t) --histPos], false); }
@@ -89,7 +89,7 @@ void RantiProcessor::goForward() { if (canGoForward()) applyState (history[(size
 void RantiProcessor::setGenre (int g)
 {
     if (! genreAvailable (g)) return;
-    applyState (Generator::randomState (g, keyChoice, -1, rng), true);
+    applyState (Generator::randomState (g, keyChoice, -1, rng, modeChoice), true);
 }
 
 void RantiProcessor::setGroove (int grooveIndex)
@@ -103,7 +103,8 @@ void RantiProcessor::stepSong (int dir)
 {
     auto g = getState();
     std::vector<int> list;
-    for (int i = 0; i < numSongs; ++i) if (songs[i].genre == g.genre) list.push_back (i);
+    for (int i = 0; i < numSongs; ++i) if (songs[i].genre == g.genre && modeMatches (i, modeChoice)) list.push_back (i);
+    if (list.empty()) for (int i = 0; i < numSongs; ++i) if (songs[i].genre == g.genre) list.push_back (i);
     if (list.empty()) return;
     int idx = 0;
     for (size_t i = 0; i < list.size(); ++i) if (list[i] == g.song) idx = (int) i;
@@ -113,6 +114,17 @@ void RantiProcessor::stepSong (int dir)
     if (g.genre == 0 && g.bass808 < 0) g.bass808 = Generator::random808 (songs[g.song].bpm, rng);
     g.transpose = Generator::transposeFor (songs[g.song].key, keyChoice);
     applyState (g, true);
+}
+
+void RantiProcessor::setMode (int m)
+{
+    modeChoice = juce::jlimit (-3, NumModes - 1, m);
+    const auto g = getState();
+    // le MIDI actuel n'est pas dans ce mode : on en prend un qui l'est
+    if (g.song < 0 || ! modeMatches (g.song, modeChoice))
+        applyState (Generator::randomState (g.genre, keyChoice, g.song, rng, modeChoice), true);
+    else
+        ++patternVersion;
 }
 
 void RantiProcessor::setKey (int k)
@@ -305,6 +317,7 @@ void RantiProcessor::getStateInformation (juce::MemoryBlock& destData)
     auto s = apvts.copyState();
     s.setProperty ("gen", getState().toString(), nullptr);
     s.setProperty ("key", keyChoice, nullptr);
+    s.setProperty ("mode", modeChoice, nullptr);
     if (auto xml = s.createXml()) copyXmlToBinary (*xml, destData);
 }
 
@@ -316,6 +329,7 @@ void RantiProcessor::setStateInformation (const void* data, int sizeInBytes)
             auto vt = juce::ValueTree::fromXml (*xml);
             apvts.replaceState (vt);
             keyChoice = (int) vt.getProperty ("key", 0);
+            modeChoice = juce::jlimit (-3, NumModes - 1, (int) vt.getProperty ("mode", -1));
             const auto g = GenState::fromString (vt.getProperty ("gen", "").toString());
             if (g.song >= 0 && g.song < numSongs) applyState (g, true);
         }

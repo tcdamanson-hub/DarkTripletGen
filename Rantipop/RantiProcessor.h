@@ -45,6 +45,8 @@ public:
     void stepSong (int dir);         // MIDI precedent / suivant du genre
     void setKey (int keyChoice);     // 0 = auto
     int  getKeyChoice() const { return keyChoice; }
+    void setMode (int modeChoice);   // -1 toutes, -2 majeurs, -3 mineurs, 0..9 un mode
+    int  getModeChoice() const { return modeChoice; }
     ranti::GenState getState() const;
     ranti::Pattern getPattern();
     int getPatternVersion() const { return patternVersion.load(); }
@@ -75,6 +77,7 @@ private:
     std::vector<ranti::GenState> history;
     int histPos = -1;
     int keyChoice = 0;
+    int modeChoice = -1;
     juce::Random rng;
 
     std::atomic<bool> patternChanged { false };

@@ -66,6 +66,7 @@ private:
     void showInstMenu (const char* paramId, bool bass);
     void showGrooveMenu();
     void showKeyMenu();
+    void showModeMenu();
     static void glass (juce::Graphics&, juce::Rectangle<float>, float radius = 12.0f);
     static void spaced (juce::Graphics&, const juce::String&, juce::Rectangle<float>, float size, float kerning,
                         juce::Justification, juce::Colour, bool bold = false);
@@ -78,7 +79,7 @@ private:
     std::unique_ptr<juce::SliderParameterAttachment> masterAtt;
 
     // zones cliquables
-    juce::Rectangle<float> genreTabs[4], prevBtn, nextBtn, genBtn, planetArea, songBox, keyBox, previewBtn, chordBox, dragChips[5];
+    juce::Rectangle<float> genreTabs[4], prevBtn, nextBtn, genBtn, planetArea, songBox, keyBox, modeBox, previewBtn, chordBox, dragChips[5];
     int hoverChip = -1;
     bool dragging = false, genDown = false;
     float pulse = 0.0f;

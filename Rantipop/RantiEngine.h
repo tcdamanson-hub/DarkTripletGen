@@ -20,6 +20,21 @@ enum Lane { LKick = 0, LSnare, LClap, LHat, LHat2, LOpen, LRim, LPercA, LPercB, 
 static const char* const genreNames[] = { "R&B", "AFRO", "POP", "SYNTHWAVE" };
 static constexpr int numGenres = 4;
 static const char* const keyNames[] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+// modes (detectes sur les notes de chaque MIDI, les notes ne sont jamais modifiees)
+static const int NumModes = 10;
+static const char* const modeNames[NumModes] = { "Ionien (majeur)", "Dorien", "Phrygien", "Lydien", "Mixolydien", "Eolien (mineur)",
+                                                 "Locrien", "Mineur harmonique", "Mineur melodique", "Majeur harmonique" };
+static const char* const modeShort[NumModes] = { "Ionien", "Dorien", "Phrygien", "Lydien", "Mixolydien", "Eolien", "Locrien", "Min. harm.", "Min. melo.", "Maj. harm." };
+inline bool modeIsMajor (int m) { return m == 0 || m == 3 || m == 4 || m == 9; }
+// choix : -1 = toutes, -2 = tous les majeurs, -3 = tous les mineurs, 0..9 = un mode precis
+inline bool modeMatches (int song, int choice)
+{
+    if (choice == -1) return true;
+    const int m = songs[song].mode;
+    if (choice == -2) return modeIsMajor (m);
+    if (choice == -3) return ! modeIsMajor (m);
+    return m == choice;
+}
 
 // categorie de samples par genre et par piste de drums
 inline juce::String drumCategory (int genre, int lane, int variant)
@@ -150,7 +165,7 @@ struct Pattern
     double length = 32.0;
     std::array<std::vector<PNote>, NumParts> parts; // drums : pitch = piste (Lane)
     juce::String songName, grooveName;
-    int bpm = 120, key = 0, minor = 1;
+    int bpm = 120, key = 0, minor = 1, mode = 5;
     bool hasBassLine = false;
     std::vector<ChordName> chords;
 };
@@ -159,12 +174,13 @@ class Generator
 {
 public:
     // nouvelle generation : morceau au hasard du genre, groove au hasard, kit au hasard
-    static GenState randomState (int genre, int keyChoice, int previousSong, juce::Random& rng)
+    static GenState randomState (int genre, int keyChoice, int previousSong, juce::Random& rng, int modeChoice = -1)
     {
         GenState g;
         g.genre = genre;
         std::vector<int> cand;
-        for (int i = 0; i < numSongs; ++i) if (songs[i].genre == genre && i != previousSong) cand.push_back (i);
+        for (int i = 0; i < numSongs; ++i) if (songs[i].genre == genre && i != previousSong && modeMatches (i, modeChoice)) cand.push_back (i);
+        if (cand.empty()) for (int i = 0; i < numSongs; ++i) if (songs[i].genre == genre && modeMatches (i, modeChoice)) cand.push_back (i);
         if (cand.empty()) for (int i = 0; i < numSongs; ++i) if (songs[i].genre == genre) cand.push_back (i);
         if (cand.empty()) return g;
         g.song = cand[(size_t) rng.nextInt ((int) cand.size())];
@@ -259,6 +275,7 @@ public:
         p.bpm = s.bpm;
         p.key = ((s.key + g.transpose) % 12 + 12) % 12;
         p.minor = s.minor;
+        p.mode = s.mode;
         for (int i = 0; i < s.count; ++i)
         {
             const auto& n = songNotes[s.start + i];
