@@ -1,3 +1,4 @@
+#include "RantiSpace.h"
 #include "RantiEditor.h"
 #include "RantiSamples.h"
 
@@ -150,18 +151,8 @@ RantiEditor::RantiEditor (RantiProcessor& p)
         logo = juce::ImageFileFormat::loadFrom (d, (size_t) sz);
 
     // ciel etoile (fixe)
-    stars = juce::Image (juce::Image::ARGB, W, H, true);
-    {
-        juce::Graphics sg (stars);
-        juce::Random r (7);
-        for (int i = 0; i < 420; ++i)
-        {
-            const float a = r.nextFloat() * 0.8f + 0.1f;
-            sg.setColour (r.nextFloat() < 0.3f ? juce::Colour (0xffffe2a0).withAlpha (a) : juce::Colour (0xfffffaeb).withAlpha (a * 0.8f));
-            const float s = r.nextFloat() * 2.4f + 0.5f;
-            sg.fillEllipse (r.nextFloat() * W, r.nextFloat() * H, s, s);
-        }
-    }
+    // ciel : espace profond (nebuleuses, poussiere, etoiles scintillantes), dessine une seule fois
+    stars = ranti::makeSpace (W, H, 7, true);
 
     auto& bank = SoundBank::get();
     auto instText = [this] (const char* id, bool bass)
@@ -451,7 +442,7 @@ void RantiEditor::paint (juce::Graphics& g)
             const auto r = juce::Rectangle<float> (xr[row], 76.0f + (float) row * 23.0f, pillW[k], 20.0f);
             const bool on = mc == v, empty = v >= 0 && pillCount[(size_t) v] == 0, current = v >= 0 && mc < 0 && v == pat.mode;
             if (on) { g.setColour (gold); g.fillRoundedRectangle (r, 6.0f); }
-            else { g.setColour (gold.withAlpha (current ? 0.8f : 0.22f)); g.drawRoundedRectangle (r.reduced (0.5f), 6.0f, current ? 1.5f : 1.0f); }
+            else { g.setColour (juce::Colour (0xd80a0910)); g.fillRoundedRectangle (r, 6.0f); g.setColour (gold.withAlpha (current ? 0.8f : 0.22f)); g.drawRoundedRectangle (r.reduced (0.5f), 6.0f, current ? 1.5f : 1.0f); }
             spaced (g, pillText[(int) k], r, pillFs[row], 0.08f, juce::Justification::centred,
                     on ? juce::Colour (0xff14110a) : gold.withAlpha (empty ? 0.28f : 0.85f), true);
             if (numModePills < 24) { modePills[numModePills] = r; modePillValue[numModePills] = v; modePillEmpty[numModePills] = empty; ++numModePills; }

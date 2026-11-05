@@ -1,3 +1,4 @@
+#include "RantiSpace.h"
 #include "RantiDrumsEditor.h"
 #include "RantiSamples.h"
 
@@ -146,18 +147,8 @@ RantiDrumsEditor::RantiDrumsEditor (RantiDrumsProcessor& p) : AudioProcessorEdit
     if (auto* d = RantiSamples::getNamedResource ("logo_jpg", sz))
         logo = juce::ImageFileFormat::loadFrom (d, (size_t) sz);
 
-    stars = juce::Image (juce::Image::ARGB, W, H, true);
-    {
-        juce::Graphics sg (stars);
-        juce::Random r (11);
-        for (int i = 0; i < 460; ++i)
-        {
-            const float a = r.nextFloat() * 0.8f + 0.1f;
-            sg.setColour (r.nextFloat() < 0.35f ? juce::Colour (0xffa0c8ff).withAlpha (a) : juce::Colour (0xfff0f6ff).withAlpha (a * 0.8f));
-            const float s = r.nextFloat() * 2.4f + 0.5f;
-            sg.fillEllipse (r.nextFloat() * W, r.nextFloat() * H, s, s);
-        }
-    }
+    // ciel : espace profond (nebuleuses, poussiere, etoiles scintillantes), dessine une seule fois
+    stars = ranti::makeSpace (W, H, 11, false);
 
     struct R { int lane; const char* title; const char* id; };
     const R list[8] = { { LKick, "KICK", "volKick" }, { LSnare, "SNARE", "volSnare" }, { LClap, "CLAP", "volClap" }, { LRim, "RIM", "volRim" },

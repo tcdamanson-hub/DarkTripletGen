@@ -91,7 +91,7 @@ void RantiProcessor::setGenre (int g)
     if (! genreAvailable (g)) return;
     const int before = getState().genre;
     applyState (Generator::randomState (g, keyChoice, -1, rng, modeChoice), true);
-    if (g == 3 || before == 3) applyGenreSounds (g);
+    if (g == 1 || g == 3 || before == 1 || before == 3) applyGenreSounds (g);
 }
 
 // afro : guitares pour les pistes de guitare, Rhodes pour les keys, 808 ; en quittant l'afro on remet les sons d'origine
@@ -114,7 +114,15 @@ void RantiProcessor::applyGenreSounds (int genre)
         for (auto* n : names) { const int i = bank.melodicMenu().indexOf (n); if (i > 0) c.push_back (i); }
         return c.empty() ? -1 : c[(size_t) rng.nextInt ((int) c.size())];
     };
-    if (genre == 3)
+    if (genre == 1)
+    {
+        // afro : tes reglages de base
+        set ("instMel", bank.findMelodic ("Synth 12"));
+        set ("instChords", 0);
+        set ("instExtra", bank.findMelodic ("Keys 18"));
+        set ("instBass", bank.findBass ("Synth Bass 12"));
+    }
+    else if (genre == 3)
     {
         // synthwave : tes reglages de base
         set ("instMel", bank.findMelodic ("Electric Key 2"));
