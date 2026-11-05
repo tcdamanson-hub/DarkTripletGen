@@ -17,8 +17,9 @@ namespace ranti
 enum Part { PMel = 0, PChords = 1, PBass = 2, PExtra = 3, PDrums = 4, NumParts = 5 };
 enum Lane { LKick = 0, LSnare, LClap, LHat, LHat2, LOpen, LRim, LPercA, LPercB, LPercC, LCrash, NumLanes };
 
-static const char* const genreNames[] = { "R&B", "AFRO", "POP", "SYNTHWAVE" };
-static constexpr int numGenres = 4;
+// la synthwave fait partie de la pop
+static const char* const genreNames[] = { "R&B", "AFRO", "POP" };
+static constexpr int numGenres = 3;
 static const char* const keyNames[] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
 // modes (detectes sur les notes de chaque MIDI, les notes ne sont jamais modifiees)
 static const int NumModes = 10;
@@ -51,7 +52,7 @@ inline juce::String drumCategory (int genre, int lane, int variant)
     if (genre == 2)
     {
         // kits pop : kick, snare, clap, hats, open hat, crash, toms ; le reste vient du kit R&B
-        static const char* pp[NumLanes] = { "PP_KICK", "PP_SNARE", "PP_CLAP", "PP_HAT", "PP_HAT", "PP_OHAT", "RB_RIM", "PP_LTOM", "PP_HTOM", "RB_PERC", "PP_CRASH" };
+        static const char* pp[NumLanes] = { "PP_KICK", "PP_SNARE", "PP_CLAP", "PP_HAT", "PP_HAT", "PP_OHAT", "RB_RIM", "PP_LTOM", "PP_HTOM", "PP_PERC", "PP_CRASH" };
         if (SoundBank::get().drums (pp[lane]) != nullptr) return pp[lane];
         return rb[lane];
     }
@@ -97,7 +98,7 @@ struct GenState
         auto a = juce::StringArray::fromTokens (s, ",", "");
         if (a.size() < 4 + 4 + NumLanes + 1) return g;
         int i = 0;
-        g.genre = a[i++].getIntValue(); g.song = a[i++].getIntValue(); g.groove = a[i++].getIntValue(); g.transpose = a[i++].getIntValue();
+        g.genre = juce::jlimit (0, numGenres - 1, a[i++].getIntValue()); g.song = a[i++].getIntValue(); g.groove = a[i++].getIntValue(); g.transpose = a[i++].getIntValue();
         for (auto& x : g.stem) x = a[i++].getIntValue();
         for (auto& x : g.kit) x = a[i++].getIntValue();
         g.clapVariant = a[i++].getIntValue();
@@ -224,7 +225,10 @@ public:
         if (g.genre == 2)
             if (const auto* kicks = SoundBank::get().drums ("PP_KICK"); kicks != nullptr && ! kicks->empty())
             {
-                const auto kitName = (*kicks)[(size_t) rng.nextInt ((int) kicks->size())].name;
+                std::vector<juce::String> kitNames;
+                for (auto& k : *kicks) if (k.name.startsWith ("Kit ")) kitNames.push_back (k.name);
+                if (kitNames.empty()) return;
+                const auto kitName = kitNames[(size_t) rng.nextInt ((int) kitNames.size())];
                 for (int l = 0; l < NumLanes; ++l)
                     if (const auto* set = SoundBank::get().drums (drumCategory (2, l, 0)))
                         for (size_t i = 0; i < set->size(); ++i)
