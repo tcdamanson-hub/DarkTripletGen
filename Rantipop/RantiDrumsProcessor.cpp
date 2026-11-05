@@ -18,6 +18,9 @@ RantiDrumsProcessor::RantiDrumsProcessor()
     : AudioProcessor (BusesProperties().withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "RANTIDRUMS", createLayout())
 {
+    clock.poll();
+    previewPlaying = clock.running.load();
+    startTimerHz (20);
     for (auto& h : laneHit) h = 0;
     GenState g;
     g.genre = 1;
@@ -189,8 +192,14 @@ void RantiDrumsProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
             hostPlaying = pos->getIsPlaying();
             if (auto q = pos->getPpqPosition()) ppq = *q;
         }
-    const bool preview = ! hostPlaying && previewPlaying.load();
-    if (preview) ppq = internalPpq;
+    const bool preview = ! hostPlaying && clock.running.load();
+    if (preview)
+    {
+        // depart commun MELODIE + DRUMS, puis on avance a l'echantillon pres
+        if (! previewWasOn) internalPpq = clock.beatsNow (bpm);
+        ppq = internalPpq;
+    }
+    previewWasOn = preview;
     const bool running = hostPlaying || preview;
     const double beatsPerSample = bpm / 60.0 / sampleRate;
     const double blockBeats = numSamples * beatsPerSample;

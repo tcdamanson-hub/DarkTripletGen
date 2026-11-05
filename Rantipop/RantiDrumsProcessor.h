@@ -2,9 +2,11 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <atomic>
 #include "RantiEngine.h"
+#include "RantiClock.h"
 
 // RANTIPOP DRUMS : tes grooves MIDI joues tels quels avec tes kits (R&B / Afro / Synthwave)
-class RantiDrumsProcessor : public juce::AudioProcessor
+class RantiDrumsProcessor : public juce::AudioProcessor,
+                         private juce::Timer
 {
 public:
     RantiDrumsProcessor();
@@ -55,10 +57,18 @@ public:
     juce::File writeTempMidi();
 
     std::atomic<bool> previewPlaying { false };
+    void togglePreview()
+    {
+        ranti::SharedClock::setRunning (! previewPlaying.load());
+        clock.poll();
+        previewPlaying = clock.running.load();
+    }
 
     static const char* laneParam (int lane);
 
 private:
+    void timerCallback() override { clock.poll(); previewPlaying = clock.running.load(); }
+    ranti::SharedClock clock;
     void applyState (const ranti::GenState& g, bool pushHistory);
 
     juce::SpinLock lock;
@@ -76,7 +86,7 @@ private:
     juce::uint32 hitCounter = 0;
 
     double sampleRate = 44100.0, internalPpq = 0.0, expectedPpq = 0.0;
-    bool wasRunning = false;
+    bool wasRunning = false, previewWasOn = false;
     ranti::Engine engine;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (RantiDrumsProcessor)

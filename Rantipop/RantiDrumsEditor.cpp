@@ -484,7 +484,7 @@ void RantiDrumsEditor::mouseUp (const juce::MouseEvent& e)
     if (infoBox.contains (p) && p.x < infoBox.getX() + 80.0f) { showKitMenu(); return; }
     if (previewBtn.contains (p) || p.getDistanceFrom ({ 590.0f, 285.0f }) < 140.0f)
     {
-        proc.previewPlaying = ! proc.previewPlaying.load();
+        proc.togglePreview();
         repaint();
     }
 }

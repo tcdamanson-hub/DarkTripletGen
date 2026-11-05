@@ -598,7 +598,7 @@ void RantiEditor::mouseUp (const juce::MouseEvent& e)
     if (keyBox.contains (p) && p.x < keyBox.getX() + 150.0f) { showKeyMenu(); return; }
     if (previewBtn.contains (p) || p.getDistanceFrom ({ 590.0f, 285.0f }) < 140.0f)
     {
-        proc.previewPlaying = ! proc.previewPlaying.load();
+        proc.togglePreview();
         repaint();
     }
 }

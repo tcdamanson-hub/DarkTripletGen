@@ -2,8 +2,10 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <atomic>
 #include "RantiEngine.h"
+#include "RantiClock.h"
 
-class RantiProcessor : public juce::AudioProcessor
+class RantiProcessor : public juce::AudioProcessor,
+                         private juce::Timer
 {
 public:
     RantiProcessor();
@@ -52,8 +54,16 @@ public:
     std::array<bool, 128> getActiveKeys();
 
     std::atomic<bool> previewPlaying { false };
+    void togglePreview()
+    {
+        ranti::SharedClock::setRunning (! previewPlaying.load());
+        clock.poll();
+        previewPlaying = clock.running.load();
+    }
 
 private:
+    void timerCallback() override { clock.poll(); previewPlaying = clock.running.load(); }
+    ranti::SharedClock clock;
     void applyState (const ranti::GenState& g, bool pushHistory);
 
     struct Ev { double beat; bool on; int part, pitch, vel; };
@@ -73,7 +83,7 @@ private:
     std::atomic<float> meter { 0.0f };
 
     double sampleRate = 44100.0, internalPpq = 0.0, expectedPpq = 0.0;
-    bool wasRunning = false;
+    bool wasRunning = false, previewWasOn = false;
     bool active[ranti::NumParts][128] {};
     std::array<std::atomic<int>, 128> keyCount {};
 

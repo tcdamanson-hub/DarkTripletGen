@@ -15,6 +15,9 @@ RantiProcessor::RantiProcessor()
     : AudioProcessor (BusesProperties().withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "RANTIPOP", createLayout())
 {
+    clock.poll();
+    previewPlaying = clock.running.load();
+    startTimerHz (20);
     for (auto& k : keyCount) k = 0;
     // premier son : un R&B au hasard
     applyState (Generator::randomState (0, 0, -1, rng), true);
@@ -203,8 +206,14 @@ void RantiProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiB
             hostPlaying = pos->getIsPlaying();
             if (auto q = pos->getPpqPosition()) ppq = *q;
         }
-    const bool preview = ! hostPlaying && previewPlaying.load();
-    if (preview) ppq = internalPpq;
+    const bool preview = ! hostPlaying && clock.running.load();
+    if (preview)
+    {
+        // depart commun MELODIE + DRUMS, puis on avance a l'echantillon pres
+        if (! previewWasOn) internalPpq = clock.beatsNow (bpm);
+        ppq = internalPpq;
+    }
+    previewWasOn = preview;
     const bool running = hostPlaying || preview;
     const double beatsPerSample = bpm / 60.0 / sampleRate;
     const double blockBeats = numSamples * beatsPerSample;
