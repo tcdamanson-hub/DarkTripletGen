@@ -106,7 +106,7 @@ void DrumRow::paint (juce::Graphics& g)
 {
     const auto st = proc.getState();
     juce::String t = title;
-    if (lane == LHat2) t = st.genre == 1 ? "SHAKER" : "HAT 2";
+    if (lane == LHat2) t = st.genre != 3 ? "SHAKER" : "HAT 2";
     if (lane == LClap && st.genre == 1 && st.clapVariant == 1) t = "SNAP";
     spaced (g, t, { 0.0f, 0.0f, (float) getWidth(), 18.0f }, 13.0f, 0.22f, juce::Justification::centredLeft, text, true);
     spaced (g, juce::String (juce::roundToInt (slider.getValue() * 100.0)) + "%", { 0.0f, 0.0f, (float) getWidth(), 18.0f }, 12.5f, 0.05f,
@@ -314,7 +314,7 @@ void RantiDrumsEditor::paint (juce::Graphics& g)
         for (int i = 0; i < numGenres; ++i)
         {
             genreTabs[i] = { x, box.getY() + 5.0f, tw[i], box.getHeight() - 10.0f };
-            bool avail = false;
+            bool avail = i == 0;
             for (int j = 0; j < numGrooves; ++j) if (grooves[j].genre == i) avail = true;
             const bool on = st.genre == i;
             if (on) { g.setGradientFill (juce::ColourGradient (cyan, genreTabs[i].getX(), 0, violet, genreTabs[i].getRight(), 0, false)); g.fillRoundedRectangle (genreTabs[i], 8.0f); }
@@ -325,7 +325,10 @@ void RantiDrumsEditor::paint (juce::Graphics& g)
     glass (g, grooveBox);
     spaced (g, "<", grooveBox.withWidth (34.0f), 15.0f, 0.0f, juce::Justification::centred, text);
     spaced (g, ">", grooveBox.withTrimmedLeft (grooveBox.getWidth() - 34.0f), 15.0f, 0.0f, juce::Justification::centred, text);
-    spaced (g, st.groove >= 0 ? juce::String (grooves[st.groove].name).toUpperCase() : juce::String ("-"), grooveBox.reduced (36.0f, 0.0f), 14.0f, 0.12f,
+    juce::String gname = "-";
+    if (st.genre == 0) { double L = 16.0; buildRnbDrums (st, L, &gname); }
+    else if (st.groove >= 0) gname = juce::String (grooves[st.groove].name).toUpperCase();
+    spaced (g, gname, grooveBox.reduced (36.0f, 0.0f), st.genre == 0 ? 12.0f : 14.0f, 0.12f,
             juce::Justification::centred, text, true);
 
     drawPlanet (g, { 590.0f, 285.0f }, 135.0f);
@@ -351,9 +354,10 @@ void RantiDrumsEditor::paint (juce::Graphics& g)
     glass (g, infoBox, 10.0f);
     {
         const double L = proc.getLength();
-        const int bpm = st.groove >= 0 ? grooves[st.groove].bpm : 0;
+        juce::String bpmTxt = st.groove >= 0 ? juce::String (grooves[st.groove].bpm) : juce::String ("-");
+        if (st.genre == 0 && st.rnb[0] >= 0) bpmTxt = juce::String (parts[st.rnb[0]].lo) + "-" + juce::String (parts[st.rnb[0]].hi);
         spaced (g, juce::String (juce::CharPointer_UTF8 ("KIT \xe2\x96\xbe")), infoBox.withWidth (70.0f).withTrimmedLeft (14.0f), 11.5f, 0.2f, juce::Justification::centredLeft, text, true);
-        spaced (g, "BPM " + juce::String (bpm) + "    " + juce::String (juce::roundToInt (L / 4.0)) + " MES", infoBox.withTrimmedLeft (70.0f).withTrimmedRight (12.0f),
+        spaced (g, "BPM " + bpmTxt + "    " + juce::String (juce::roundToInt (L / 4.0)) + " MES", infoBox.withTrimmedLeft (70.0f).withTrimmedRight (12.0f),
                 11.0f, 0.15f, juce::Justification::centredRight, text);
     }
 
@@ -407,7 +411,7 @@ void RantiDrumsEditor::paintOverChildren (juce::Graphics& g)
         g.setColour (juce::Colour (0x40a0beff));
         g.drawRoundedRectangle (r, 12.0f, 1.0f);
         juce::String nm = names[i];
-        if (i == 8 && st.genre != 1) nm = "HAT 2";
+        if (i == 8 && st.genre == 3) nm = "HAT 2";
         spaced (g, nm, r.withTrimmedBottom (14.0f).withTrimmedTop (r.getHeight() - 40.0f), 11.0f, 0.2f, juce::Justification::centred,
                 a > 0.5f ? juce::Colour (0xff050a1e) : text, true);
     }
@@ -461,7 +465,7 @@ void RantiDrumsEditor::mouseUp (const juce::MouseEvent& e)
     for (int i = 0; i < numGenres; ++i)
         if (genreTabs[i].contains (p))
         {
-            bool avail = false;
+            bool avail = i == 0;
             for (int j = 0; j < numGrooves; ++j) if (grooves[j].genre == i) avail = true;
             if (avail) proc.setGenre (i);
             return;
@@ -470,6 +474,7 @@ void RantiDrumsEditor::mouseUp (const juce::MouseEvent& e)
     {
         if (p.x < grooveBox.getX() + 40.0f) proc.stepGroove (-1);
         else if (p.x > grooveBox.getRight() - 40.0f) proc.stepGroove (1);
+        else if (proc.getState().genre == 0) proc.stepGroove (1);
         else
         {
             const auto st = proc.getState();

@@ -23,8 +23,8 @@ RantiDrumsProcessor::RantiDrumsProcessor()
     startTimerHz (20);
     for (auto& h : laneHit) h = 0;
     GenState g;
-    g.genre = 1;
-    g.groove = Generator::randomGroove (1, rng);
+    g.genre = 0;
+    Generator::randomRnb (g, rng);
     Generator::randomKit (g, rng);
     applyState (g, true);
 }
@@ -46,8 +46,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout RantiDrumsProcessor::createL
 void RantiDrumsProcessor::applyState (const GenState& g, bool pushHistory)
 {
     juce::String name;
-    const double len = (g.groove >= 0 && g.groove < numGrooves) ? grooves[g.groove].len : 16.0;
-    auto h = buildDrums (g.groove, len, &name);
+    double len = (g.groove >= 0 && g.groove < numGrooves) ? grooves[g.groove].len : 16.0;
+    auto h = g.genre == 0 ? buildRnbDrums (g, len, &name) : buildDrums (g.groove, len, &name);
     {
         const juce::SpinLock::ScopedLockType sl (lock);
         state = g;
@@ -68,11 +68,13 @@ void RantiDrumsProcessor::generate()
 {
     auto g = getState();
     const int prev = g.groove;
-    for (int tries = 0; tries < 6; ++tries)
-    {
-        g.groove = Generator::randomGroove (g.genre, rng);
-        if (g.groove != prev) break;
-    }
+    if (g.genre == 0) Generator::randomRnb (g, rng);
+    else
+        for (int tries = 0; tries < 6; ++tries)
+        {
+            g.groove = Generator::randomGroove (g.genre, rng);
+            if (g.groove != prev) break;
+        }
     Generator::randomKit (g, rng);
     applyState (g, true);
 }
@@ -91,7 +93,8 @@ void RantiDrumsProcessor::setGenre (int genre)
 {
     GenState g;
     g.genre = genre;
-    g.groove = Generator::randomGroove (genre, rng);
+    if (genre == 0) Generator::randomRnb (g, rng);
+    else g.groove = Generator::randomGroove (genre, rng);
     Generator::randomKit (g, rng);
     applyState (g, true);
 }
@@ -99,6 +102,7 @@ void RantiDrumsProcessor::setGenre (int genre)
 void RantiDrumsProcessor::stepGroove (int dir)
 {
     auto g = getState();
+    if (g.genre == 0) { Generator::randomRnb (g, rng); applyState (g, true); return; }
     std::vector<int> list;
     for (int i = 0; i < numGrooves; ++i) if (grooves[i].genre == g.genre) list.push_back (i);
     if (list.empty()) return;
@@ -157,7 +161,7 @@ juce::File RantiDrumsProcessor::writeTempMidi()
     mf.addTrack (seq);
     auto dir = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("Rantipop");
     dir.createDirectory();
-    const juce::String nm = (g.groove >= 0 ? juce::String (grooves[g.groove].name) : juce::String ("groove"));
+    const juce::String nm = g.genre == 0 ? juce::String ("RnB") : (g.groove >= 0 ? juce::String (grooves[g.groove].name) : juce::String ("groove"));
     auto f = dir.getChildFile (juce::File::createLegalFileName ("Rantipop_Drums_" + nm.replaceCharacter (' ', '_')) + ".mid");
     f.deleteFile();
     juce::FileOutputStream out (f);
@@ -279,7 +283,7 @@ void RantiDrumsProcessor::setStateInformation (const void* data, int sizeInBytes
             auto vt = juce::ValueTree::fromXml (*xml);
             apvts.replaceState (vt);
             const auto g = GenState::fromString (vt.getProperty ("gen", "").toString());
-            if (g.groove >= 0 && g.groove < numGrooves) applyState (g, true);
+            if ((g.groove >= 0 && g.groove < numGrooves) || g.genre == 0) applyState (g, true);
         }
 }
 

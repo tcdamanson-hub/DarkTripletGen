@@ -24,7 +24,7 @@ static const char* const keyNames[] = { "C", "C#", "D", "D#", "E", "F", "F#", "G
 // categorie de samples par genre et par piste de drums
 inline juce::String drumCategory (int genre, int lane, int variant)
 {
-    static const char* rb[NumLanes] = { "RB_KICK", "RB_SNARE", "RB_CLAP", "RB_HAT", "RB_HAT", "AF_OHAT", "RB_RIM", "RB_PERC", "RB_PERC", "RB_SNAP", "-" };
+    static const char* rb[NumLanes] = { "RB_KICK", "RB_SNARE", "RB_CLAP", "RB_HAT", "RB_SHAKER", "RB_OHAT", "RB_RIM", "RB_PERC", "RB_PERC", "RB_SNAP", "RB_CRASH" };
     static const char* af[NumLanes] = { "AF_KICK", "AF_SNARE", "AF_CLAP", "AF_HAT", "AF_SHAKER", "AF_OHAT", "AF_RIM", "AF_HAND", "AF_DRUM", "AF_WOOD", "-" };
     static const char* sw[NumLanes] = { "SW_KICK", "SW_SNARE", "SW_CLAP", "SW_HAT", "SW_HAT", "SW_OHAT", "SW_RIM", "SW_PERC", "SW_PERC", "SW_PERC", "SW_CRASH" };
     if (genre == 3)
@@ -54,6 +54,9 @@ struct GenState
     std::array<int, 4> stem { 0, 0, 0, 0 };
     std::array<int, NumLanes> kit {};
     int clapVariant = 0;
+    // R&B : un MIDI par element (index dans parts[], -1 = rien) ; bass808 = rythme de la 808
+    std::array<int, 5> rnb { -1, -1, -1, -1, -1 }; // kick, snare, hats, open hat, percu
+    int bass808 = -1;
 
     juce::String toString() const
     {
@@ -62,6 +65,8 @@ struct GenState
         for (auto s : stem) a.add (juce::String (s));
         for (auto k : kit) a.add (juce::String (k));
         a.add (juce::String (clapVariant));
+        for (auto r : rnb) a.add (juce::String (r));
+        a.add (juce::String (bass808));
         return a.joinIntoString (",");
     }
     static GenState fromString (const juce::String& s)
@@ -74,6 +79,11 @@ struct GenState
         for (auto& x : g.stem) x = a[i++].getIntValue();
         for (auto& x : g.kit) x = a[i++].getIntValue();
         g.clapVariant = a[i++].getIntValue();
+        if (a.size() >= i + 6)
+        {
+            for (auto& x : g.rnb) x = a[i++].getIntValue();
+            g.bass808 = a[i++].getIntValue();
+        }
         return g;
     }
 };
@@ -166,6 +176,7 @@ public:
             g.stem[(size_t) r] = n > 0 ? rng.nextInt (n) : 0;
         }
         randomKit (g, rng);
+        if (genre == 0) { randomRnb (g, rng); g.bass808 = random808 (s.bpm, rng); }
         g.transpose = transposeFor (s.key, keyChoice);
         return g;
     }
@@ -187,6 +198,34 @@ public:
             g.kit[(size_t) l] = (set != nullptr && ! set->empty()) ? rng.nextInt ((int) set->size()) : 0;
         }
     }
+
+    // R&B : un MIDI kick, un snare, un hats (+ open hat, percu de temps en temps), tempos compatibles
+    static int pickPart (std::initializer_list<int> kinds, int lo, int hi, juce::Random& rng)
+    {
+        std::vector<int> c, any;
+        for (int i = 0; i < numParts; ++i)
+            for (int k : kinds)
+                if (parts[i].kind == k)
+                {
+                    any.push_back (i);
+                    if (parts[i].lo <= hi && parts[i].hi >= lo) c.push_back (i);
+                }
+        const auto& v = c.empty() ? any : c;
+        return v.empty() ? -1 : v[(size_t) rng.nextInt ((int) v.size())];
+    }
+
+    static void randomRnb (GenState& g, juce::Random& rng, int lo = 60, int hi = 200)
+    {
+        g.rnb[0] = pickPart ({ 0 }, lo, hi, rng);
+        if (g.rnb[0] >= 0) { lo = juce::jmax (lo, parts[g.rnb[0]].lo); hi = juce::jmin (hi, parts[g.rnb[0]].hi); }
+        g.rnb[1] = pickPart ({ 1, 2 }, lo, hi, rng);
+        g.rnb[2] = pickPart ({ 3 }, lo, hi, rng);
+        g.rnb[3] = rng.nextFloat() < 0.6f ? pickPart ({ 5 }, lo, hi, rng) : -1;
+        g.rnb[4] = rng.nextFloat() < 0.4f ? pickPart ({ 7, 4 }, lo, hi, rng) : -1;
+        g.groove = -1;
+    }
+
+    static int random808 (int songBpm, juce::Random& rng) { return pickPart ({ 99 }, songBpm - 15, songBpm + 15, rng); }
 
     static int transposeFor (int songKey, int keyChoice) // keyChoice : 0 = auto, 1..12 = C..B
     {
@@ -233,7 +272,35 @@ public:
         // 808 : si le MIDI n'a pas de ligne de basse, elle suit les changements d'accords
         //       (note la plus grave de chaque accord, tenue jusqu'au suivant)
         const auto& src = ! p.parts[PChords].empty() ? p.parts[PChords] : p.parts[PMel];
-        if (! p.hasBassLine && ! src.empty())
+        if (! p.hasBassLine && ! src.empty() && g.genre == 0 && g.bass808 >= 0 && g.bass808 < numParts)
+        {
+            const auto& bp = parts[g.bass808];
+            std::vector<std::pair<double, int>> hits;
+            for (double off = 0.0; off < p.length - 1.0e-6; off += bp.len)
+                for (int i = 0; i < bp.count; ++i)
+                {
+                    const double t = off + partHits[bp.start + i].s;
+                    if (t < p.length && (hits.empty() || t - hits.back().first > 0.05)) hits.push_back ({ t, (int) partHits[bp.start + i].v });
+                }
+            for (size_t k = 0; k < hits.size(); ++k)
+            {
+                const double t = hits[k].first;
+                int low = 999;
+                for (auto& n : src) if (n.start <= t + 0.06 && n.start + n.length > t + 0.06) low = juce::jmin (low, n.pitch);
+                if (low == 999)
+                {
+                    double best = -1.0;
+                    for (auto& n : src) if (n.start <= t + 0.06 && n.start > best) { best = n.start; low = n.pitch; }
+                    for (auto& n : src) if (std::abs (n.start - best) < 0.06) low = juce::jmin (low, n.pitch);
+                }
+                if (low == 999) for (auto& n : src) low = juce::jmin (low, n.pitch);
+                int note = 24 + ((low % 12) + 12) % 12;
+                if (note < 26) note += 12;
+                const double next = k + 1 < hits.size() ? hits[k + 1].first : p.length;
+                p.parts[PBass].push_back ({ t, juce::jlimit (0.15, 2.0, next - t - 0.02), note, juce::jlimit (60, 127, hits[k].second + 20) });
+            }
+        }
+        else if (! p.hasBassLine && ! src.empty())
         {
             auto sorted = src;
             std::sort (sorted.begin(), sorted.end(), [] (const PNote& a, const PNote& b) { return a.start < b.start; });
@@ -257,6 +324,40 @@ public:
         return p;
     }
 };
+
+// R&B : les MIDI d'elements joues ensemble (chacun boucle sur sa longueur)
+inline std::vector<PNote> buildRnbDrums (const GenState& g, double& length, juce::String* name = nullptr)
+{
+    static const int laneOf[5] = { LKick, LSnare, LHat, LOpen, LPercA };
+    static const char* tag[5] = { "K", "S", "H", "OH", "P" };
+    std::vector<PNote> out;
+    length = 16.0;
+    juce::StringArray nm;
+    for (int r = 0; r < 5; ++r)
+        if (g.rnb[(size_t) r] >= 0 && g.rnb[(size_t) r] < numParts)
+        {
+            length = juce::jmax (length, (double) parts[g.rnb[(size_t) r]].len);
+            nm.add (juce::String (tag[r]) + juce::String (parts[g.rnb[(size_t) r]].name).fromLastOccurrenceOf ("_", false, false));
+        }
+    for (int r = 0; r < 5; ++r)
+    {
+        const int pi = g.rnb[(size_t) r];
+        if (pi < 0 || pi >= numParts) continue;
+        const auto& pt = parts[pi];
+        int lane = laneOf[r];
+        if (pt.kind == 2) lane = LClap;
+        if (pt.kind == 4) lane = LHat2;
+        for (double off = 0.0; off < length - 1.0e-6; off += pt.len)
+            for (int i = 0; i < pt.count; ++i)
+            {
+                const double t = off + partHits[pt.start + i].s;
+                if (t < length) out.push_back ({ t, 0.1, lane, juce::jlimit (1, 127, (int) partHits[pt.start + i].v) });
+            }
+    }
+    if (name != nullptr) *name = nm.joinIntoString (" ");
+    std::sort (out.begin(), out.end(), [] (const PNote& a, const PNote& b) { return a.start < b.start; });
+    return out;
+}
 
 // drums seuls : le groove, boucle sur 'length' temps
 inline std::vector<PNote> buildDrums (int groove, double length, juce::String* name = nullptr)
