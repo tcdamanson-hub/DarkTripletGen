@@ -5,7 +5,7 @@ using namespace ranti;
 
 namespace
 {
-const char* volIds[NumParts] = { "volMel", "volChords", "volBass", "volExtra", "volDrums" };
+const char* volIds[4] = { "volMel", "volChords", "volBass", "volExtra" };
 const char* instIds[4]       = { "instMel", "instChords", "instBass", "instExtra" };
 // sortie MIDI : canal par partie, drums sur le canal 10 (General MIDI)
 const int gmDrum[NumLanes] = { 36, 38, 39, 42, 44, 46, 37, 63, 64, 76, 49 };
@@ -32,9 +32,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout RantiProcessor::createLayout
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instChords", 1 }, "Chords Sound", mel, 0));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instExtra", 1 },  "Counter Sound", mel, findM ("Rhodes Doux", 0)));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instBass", 1 },   "808 Sound", bank.bassMenu(), juce::jmax (0, bank.bassMenu().indexOf ("808 All Alone"))));
-    const float defVol[NumParts] = { 0.8f, 0.7f, 0.8f, 0.6f, 0.85f };
-    const char* volNames[NumParts] = { "Melody Vol", "Chords Vol", "808 Vol", "Counter Vol", "Drums Vol" };
-    for (int i = 0; i < NumParts; ++i)
+    const float defVol[4] = { 0.8f, 0.7f, 0.8f, 0.6f };
+    const char* volNames[4] = { "Melody Vol", "Chords Vol", "808 Vol", "Counter Vol" };
+    for (int i = 0; i < 4; ++i)
         ps.push_back (std::make_unique<AudioParameterFloat> (ParameterID { volIds[i], 1 }, volNames[i], NormalisableRange<float> (0.0f, 1.5f), defVol[i], pct));
     ps.push_back (std::make_unique<AudioParameterFloat> (ParameterID { "reverb", 1 }, "Reverb", NormalisableRange<float> (0.0f, 1.0f), 0.3f, pct));
     ps.push_back (std::make_unique<AudioParameterFloat> (ParameterID { "master", 1 }, "Master", NormalisableRange<float> (0.0f, 1.5f), 0.8f, pct));
@@ -211,7 +211,8 @@ void RantiProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiB
 
     Engine::Settings st;
     for (int i = 0; i < 4; ++i) st.inst[i] = (int) apvts.getRawParameterValue (instIds[i])->load();
-    for (int i = 0; i < NumParts; ++i) st.vol[i] = apvts.getRawParameterValue (volIds[i])->load();
+    for (int i = 0; i < 4; ++i) st.vol[i] = apvts.getRawParameterValue (volIds[i])->load();
+    st.vol[PDrums] = 0.0f;
     st.reverb = apvts.getRawParameterValue ("reverb")->load();
     st.master = apvts.getRawParameterValue ("master")->load();
     engine.setSettings (st);

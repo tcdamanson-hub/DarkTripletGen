@@ -7,7 +7,7 @@ using namespace rtheme;
 namespace
 {
 constexpr int W = 1180, H = 740;
-const int chipPart[6] = { 0, 1, 3, 2, 4, 5 }; // MELO ACC CONTRE 808 DRUMS TOUT
+const int chipPart[5] = { 0, 1, 3, 2, 5 }; // MELO ACC CONTRE 808 TOUT
 
 juce::Font font (float size, float kerning = 0.0f, bool bold = false)
 {
@@ -141,7 +141,6 @@ RantiEditor::RantiEditor (RantiProcessor& p)
       rowChords (p, "ACCORDS", "volChords"),
       rowExtra (p, juce::String (juce::CharPointer_UTF8 ("CONTRE-M\xc3\x89LO")), "volExtra"),
       rowBass (p, "808 / BASSE", "volBass"),
-      rowDrums (p, "DRUMS", "volDrums"),
       rowVerb (p, "REVERB", "reverb")
 {
     setLookAndFeel (&look);
@@ -178,11 +177,9 @@ RantiEditor::RantiEditor (RantiProcessor& p)
     rowChords.subText = instText ("instChords", false); rowChords.onSubClick = [this] { showInstMenu ("instChords", false); };
     rowExtra.subText = instText ("instExtra", false);   rowExtra.onSubClick = [this] { showInstMenu ("instExtra", false); };
     rowBass.subText = instText ("instBass", true);      rowBass.onSubClick = [this] { showInstMenu ("instBass", true); };
-    rowDrums.subText = [this] { return proc.getPattern().grooveName; };
-    rowDrums.onSubClick = [this] { showGrooveMenu(); };
     rowVerb.subText = [] { return juce::String ("Room"); };
 
-    for (auto* r : { &rowMel, &rowChords, &rowExtra, &rowBass, &rowDrums, &rowVerb })
+    for (auto* r : { &rowMel, &rowChords, &rowExtra, &rowBass, &rowVerb })
         addAndMakeVisible (r);
 
     master.setSliderStyle (juce::Slider::LinearHorizontal);
@@ -208,8 +205,9 @@ void RantiEditor::resized()
     rowChords.setBounds (40, 210, 270, 76);
     rowExtra.setBounds (40, 300, 270, 76);
     rowBass.setBounds (760, 120, 270, 76);
-    rowDrums.setBounds (760, 210, 270, 76);
-    rowVerb.setBounds (760, 300, 270, 76);
+    rowVerb.setBounds (760, 316, 270, 76);
+    chordBox = { 760.0f, 204.0f, 270.0f, 86.0f };
+    previewBtn = { 590.0f - 100.0f, 414.0f, 200.0f, 30.0f };
     master.setBounds (W - 24 - 96, 146, 86, 34);
 
     planetArea = { 590.0f - 150.0f, 285.0f - 150.0f, 300.0f, 300.0f };
@@ -422,8 +420,10 @@ void RantiEditor::paint (juce::Graphics& g)
     // --- planete
     drawPlanet (g, { 590.0f, 285.0f }, 135.0f);
     const bool playing = proc.previewPlaying.load();
-    spaced (g, playing ? "STOP" : juce::String (juce::CharPointer_UTF8 ("\xe2\x96\xb6  \xc3\x89" "COUTER")),
-            { 490.0f, 427.0f, 200.0f, 18.0f }, 10.5f, 0.4f, juce::Justification::centred, gold.withAlpha (0.55f));
+    glass (g, previewBtn, 10.0f);
+    if (playing) { g.setColour (gold.withAlpha (0.2f)); g.fillRoundedRectangle (previewBtn, 10.0f); }
+    spaced (g, playing ? juce::String (juce::CharPointer_UTF8 ("\xe2\x96\xa0  STOP")) : juce::String (juce::CharPointer_UTF8 ("\xe2\x96\xb6  PR\xc3\x89VISUALISER")),
+            previewBtn, 11.0f, 0.25f, juce::Justification::centred, gold, true);
 
     // --- generer
     glass (g, prevBtn); glass (g, nextBtn);
@@ -442,17 +442,17 @@ void RantiEditor::paint (juce::Graphics& g)
         glass (g, box, 10.0f);
         spaced (g, juce::String (juce::CharPointer_UTF8 ("\xe2\x87\xa3")), box.withWidth (30.0f).withTrimmedLeft (10.0f), 14.0f, 0.0f,
                 juce::Justification::centredLeft, gold);
-        static const char* chips[6] = { "MELO", "ACC", "CONTRE", "808", "DRUMS", "TOUT" };
+        static const char* chips[5] = { "MELO", "ACC", "CONTRE", "808", "TOUT" };
         float x = box.getX() + 32.0f;
-        for (int i = 0; i < 6; ++i)
+        for (int i = 0; i < 5; ++i)
         {
-            const float w = i == 2 ? 62.0f : i == 4 ? 56.0f : i == 1 || i == 3 ? 40.0f : 48.0f;
+            const float w = i == 2 ? 70.0f : i == 1 || i == 3 ? 52.0f : 58.0f;
             dragChips[i] = { x, box.getY() + 6.0f, w, box.getHeight() - 12.0f };
             g.setColour (gold.withAlpha (hoverChip == i ? 0.25f : 0.08f));
             g.fillRoundedRectangle (dragChips[i], 6.0f);
             g.setColour (gold.withAlpha (0.35f));
             g.drawRoundedRectangle (dragChips[i], 6.0f, 1.0f);
-            const bool empty = i < NumParts && pat.parts[(size_t) chipPart[i]].empty();
+            const bool empty = chipPart[i] < NumParts && pat.parts[(size_t) chipPart[i]].empty();
             spaced (g, chips[i], dragChips[i], 10.5f, 0.15f, juce::Justification::centred, gold.withAlpha (empty ? 0.3f : 1.0f), true);
             x += w + 4.0f;
         }
@@ -502,6 +502,35 @@ void RantiEditor::paintOverChildren (juce::Graphics& g)
     spaced (g, (m > 0.0001f ? juce::String (db, 1) : juce::String ("-inf")) + " dB", { box.getX(), 496.0f, box.getWidth(), 18.0f }, 11.0f, 0.05f,
             juce::Justification::centred, gold.withAlpha (0.75f));
     drawKeyboard (g, { 36.0f, 560.0f, (float) W - 72.0f, 146.0f });
+    drawChords (g);
+}
+
+void RantiEditor::drawChords (juce::Graphics& g)
+{
+    const auto pat = proc.getPattern();
+    const double ph = proc.getPlayhead();
+    spaced (g, juce::String (juce::CharPointer_UTF8 ("ACCORDS G\xc3\x89N\xc3\x89R\xc3\x89S")), chordBox.withHeight (18.0f), 13.0f, 0.22f,
+            juce::Justification::centredLeft, gold, true);
+    int cur = -1;
+    if (ph >= 0.0)
+        for (int i = 0; i < (int) pat.chords.size(); ++i) if (pat.chords[(size_t) i].start <= ph + 1.0e-3) cur = i;
+    float x = chordBox.getX(), y = chordBox.getY() + 26.0f;
+    const auto f = font (11.5f, 0.03f, true);
+    for (int i = 0; i < (int) pat.chords.size() && i < 12; ++i)
+    {
+        const auto& nm = pat.chords[(size_t) i].name;
+        const float w = juce::jmax (30.0f, juce::GlyphArrangement::getStringWidth (f, nm) + 12.0f);
+        if (x + w > chordBox.getRight()) { x = chordBox.getX(); y += 28.0f; if (y + 22.0f > chordBox.getBottom()) break; }
+        const auto r = juce::Rectangle<float> (x, y, w, 22.0f);
+        if (i == cur) { g.setColour (gold.withAlpha (0.4f)); g.fillRoundedRectangle (r.expanded (3.0f), 8.0f); g.setColour (gold); g.fillRoundedRectangle (r, 6.0f); }
+        else { g.setColour (gold.withAlpha (0.08f)); g.fillRoundedRectangle (r, 6.0f); g.setColour (gold.withAlpha (0.35f)); g.drawRoundedRectangle (r, 6.0f, 1.0f); }
+        g.setFont (f);
+        g.setColour (i == cur ? juce::Colour (0xff14110a) : gold);
+        g.drawText (nm, r, juce::Justification::centred);
+        x += w + 5.0f;
+    }
+    if (pat.chords.empty())
+        spaced (g, "-", { chordBox.getX(), chordBox.getY() + 26.0f, 40.0f, 22.0f }, 12.0f, 0.0f, juce::Justification::centredLeft, gold.withAlpha (0.5f));
 }
 
 void RantiEditor::timerCallback()
@@ -512,18 +541,19 @@ void RantiEditor::timerCallback()
     {
         lastVersion = v;
         repaint();
-        for (auto* r : { &rowMel, &rowChords, &rowExtra, &rowBass, &rowDrums, &rowVerb }) r->repaint();
+        for (auto* r : { &rowMel, &rowChords, &rowExtra, &rowBass, &rowVerb }) r->repaint();
         return;
     }
     repaint (juce::Rectangle<int> (W - 24 - 106, 210, 106, 310));
     repaint (juce::Rectangle<int> (24, 548, W - 48, 170));
+    repaint (chordBox.toNearestInt().expanded (2));
 }
 
 // ------------------------------------------------------------------ souris
 void RantiEditor::mouseMove (const juce::MouseEvent& e)
 {
     int h = -1;
-    for (int i = 0; i < 6; ++i) if (dragChips[i].contains (e.position)) h = i;
+    for (int i = 0; i < 5; ++i) if (dragChips[i].contains (e.position)) h = i;
     if (h != hoverChip) { hoverChip = h; repaint (juce::Rectangle<int> (40, 500, 346, 38)); }
     setMouseCursor (h >= 0 ? juce::MouseCursor::DraggingHandCursor : juce::MouseCursor::NormalCursor);
 }
@@ -536,7 +566,7 @@ void RantiEditor::mouseDown (const juce::MouseEvent& e)
 void RantiEditor::mouseDrag (const juce::MouseEvent& e)
 {
     if (dragging) return;
-    for (int i = 0; i < 6; ++i)
+    for (int i = 0; i < 5; ++i)
         if (dragChips[i].contains (e.mouseDownPosition))
         {
             auto f = proc.writeTempMidi (chipPart[i]);
@@ -566,7 +596,7 @@ void RantiEditor::mouseUp (const juce::MouseEvent& e)
         return;
     }
     if (keyBox.contains (p) && p.x < keyBox.getX() + 150.0f) { showKeyMenu(); return; }
-    if (p.getDistanceFrom ({ 590.0f, 285.0f }) < 140.0f)
+    if (previewBtn.contains (p) || p.getDistanceFrom ({ 590.0f, 285.0f }) < 140.0f)
     {
         proc.previewPlaying = ! proc.previewPlaying.load();
         repaint();

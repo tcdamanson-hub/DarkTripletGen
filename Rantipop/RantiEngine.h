@@ -79,6 +79,61 @@ struct GenState
 };
 
 struct PNote { double start, length; int pitch, vel; };
+struct ChordName { double start; juce::String name; };
+
+inline int bits (int x) { int c = 0; while (x) { c += x & 1; x >>= 1; } return c; }
+
+// nom d'accord a partir des notes jouees ensemble (Cm7, Ab, Fsus4, G/B ...)
+inline juce::String nameChord (const std::vector<int>& pitches)
+{
+    if (pitches.empty()) return {};
+    int bass = 127; int mask = 0;
+    for (auto p : pitches) { bass = juce::jmin (bass, p); mask |= 1 << (((p % 12) + 12) % 12); }
+    struct T { int m; const char* s; };
+    static const T tpl[] = { { 0x891, "maj7" }, { 0x489, "m7" }, { 0x491, "7" }, { 0x449, "m7b5" }, { 0x249, "dim7" },
+                             { 0x291, "6" }, { 0x289, "m6" }, { 0x095, "add9" }, { 0x08d, "m(add9)" },
+                             { 0x091, "" }, { 0x089, "m" }, { 0x049, "dim" }, { 0x111, "aug" }, { 0x0a1, "sus4" }, { 0x085, "sus2" }, { 0x081, "5" } };
+    int bestRoot = -1, bestScore = -100; const char* bestSuf = "";
+    for (int r = 0; r < 12; ++r)
+    {
+        const int rot = ((mask >> r) | (mask << (12 - r))) & 0xfff;
+        for (auto& t : tpl)
+        {
+            if ((rot & t.m) != t.m) continue;
+            const int extra = bits (rot & ~t.m);
+            const int score = bits (t.m) * 3 - extra * 2 + (r == bass % 12 ? 2 : 0);
+            if (score > bestScore) { bestScore = score; bestRoot = r; bestSuf = t.s; }
+        }
+    }
+    if (bestRoot < 0) return keyNames[bass % 12];
+    juce::String n = juce::String (keyNames[bestRoot]) + bestSuf;
+    if (bass % 12 != bestRoot) n << "/" << keyNames[bass % 12];
+    return n;
+}
+
+inline std::vector<ChordName> chordNames (const std::vector<PNote>& notes)
+{
+    std::vector<ChordName> out;
+    auto sorted = notes;
+    std::sort (sorted.begin(), sorted.end(), [] (const PNote& a, const PNote& b) { return a.start < b.start; });
+    size_t i = 0;
+    while (i < sorted.size())
+    {
+        std::vector<int> ps;
+        const double t = sorted[i].start;
+        size_t j = i;
+        while (j < sorted.size() && sorted[j].start - t < 0.06) ps.push_back (sorted[j++].pitch);
+        // notes encore tenues a ce moment (accord joue en arpege)
+        for (auto& n : sorted) if (n.start < t - 0.06 && n.start + n.length > t + 0.1) ps.push_back (n.pitch);
+        if (ps.size() >= 2)
+        {
+            auto nm = nameChord (ps);
+            if (out.empty() || out.back().name != nm) out.push_back ({ t, nm });
+        }
+        i = j;
+    }
+    return out;
+}
 
 struct Pattern
 {
@@ -87,6 +142,7 @@ struct Pattern
     juce::String songName, grooveName;
     int bpm = 120, key = 0, minor = 1;
     bool hasBassLine = false;
+    std::vector<ChordName> chords;
 };
 
 class Generator
@@ -174,53 +230,51 @@ public:
         }
         p.hasBassLine = ! p.parts[PBass].empty();
 
-        // drums : le groove boucle sur toute la longueur
-        if (g.groove >= 0 && g.groove < numGrooves)
+        // 808 : si le MIDI n'a pas de ligne de basse, elle suit les changements d'accords
+        //       (note la plus grave de chaque accord, tenue jusqu'au suivant)
+        const auto& src = ! p.parts[PChords].empty() ? p.parts[PChords] : p.parts[PMel];
+        if (! p.hasBassLine && ! src.empty())
         {
-            const auto& gr = grooves[g.groove];
-            p.grooveName = gr.name;
-            for (double off = 0.0; off < p.length - 1.0e-6; off += gr.len)
-                for (int i = 0; i < gr.count; ++i)
-                {
-                    const auto& h = grooveHits[gr.start + i];
-                    const double t = off + h.s;
-                    if (t >= p.length) continue;
-                    p.parts[PDrums].push_back ({ t, 0.1, (int) h.lane, juce::jlimit (1, 127, (int) h.v) });
-                }
-        }
-
-        // 808 : si le MIDI n'a pas de ligne de basse, elle suit les kicks
-        //       et prend la note la plus grave des accords qui sonnent a ce moment
-        if (! p.hasBassLine)
-        {
-            std::vector<double> kicks;
-            for (auto& d : p.parts[PDrums]) if (d.pitch == LKick) kicks.push_back (d.start);
-            std::sort (kicks.begin(), kicks.end());
-            kicks.erase (std::unique (kicks.begin(), kicks.end(), [] (double a, double b) { return std::abs (a - b) < 0.05; }), kicks.end());
-            const auto& src = ! p.parts[PChords].empty() ? p.parts[PChords] : p.parts[PMel];
-            for (size_t k = 0; k < kicks.size(); ++k)
+            auto sorted = src;
+            std::sort (sorted.begin(), sorted.end(), [] (const PNote& a, const PNote& b) { return a.start < b.start; });
+            std::vector<std::pair<double, int>> groups; // debut, note la plus grave
+            for (auto& n : sorted)
             {
-                const double t = kicks[k];
-                int low = 999;
-                for (auto& n : src) if (n.start <= t + 0.06 && n.start + n.length > t + 0.06) low = juce::jmin (low, n.pitch);
-                if (low == 999) // rien ne sonne : derniere note jouee avant
-                {
-                    double best = -1.0;
-                    for (auto& n : src) if (n.start <= t + 0.06 && n.start > best) { best = n.start; low = n.pitch; }
-                    for (auto& n : src) if (std::abs (n.start - best) < 0.06) low = juce::jmin (low, n.pitch);
-                }
-                if (low == 999) continue;
-                int note = 24 + ((low % 12) + 12) % 12;
+                if (! groups.empty() && n.start - groups.back().first < 0.06) groups.back().second = juce::jmin (groups.back().second, n.pitch);
+                else groups.push_back ({ n.start, n.pitch });
+            }
+            for (size_t k = 0; k < groups.size(); ++k)
+            {
+                const double t = groups[k].first;
+                int note = 24 + ((groups[k].second % 12) + 12) % 12;
                 if (note < 26) note += 12;
-                const double next = k + 1 < kicks.size() ? kicks[k + 1] : p.length;
-                const double len = juce::jlimit (0.2, 4.0, next - t - 0.02);
-                p.parts[PBass].push_back ({ t, len, note, 110 });
+                const double next = k + 1 < groups.size() ? groups[k + 1].first : p.length;
+                p.parts[PBass].push_back ({ t, juce::jlimit (0.2, 4.0, next - t - 0.02), note, 110 });
             }
         }
+        p.chords = chordNames (p.parts[PChords].empty() ? p.parts[PMel] : p.parts[PChords]);
         for (auto& v : p.parts) std::sort (v.begin(), v.end(), [] (const PNote& a, const PNote& b) { return a.start < b.start; });
         return p;
     }
 };
+
+// drums seuls : le groove, boucle sur 'length' temps
+inline std::vector<PNote> buildDrums (int groove, double length, juce::String* name = nullptr)
+{
+    std::vector<PNote> out;
+    if (groove < 0 || groove >= numGrooves) return out;
+    const auto& gr = grooves[groove];
+    if (name != nullptr) *name = gr.name;
+    for (double off = 0.0; off < length - 1.0e-6; off += gr.len)
+        for (int i = 0; i < gr.count; ++i)
+        {
+            const auto& h = grooveHits[gr.start + i];
+            const double t = off + h.s;
+            if (t < length) out.push_back ({ t, 0.1, (int) h.lane, juce::jlimit (1, 127, (int) h.v) });
+        }
+    std::sort (out.begin(), out.end(), [] (const PNote& a, const PNote& b) { return a.start < b.start; });
+    return out;
+}
 
 // -----------------------------------------------------------------------------
 //  Rendu audio : pianos / samples / 808 / drums -> bus -> mix
@@ -233,6 +287,7 @@ public:
         int inst[4] { 1, 0, 0, 0 };     // melodie, accords, basse (menu basse), contre-melo
         float vol[NumParts] { 0.8f, 0.6f, 0.8f, 0.5f, 0.85f };
         float reverb = 0.25f, master = 0.8f;
+        float lane[NumLanes] { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
     };
 
     void prepare (double sampleRate, int maxBlock)
@@ -261,7 +316,7 @@ public:
             if (set2 == nullptr || set2->empty()) return;
             const auto& smp = (*set2)[(size_t) juce::jlimit (0, (int) set2->size() - 1, state.kit[(size_t) pitch])];
             const int choke = (pitch == LHat || pitch == LOpen) ? 1 : -1;
-            sampler.noteOn (PDrums, pitch, v, &smp, false, 0.05f, choke);
+            sampler.noteOn (PDrums, pitch, v, &smp, false, 0.05f, choke, set.lane[pitch]);
             return;
         }
         if (part == PBass)

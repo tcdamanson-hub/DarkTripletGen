@@ -24,13 +24,15 @@ jobs:
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release "-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64"
 
       - name: Build
-        run: cmake --build build --config Release --parallel --target RantipopMelodie_All
+        run: cmake --build build --config Release --parallel --target RantipopMelodie_All RantipopDrums_All
 
       - name: Upload RANTIPOP
         uses: actions/upload-artifact@v4
         with:
-          name: RANTIPOP-MELODIE-${{ runner.os }}
+          name: RANTIPOP-${{ runner.os }}
           path: |
             build/RantipopMelodie_artefacts/Release/VST3
             build/RantipopMelodie_artefacts/Release/AU
             build/RantipopMelodie_artefacts/Release/Standalone
+            build/RantipopDrums_artefacts/Release/VST3
+            build/RantipopDrums_artefacts/Release/Standalone

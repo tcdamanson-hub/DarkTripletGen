@@ -123,8 +123,7 @@ target_link_libraries (DarkTrapDrums
 #  3e plugin : RANTIPOP MELODIE (R&B / Afro / Synthwave) - projet a part, rien a voir avec RAIZER
 # =============================================================================
 file (GLOB RANTI_SOUNDS CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/Rantipop/Sounds/Inst/*.wav"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Rantipop/Sounds/Drums/*.wav")
+    "${CMAKE_CURRENT_SOURCE_DIR}/Rantipop/Sounds/Inst/*.wav")
 list (APPEND RANTI_SOUNDS "${CMAKE_CURRENT_SOURCE_DIR}/Rantipop/logo.jpg")
 juce_add_binary_data (RantipopSamples
     HEADER_NAME RantiSamples.h
@@ -164,6 +163,55 @@ endif()
 target_link_libraries (RantipopMelodie
     PRIVATE
         RantipopSamples
+        juce::juce_audio_utils
+    PUBLIC
+        juce::juce_recommended_config_flags
+        juce::juce_recommended_lto_flags
+        juce::juce_recommended_warning_flags)
+
+# =============================================================================
+#  4e plugin : RANTIPOP DRUMS (tes grooves MIDI + tes kits)
+# =============================================================================
+file (GLOB RANTI_DRUM_SOUNDS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/Rantipop/Sounds/Drums/*.wav")
+list (APPEND RANTI_DRUM_SOUNDS "${CMAKE_CURRENT_SOURCE_DIR}/Rantipop/logo.jpg")
+juce_add_binary_data (RantipopDrumSamples
+    HEADER_NAME RantiSamples.h
+    NAMESPACE RantiSamples
+    SOURCES ${RANTI_DRUM_SOUNDS})
+
+juce_add_plugin (RantipopDrums
+    COMPANY_NAME "Rantipop"
+    PLUGIN_MANUFACTURER_CODE Rnpp
+    PLUGIN_CODE Rpdr
+    FORMATS ${DTG_FORMATS}
+    PRODUCT_NAME "RANTIPOP DRUMS"
+    IS_SYNTH TRUE
+    NEEDS_MIDI_INPUT TRUE
+    NEEDS_MIDI_OUTPUT TRUE
+    IS_MIDI_EFFECT FALSE
+    EDITOR_WANTS_KEYBOARD_FOCUS FALSE
+    COPY_PLUGIN_AFTER_BUILD FALSE
+    VST3_CATEGORIES Instrument Drum Generator)
+
+target_sources (RantipopDrums PRIVATE
+    Rantipop/RantiDrumsProcessor.cpp
+    Rantipop/RantiDrumsEditor.cpp)
+
+target_include_directories (RantipopDrums PRIVATE Rantipop)
+
+target_compile_definitions (RantipopDrums PUBLIC
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_VST3_CAN_REPLACE_VST2=0
+    JUCE_DISPLAY_SPLASH_SCREEN=0)
+
+if (MSVC)
+    target_compile_options (RantipopDrums PRIVATE /utf-8 /bigobj)
+endif()
+
+target_link_libraries (RantipopDrums
+    PRIVATE
+        RantipopDrumSamples
         juce::juce_audio_utils
     PUBLIC
         juce::juce_recommended_config_flags

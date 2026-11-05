@@ -62,6 +62,7 @@ private:
     void timerCallback() override;
     void drawPlanet (juce::Graphics&, juce::Point<float> c, float r);
     void drawKeyboard (juce::Graphics&, juce::Rectangle<float>);
+    void drawChords (juce::Graphics&);
     void showInstMenu (const char* paramId, bool bass);
     void showGrooveMenu();
     void showKeyMenu();
@@ -72,12 +73,12 @@ private:
     RantiProcessor& proc;
     RantiLook look;
     juce::Image logo, stars;
-    ControlRow rowMel, rowChords, rowExtra, rowBass, rowDrums, rowVerb;
+    ControlRow rowMel, rowChords, rowExtra, rowBass, rowVerb;
     juce::Slider master;
     std::unique_ptr<juce::SliderParameterAttachment> masterAtt;
 
     // zones cliquables
-    juce::Rectangle<float> genreTabs[4], prevBtn, nextBtn, genBtn, planetArea, songBox, keyBox, dragChips[6];
+    juce::Rectangle<float> genreTabs[4], prevBtn, nextBtn, genBtn, planetArea, songBox, keyBox, previewBtn, chordBox, dragChips[5];
     int hoverChip = -1;
     bool dragging = false, genDown = false;
     float pulse = 0.0f;

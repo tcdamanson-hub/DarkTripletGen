@@ -154,7 +154,7 @@ public:
     void prepare (double sampleRate) { sr = sampleRate; for (auto& v : voices) v.active = false; }
 
     // pitched = transpose le sample vers note ; sinon lecture a hauteur d'origine (drums)
-    void noteOn (int bus, int note, float vel, const Sample* s, bool pitched, float release, int chokeGroup = -1)
+    void noteOn (int bus, int note, float vel, const Sample* s, bool pitched, float release, int chokeGroup = -1, float level = 1.0f)
     {
         if (s == nullptr) return;
         if (chokeGroup >= 0)
@@ -173,7 +173,7 @@ public:
         *v = Voice();
         v->active = true; v->held = true; v->s = s; v->bus = bus; v->note = note; v->choke = chokeGroup;
         v->inc = (s->sampleRate / sr) * (pitched ? std::pow (2.0, (note - s->root) / 12.0) : 1.0);
-        v->gain = 0.15f + 0.85f * vel * vel;
+        v->gain = (0.15f + 0.85f * vel * vel) * level;
         v->attMul = (float) (1.0 / ((pitched ? 0.003 : 0.0005) * sr));
         v->release = release;
         v->age = ++counter;
