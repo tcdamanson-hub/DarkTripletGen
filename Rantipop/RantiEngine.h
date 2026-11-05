@@ -3,6 +3,8 @@
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <array>
 #include <vector>
+#include <functional>
+#include <algorithm>
 #include "RantiData.h"
 #include "RantiSounds.h"
 #include "RantiPiano.h"
@@ -182,17 +184,37 @@ class Generator
 {
 public:
     // nouvelle generation : morceau au hasard du genre, groove au hasard, kit au hasard
-    static GenState randomState (int genre, int keyChoice, int previousSong, juce::Random& rng, int modeChoice = -1)
+    // ecart entre le tempo pour lequel le MIDI a ete compose (ou sa plage) et le tempo de FL
+    static double tempoGap (std::pair<int, int> range, double host)
+    {
+        if (host <= 0.0 || range.second <= 0) return 0.0;
+        if (host >= range.first && host <= range.second) return 0.0;
+        return juce::jmin (std::abs (range.first - host), std::abs (range.second - host)) / host;
+    }
+    // garde les MIDI composes pour ce tempo (10 % pres) ; s'il y en a trop peu, les plus proches
+    static std::vector<int> byTempo (std::vector<int> cand, double host, std::function<std::pair<int, int> (int)> bpmOf)
+    {
+        if (host <= 0.0 || cand.empty()) return cand;
+        std::vector<int> ok;
+        for (int i : cand) if (tempoGap (bpmOf (i), host) <= 0.10) ok.push_back (i);
+        if (ok.size() >= 3) return ok;
+        std::stable_sort (cand.begin(), cand.end(), [&] (int a, int b) { return tempoGap (bpmOf (a), host) < tempoGap (bpmOf (b), host); });
+        cand.resize (juce::jmin ((size_t) 6, cand.size()));
+        return cand;
+    }
+
+    static GenState randomState (int genre, int keyChoice, int previousSong, juce::Random& rng, int modeChoice = -1, double hostBpm = 0.0)
     {
         GenState g;
         g.genre = genre;
         std::vector<int> cand;
-        for (int i = 0; i < numSongs; ++i) if (songs[i].genre == genre && i != previousSong && modeMatches (i, modeChoice)) cand.push_back (i);
-        if (cand.empty()) for (int i = 0; i < numSongs; ++i) if (songs[i].genre == genre && modeMatches (i, modeChoice)) cand.push_back (i);
+        for (int i = 0; i < numSongs; ++i) if (songs[i].genre == genre && modeMatches (i, modeChoice)) cand.push_back (i);
         if (cand.empty()) for (int i = 0; i < numSongs; ++i) if (songs[i].genre == genre) cand.push_back (i);
+        cand = byTempo (cand, hostBpm, [] (int i) { return std::make_pair (songs[i].lo, songs[i].hi); });
+        if (cand.size() > 1) cand.erase (std::remove (cand.begin(), cand.end(), previousSong), cand.end());
         if (cand.empty()) return g;
         g.song = cand[(size_t) rng.nextInt ((int) cand.size())];
-        g.groove = randomGroove (genre, rng);
+        g.groove = randomGroove (genre, rng, hostBpm);
         const auto& s = songs[g.song];
         for (int r = 0; r < 4; ++r)
         {
@@ -200,16 +222,17 @@ public:
             g.stem[(size_t) r] = n > 0 ? rng.nextInt (n) : 0;
         }
         randomKit (g, rng);
-        if (genre == 0) { randomRnb (g, rng); g.bass808 = random808 (s.bpm, rng); }
+        if (genre == 0) { randomRnb (g, rng, hostBpm); g.bass808 = random808 (hostBpm > 0.0 ? juce::roundToInt (hostBpm) : s.bpm, rng); }
         g.transpose = transposeFor (s.key, keyChoice);
         return g;
     }
 
-    static int randomGroove (int genre, juce::Random& rng)
+    static int randomGroove (int genre, juce::Random& rng, double hostBpm = 0.0)
     {
         std::vector<int> gc;
         for (int i = 0; i < numGrooves; ++i) if (grooves[i].genre == genre) gc.push_back (i);
         if (gc.empty()) for (int i = 0; i < numGrooves; ++i) if (grooves[i].genre == 0) gc.push_back (i);
+        gc = byTempo (gc, hostBpm, [] (int i) { return std::make_pair (grooves[i].bpm, grooves[i].bpm); });
         return gc.empty() ? -1 : gc[(size_t) rng.nextInt ((int) gc.size())];
     }
 
@@ -251,8 +274,10 @@ public:
         return v.empty() ? -1 : v[(size_t) rng.nextInt ((int) v.size())];
     }
 
-    static void randomRnb (GenState& g, juce::Random& rng, int lo = 60, int hi = 200)
+    static void randomRnb (GenState& g, juce::Random& rng, double hostBpm = 0.0)
     {
+        int lo = 60, hi = 200;
+        if (hostBpm > 0.0) { lo = juce::roundToInt (hostBpm * 0.92); hi = juce::roundToInt (hostBpm * 1.08); }
         g.rnb[0] = pickPart ({ 0 }, lo, hi, rng);
         if (g.rnb[0] >= 0) { lo = juce::jmax (lo, parts[g.rnb[0]].lo); hi = juce::jmin (hi, parts[g.rnb[0]].hi); }
         g.rnb[1] = pickPart ({ 1, 2 }, lo, hi, rng);

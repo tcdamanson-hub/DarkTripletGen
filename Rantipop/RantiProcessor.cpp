@@ -80,7 +80,7 @@ void RantiProcessor::applyState (const GenState& g, bool pushHistory)
 void RantiProcessor::generate()
 {
     const auto cur = getState();
-    applyState (Generator::randomState (cur.genre, keyChoice, cur.song, rng, modeChoice), true);
+    applyState (Generator::randomState (cur.genre, keyChoice, cur.song, rng, modeChoice, hostBpm.load()), true);
 }
 
 void RantiProcessor::goBack()    { if (canGoBack())    applyState (history[(size_t) --histPos], false); }
@@ -89,7 +89,7 @@ void RantiProcessor::goForward() { if (canGoForward()) applyState (history[(size
 void RantiProcessor::setGenre (int g)
 {
     if (! genreAvailable (g)) return;
-    applyState (Generator::randomState (g, keyChoice, -1, rng, modeChoice), true);
+    applyState (Generator::randomState (g, keyChoice, -1, rng, modeChoice, hostBpm.load()), true);
 }
 
 void RantiProcessor::setGroove (int grooveIndex)
@@ -122,7 +122,7 @@ void RantiProcessor::setMode (int m)
     const auto g = getState();
     // le MIDI actuel n'est pas dans ce mode : on en prend un qui l'est
     if (g.song < 0 || ! modeMatches (g.song, modeChoice))
-        applyState (Generator::randomState (g.genre, keyChoice, g.song, rng, modeChoice), true);
+        applyState (Generator::randomState (g.genre, keyChoice, g.song, rng, modeChoice, hostBpm.load()), true);
     else
         ++patternVersion;
 }
@@ -215,7 +215,7 @@ void RantiProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiB
     if (auto* ph = getPlayHead())
         if (auto pos = ph->getPosition())
         {
-            if (auto b = pos->getBpm()) bpm = *b;
+            if (auto b = pos->getBpm()) { bpm = *b; hostBpm = *b; }
             hostPlaying = pos->getIsPlaying();
             if (auto q = pos->getPpqPosition()) ppq = *q;
         }
