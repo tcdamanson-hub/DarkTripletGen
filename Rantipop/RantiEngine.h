@@ -57,8 +57,6 @@ struct GenState
     // R&B : un MIDI par element (index dans parts[], -1 = rien) ; bass808 = rythme de la 808
     std::array<int, 5> rnb { -1, -1, -1, -1, -1 }; // kick, snare, hats, open hat, percu
     int bass808 = -1;
-    // melange : index dans crosses[] (accords de ce morceau + melodie d'un autre), -1 = morceau tel quel
-    int cross = -1;
 
     juce::String toString() const
     {
@@ -69,7 +67,6 @@ struct GenState
         a.add (juce::String (clapVariant));
         for (auto r : rnb) a.add (juce::String (r));
         a.add (juce::String (bass808));
-        a.add (juce::String (cross));
         return a.joinIntoString (",");
     }
     static GenState fromString (const juce::String& s)
@@ -87,7 +84,6 @@ struct GenState
             for (auto& x : g.rnb) x = a[i++].getIntValue();
             g.bass808 = a[i++].getIntValue();
         }
-        if (a.size() >= i + 1) g.cross = a[i++].getIntValue();
         return g;
     }
 };
@@ -182,13 +178,6 @@ public:
         randomKit (g, rng);
         if (genre == 0) { randomRnb (g, rng); g.bass808 = random808 (s.bpm, rng); }
         g.transpose = transposeFor (s.key, keyChoice);
-        // une fois sur deux ou plus : la melodie d'un autre MIDI qui va avec ces accords
-        if (genre == 0 || genre == 1)
-        {
-            std::vector<int> cc;
-            for (int i = 0; i < numCrosses; ++i) if (crosses[i].a == g.song) cc.push_back (i);
-            if (! cc.empty() && rng.nextFloat() < 0.6f) g.cross = cc[(size_t) rng.nextInt ((int) cc.size())];
-        }
         return g;
     }
 
@@ -270,31 +259,13 @@ public:
         p.bpm = s.bpm;
         p.key = ((s.key + g.transpose) % 12 + 12) % 12;
         p.minor = s.minor;
-        const RCross* cr = (g.cross >= 0 && g.cross < numCrosses && crosses[g.cross].a == g.song) ? &crosses[g.cross] : nullptr;
         for (int i = 0; i < s.count; ++i)
         {
             const auto& n = songNotes[s.start + i];
             if (n.part > 3 || n.stem != g.stem[(size_t) n.part]) continue;
             const double st = n.s, len = juce::jmin ((double) n.l, p.length - n.s);
             if (st >= p.length || len <= 0.0) continue;
-            if (n.part == PMel && cr != nullptr) continue;
             p.parts[(size_t) n.part].push_back ({ st, juce::jmax (0.05, len), juce::jlimit (0, 127, n.p + g.transpose), juce::jlimit (1, 127, (int) n.v) });
-        }
-        // melodie de l'autre MIDI, entiere, transposee dans la tonalite, repetee sur la longueur
-        if (cr != nullptr)
-        {
-            const auto& b = songs[cr->b];
-            p.songName = juce::String (s.name) + " + " + juce::String (b.name);
-            for (double off = 0.0; off < p.length - 1.0e-6; off += b.len)
-                for (int i = 0; i < b.count; ++i)
-                {
-                    const auto& n = songNotes[b.start + i];
-                    if (n.part != PMel || n.stem != 0) continue;
-                    const double st = off + n.s;
-                    if (st >= p.length) continue;
-                    const double len = juce::jmin ((double) n.l, p.length - st);
-                    p.parts[PMel].push_back ({ st, juce::jmax (0.05, len), juce::jlimit (0, 127, n.p + cr->shift + cr->octave + g.transpose), juce::jlimit (1, 127, (int) n.v) });
-                }
         }
         p.hasBassLine = ! p.parts[PBass].empty();
 
