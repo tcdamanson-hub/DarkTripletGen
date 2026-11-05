@@ -234,6 +234,7 @@ void RantiDrumsEditor::drawPlanet (juce::Graphics& g, juce::Point<float> c, floa
         g.setColour (violet.withAlpha (0.45f));
         g.strokePath (arc, juce::PathStrokeType (1.8f));
     }
+    ranti::drawSpin (g, c, r, spin, juce::Colour (0xff9fd0ff));
     {
         auto P = [&] (float x, float y) { return juce::Point<float> (c.x + (x - 125.0f) * k, c.y + (y - 125.0f) * k); };
         juce::Path face, thin;
@@ -267,6 +268,7 @@ void RantiDrumsEditor::drawPlanet (juce::Graphics& g, juce::Point<float> c, floa
         g.setColour (juce::Colour (0xffe8f4ff));
         g.strokePath (orbit, juce::PathStrokeType (2.6f));
     }
+    ranti::drawOrbitSpark (g, c, k, spin, juce::Colour (0xffe6f4ff));
 }
 
 void RantiDrumsEditor::paint (juce::Graphics& g)
@@ -409,6 +411,8 @@ void RantiDrumsEditor::paintOverChildren (juce::Graphics& g)
 
 void RantiDrumsEditor::timerCallback()
 {
+    spin = std::fmod (spin + 1.0f / 600.0f, 1.0f);
+    repaint (juce::Rectangle<int> (590 - 215, 285 - 205, 430, 420));
     const int v = proc.getVersion();
     if (v != lastVersion) { lastVersion = v; repaint(); for (auto& r : rows) r->repaint(); }
     for (int i = 0; i < 10; ++i)

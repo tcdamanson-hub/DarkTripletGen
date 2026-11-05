@@ -83,6 +83,7 @@ private:
     RantiProcessor& proc;
     RantiLook look;
     juce::Image logo, stars;
+    float spin = 0.0f; // rotation de la planete
     ControlRow rowMel, rowChords, rowExtra, rowBass, rowVerb;
     juce::Slider master;
     std::unique_ptr<juce::SliderParameterAttachment> masterAtt;

@@ -61,6 +61,7 @@ private:
     RantiDrumsProcessor& proc;
     DrumLook look;
     juce::Image logo, stars;
+    float spin = 0.0f; // rotation de la planete
     std::vector<std::unique_ptr<DrumRow>> rows;
     juce::Slider master;
     std::unique_ptr<juce::SliderParameterAttachment> masterAtt;

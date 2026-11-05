@@ -282,6 +282,7 @@ void RantiEditor::drawPlanet (juce::Graphics& g, juce::Point<float> c, float r)
         g.strokePath (arc, juce::PathStrokeType (1.8f));
     }
     // R + perso en neon
+    ranti::drawSpin (g, c, r, spin, juce::Colour (0xfff3d28c));
     {
         auto P = [&] (float x, float y) { return juce::Point<float> (c.x + (x - 125.0f) * k, c.y + (y - 125.0f) * k); };
         juce::Path face, thin;
@@ -317,6 +318,7 @@ void RantiEditor::drawPlanet (juce::Graphics& g, juce::Point<float> c, float r)
         g.setColour (juce::Colour (0xfffff1cc));
         g.strokePath (orbit, juce::PathStrokeType (2.6f));
     }
+    ranti::drawOrbitSpark (g, c, k, spin, juce::Colour (0xfffff1cc));
 }
 
 void RantiEditor::drawKeyboard (juce::Graphics& g, juce::Rectangle<float> area)
@@ -574,6 +576,8 @@ void RantiEditor::drawChords (juce::Graphics& g)
 
 void RantiEditor::timerCallback()
 {
+    spin = std::fmod (spin + 1.0f / 600.0f, 1.0f);
+    repaint (juce::Rectangle<int> (590 - 215, 285 - 205, 430, 420));
     keys = proc.getActiveKeys();
     const int v = proc.getPatternVersion();
     if (v != lastVersion)

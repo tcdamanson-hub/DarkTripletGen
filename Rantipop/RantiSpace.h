@@ -77,3 +77,58 @@ inline juce::Image makeSpace (int W, int H, int seed, bool warm)
     return img;
 }
 } // namespace ranti
+
+namespace ranti
+{
+// planete qui tourne : meridiens qui defilent sur la sphere (le visage reste fixe)
+inline void drawSpin (juce::Graphics& g, juce::Point<float> c, float r, float phase, juce::Colour col)
+{
+    juce::Graphics::ScopedSaveState s (g);
+    juce::Path clip; clip.addEllipse (c.x - r + 3.0f, c.y - r + 3.0f, r * 2.0f - 6.0f, r * 2.0f - 6.0f);
+    g.reduceClipRegion (clip);
+    const int N = 9;
+    for (int i = 0; i < N; ++i)
+    {
+        const float lam = phase * juce::MathConstants<float>::twoPi + (float) i * juce::MathConstants<float>::pi / (float) N;
+        for (float side : { 1.0f, -1.0f })
+        {
+            const float L = lam + (side < 0.0f ? juce::MathConstants<float>::pi : 0.0f);
+            const float front = std::cos (L);
+            if (front <= 0.0f) continue;
+            juce::Path m;
+            for (int k = 0; k <= 24; ++k)
+            {
+                const float phi = -juce::MathConstants<float>::halfPi + (float) k * juce::MathConstants<float>::pi / 24.0f;
+                const juce::Point<float> p (c.x + r * std::sin (L) * std::cos (phi), c.y + r * std::sin (phi));
+                if (k == 0) m.startNewSubPath (p); else m.lineTo (p);
+            }
+            g.setColour (col.withAlpha (0.04f + 0.12f * front));
+            g.strokePath (m, juce::PathStrokeType (1.2f));
+        }
+    }
+    // paralleles (fixes)
+    for (float lat : { -0.55f, -0.2f, 0.2f, 0.55f })
+    {
+        const float y = c.y + r * std::sin (lat), rx = r * std::cos (lat);
+        g.setColour (col.withAlpha (0.06f));
+        g.drawEllipse (c.x - rx, y - rx * 0.12f, rx * 2.0f, rx * 0.24f, 1.0f);
+    }
+}
+
+// petite lumiere qui file sur l'anneau (partie avant)
+inline void drawOrbitSpark (juce::Graphics& g, juce::Point<float> c, float k, float phase, juce::Colour col)
+{
+    const float t = phase * juce::MathConstants<float>::twoPi * 2.0f;
+    for (int i = 0; i < 6; ++i)
+    {
+        const float tt = t - (float) i * 0.05f;
+        if (std::sin (tt) <= 0.05f) continue;
+        juce::Point<float> p (162.0f * k * std::cos (tt), 42.0f * k * std::sin (tt));
+        p = p.transformedBy (juce::AffineTransform::rotation (juce::degreesToRadians (-7.0f)).translated (c.x, c.y + 50.0f * k));
+        const float a = 1.0f - (float) i / 6.0f, rad = 7.0f * a + 2.0f;
+        juce::ColourGradient gl (col.withAlpha (0.8f * a), p.x, p.y, col.withAlpha (0.0f), p.x + rad, p.y, true);
+        g.setGradientFill (gl);
+        g.fillEllipse (p.x - rad, p.y - rad, rad * 2.0f, rad * 2.0f);
+    }
+}
+} // namespace ranti
