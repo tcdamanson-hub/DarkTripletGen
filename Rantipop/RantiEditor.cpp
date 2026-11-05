@@ -411,6 +411,54 @@ void RantiEditor::paint (juce::Graphics& g)
             x += tw[i] + 2.0f;
         }
     }
+    // gammes : juste sous les genres, toutes visibles (grisees s'il n'y a pas encore de MIDI dans cette gamme)
+    {
+        const int mc = proc.getModeChoice();
+        if (st.genre != pillGenre)
+        {
+            pillGenre = st.genre;
+            for (auto& c : pillCount) c = 0;
+            for (int i = 0; i < numSongs; ++i) if (songs[i].genre == st.genre) ++pillCount[(size_t) songs[i].mode];
+        }
+        if (pillText.isEmpty())
+        {
+            auto add = [&] (int row, const char* t, int v) { pillText.add (t); pillVal.push_back (v); pillRow.push_back (row); };
+            add (0, "TOUTES", -1); add (0, "MAJEURES", -2); add (0, "MINEURES", -3);
+            for (int md : { 0, 3, 4, 9, 12, 14, 15, 18 }) add (0, modeShort[md], md);
+            for (int md : { 5, 1, 2, 6, 7, 8, 10, 11, 13, 16, 17 }) add (1, modeShort[md], md);
+            for (int row = 0; row < 2; ++row)
+            {
+                float fs = 10.0f;
+                for (int pass = 0; pass < 8; ++pass)
+                {
+                    float total = 0.0f;
+                    for (int k = 0; k < pillText.size(); ++k)
+                        if (pillRow[(size_t) k] == row) total += juce::GlyphArrangement::getStringWidth (font (fs, 0.08f, true), pillText[k]) + 16.0f;
+                    if (total <= 694.0f - 70.0f) break;
+                    fs -= 0.5f;
+                }
+                pillFs[row] = fs;
+            }
+            for (int k = 0; k < pillText.size(); ++k)
+                pillW.push_back (juce::GlyphArrangement::getStringWidth (font (pillFs[pillRow[(size_t) k]], 0.08f, true), pillText[k]) + 12.0f);
+        }
+        spaced (g, "GAMME", { 336.0f, 76.0f, 64.0f, 20.0f }, 10.5f, 0.25f, juce::Justification::centredLeft, gold.withAlpha (0.7f));
+        float xr[2] = { 336.0f + 66.0f, 336.0f + 66.0f };
+        numModePills = 0;
+        for (size_t k = 0; k < pillW.size(); ++k)
+        {
+            const int row = pillRow[k], v = pillVal[k];
+            const auto r = juce::Rectangle<float> (xr[row], 76.0f + (float) row * 23.0f, pillW[k], 20.0f);
+            const bool on = mc == v, empty = v >= 0 && pillCount[(size_t) v] == 0, current = v >= 0 && mc < 0 && v == pat.mode;
+            if (on) { g.setColour (gold); g.fillRoundedRectangle (r, 6.0f); }
+            else { g.setColour (gold.withAlpha (current ? 0.8f : 0.22f)); g.drawRoundedRectangle (r.reduced (0.5f), 6.0f, current ? 1.5f : 1.0f); }
+            spaced (g, pillText[(int) k], r, pillFs[row], 0.08f, juce::Justification::centred,
+                    on ? juce::Colour (0xff14110a) : gold.withAlpha (empty ? 0.28f : 0.85f), true);
+            if (numModePills < 24) { modePills[numModePills] = r; modePillValue[numModePills] = v; modePillEmpty[numModePills] = empty; ++numModePills; }
+            xr[row] += pillW[k] + 4.0f;
+            if (v == -3) xr[row] += 6.0f;
+        }
+    }
     // morceau
     glass (g, songBox);
     spaced (g, "<", songBox.withWidth (34.0f), 15.0f, 0.0f, juce::Justification::centred, gold);
@@ -596,6 +644,8 @@ void RantiEditor::mouseUp (const juce::MouseEvent& e)
         return;
     }
     if (keyBox.contains (p) && p.x < keyBox.getX() + 150.0f) { showKeyMenu(); return; }
+    for (int i = 0; i < numModePills; ++i)
+        if (modePills[i].contains (p)) { if (! modePillEmpty[i]) { proc.setMode (modePillValue[i]); repaint(); } return; }
     if (previewBtn.contains (p) || p.getDistanceFrom ({ 590.0f, 285.0f }) < 140.0f)
     {
         proc.togglePreview();

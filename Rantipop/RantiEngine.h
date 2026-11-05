@@ -20,12 +20,26 @@ enum Lane { LKick = 0, LSnare, LClap, LHat, LHat2, LOpen, LRim, LPercA, LPercB, 
 static const char* const genreNames[] = { "R&B", "AFRO", "POP", "SYNTHWAVE" };
 static constexpr int numGenres = 4;
 static const char* const keyNames[] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+// gammes / modes (detectes sur les notes de chaque MIDI ; les notes ne sont jamais modifiees)
+static const int NumModes = 19;
+static const char* const modeShort[NumModes] = { "IONIEN", "DORIEN", "PHRYGIEN", "LYDIEN", "MIXOLYDIEN", "EOLIEN", "LOCRIEN", "MIN. HARM.", "MIN. MELO.",
+                                                 "MAJ. HARM.", "NAPOL. MIN.", "NAPOL. MAJ.", "PHRYG. DOM.", "HONGROIS", "DBL HARM.", "PENTA MAJ.", "PENTA MIN.", "BLUES MIN.", "BLUES MAJ." };
+inline bool modeIsMajor (int m) { return m == 0 || m == 3 || m == 4 || m == 9 || m == 12 || m == 14 || m == 15 || m == 18; }
+// choix : -1 toutes, -2 majeures, -3 mineures, 0..18 une gamme precise
+inline bool modeMatches (int song, int choice)
+{
+    if (choice == -1) return true;
+    const int m = songs[song].mode;
+    if (choice == -2) return modeIsMajor (m);
+    if (choice == -3) return ! modeIsMajor (m);
+    return m == choice;
+}
 
 // categorie de samples par genre et par piste de drums
 inline juce::String drumCategory (int genre, int lane, int variant)
 {
     static const char* rb[NumLanes] = { "RB_KICK", "RB_SNARE", "RB_CLAP", "RB_HAT", "RB_SHAKER", "RB_OHAT", "RB_RIM", "RB_PERC", "RB_PERC", "RB_SNAP", "RB_CRASH" };
-    static const char* af[NumLanes] = { "AF_KICK", "AF_SNARE", "AF_CLAP", "AF_HAT", "AF_SHAKER", "AF_OHAT", "AF_RIM", "AF_HAND", "AF_DRUM", "AF_WOOD", "-" };
+    static const char* af[NumLanes] = { "AF_KICK", "AF_SNARE", "AF_CLAP", "AF_HAT", "AF_SHAKER", "AF_OHAT", "AF_RIM", "AF_CONGA", "AF_CONGA", "AF_SNAP", "-" };
     static const char* sw[NumLanes] = { "SW_KICK", "SW_SNARE", "SW_CLAP", "SW_HAT", "SW_HAT", "SW_OHAT", "SW_RIM", "SW_PERC", "SW_PERC", "SW_PERC", "SW_CRASH" };
     if (genre == 3)
     {
@@ -157,7 +171,7 @@ struct Pattern
     double length = 32.0;
     std::array<std::vector<PNote>, NumParts> parts; // drums : pitch = piste (Lane)
     juce::String songName, grooveName;
-    int bpm = 120, key = 0, minor = 1;
+    int bpm = 120, key = 0, minor = 1, mode = 5;
     bool hasBassLine = false;
     std::vector<ChordName> chords;
 };
@@ -166,12 +180,13 @@ class Generator
 {
 public:
     // nouvelle generation : morceau au hasard du genre, groove au hasard, kit au hasard
-    static GenState randomState (int genre, int keyChoice, int previousSong, juce::Random& rng)
+    static GenState randomState (int genre, int keyChoice, int previousSong, juce::Random& rng, int modeChoice = -1)
     {
         GenState g;
         g.genre = genre;
         std::vector<int> cand;
-        for (int i = 0; i < numSongs; ++i) if (songs[i].genre == genre && i != previousSong) cand.push_back (i);
+        for (int i = 0; i < numSongs; ++i) if (songs[i].genre == genre && i != previousSong && modeMatches (i, modeChoice)) cand.push_back (i);
+        if (cand.empty()) for (int i = 0; i < numSongs; ++i) if (songs[i].genre == genre && modeMatches (i, modeChoice)) cand.push_back (i);
         if (cand.empty()) for (int i = 0; i < numSongs; ++i) if (songs[i].genre == genre) cand.push_back (i);
         if (cand.empty()) return g;
         g.song = cand[(size_t) rng.nextInt ((int) cand.size())];
@@ -204,6 +219,10 @@ public:
             const auto* set = SoundBank::get().drums (drumCategory (g.genre, l, g.clapVariant));
             g.kit[(size_t) l] = (set != nullptr && ! set->empty()) ? rng.nextInt ((int) set->size()) : 0;
         }
+        // afro : deux congas differentes pour Percussion et Percussion 2
+        if (g.genre == 1)
+            if (const auto* c = SoundBank::get().drums ("AF_CONGA"); c != nullptr && c->size() > 1)
+                while (g.kit[(size_t) LPercB] == g.kit[(size_t) LPercA]) g.kit[(size_t) LPercB] = rng.nextInt ((int) c->size());
         // pop : un kit complet du groupe du groove (moderne, californie, retro, indie), jamais melange
         if (g.genre == 2 && g.groove >= 0 && g.groove < numGrooves)
         {
@@ -293,6 +312,7 @@ public:
         p.bpm = s.bpm;
         p.key = ((s.key + g.transpose) % 12 + 12) % 12;
         p.minor = s.minor;
+        p.mode = s.mode;
         for (int i = 0; i < s.count; ++i)
         {
             const auto& n = songNotes[s.start + i];

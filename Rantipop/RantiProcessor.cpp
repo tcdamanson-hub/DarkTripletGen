@@ -80,7 +80,7 @@ void RantiProcessor::applyState (const GenState& g, bool pushHistory)
 void RantiProcessor::generate()
 {
     const auto cur = getState();
-    applyState (Generator::randomState (cur.genre, keyChoice, cur.song, rng), true);
+    applyState (Generator::randomState (cur.genre, keyChoice, cur.song, rng, modeChoice), true);
 }
 
 void RantiProcessor::goBack()    { if (canGoBack())    applyState (history[(size_t) --histPos], false); }
@@ -90,8 +90,8 @@ void RantiProcessor::setGenre (int g)
 {
     if (! genreAvailable (g)) return;
     const int before = getState().genre;
-    applyState (Generator::randomState (g, keyChoice, -1, rng), true);
-    if (g == 1 || g == 3 || before == 1 || before == 3) applyGenreSounds (g);
+    applyState (Generator::randomState (g, keyChoice, -1, rng, modeChoice), true);
+    if (g == 3 || before == 3) applyGenreSounds (g);
 }
 
 // afro : guitares pour les pistes de guitare, Rhodes pour les keys, 808 ; en quittant l'afro on remet les sons d'origine
@@ -114,14 +114,7 @@ void RantiProcessor::applyGenreSounds (int genre)
         for (auto* n : names) { const int i = bank.melodicMenu().indexOf (n); if (i > 0) c.push_back (i); }
         return c.empty() ? -1 : c[(size_t) rng.nextInt ((int) c.size())];
     };
-    if (genre == 1)
-    {
-        set ("instMel", pick ({ "Guitare 01", "Guitare 03", "Guitare 04", "Guitare 05" }));
-        set ("instChords", bank.findMelodic ("Rhodes Doux"));
-        set ("instExtra", pick ({ "Guitare 02", "Guitare 04", "Guitare 05" }));
-        set ("instBass", bank.findBass ("808 All Alone"));
-    }
-    else if (genre == 3)
+    if (genre == 3)
     {
         // synthwave : tes reglages de base
         set ("instMel", bank.findMelodic ("Electric Key 2"));
@@ -149,7 +142,8 @@ void RantiProcessor::stepSong (int dir)
 {
     auto g = getState();
     std::vector<int> list;
-    for (int i = 0; i < numSongs; ++i) if (songs[i].genre == g.genre) list.push_back (i);
+    for (int i = 0; i < numSongs; ++i) if (songs[i].genre == g.genre && modeMatches (i, modeChoice)) list.push_back (i);
+    if (list.empty()) for (int i = 0; i < numSongs; ++i) if (songs[i].genre == g.genre) list.push_back (i);
     if (list.empty()) return;
     int idx = 0;
     for (size_t i = 0; i < list.size(); ++i) if (list[i] == g.song) idx = (int) i;
@@ -159,6 +153,17 @@ void RantiProcessor::stepSong (int dir)
     if (g.genre == 0 && g.bass808 < 0) g.bass808 = Generator::random808 (songs[g.song].bpm, rng);
     g.transpose = Generator::transposeFor (songs[g.song].key, keyChoice);
     applyState (g, true);
+}
+
+void RantiProcessor::setMode (int m)
+{
+    modeChoice = juce::jlimit (-3, NumModes - 1, m);
+    const auto g = getState();
+    // le MIDI actuel n'est pas dans cette gamme : on en prend un qui l'est
+    if (g.song < 0 || ! modeMatches (g.song, modeChoice))
+        applyState (Generator::randomState (g.genre, keyChoice, g.song, rng, modeChoice), true);
+    else
+        ++patternVersion;
 }
 
 void RantiProcessor::setKey (int k)
@@ -351,6 +356,7 @@ void RantiProcessor::getStateInformation (juce::MemoryBlock& destData)
     auto s = apvts.copyState();
     s.setProperty ("gen", getState().toString(), nullptr);
     s.setProperty ("key", keyChoice, nullptr);
+    s.setProperty ("mode", modeChoice, nullptr);
     if (auto xml = s.createXml()) copyXmlToBinary (*xml, destData);
 }
 
@@ -362,6 +368,7 @@ void RantiProcessor::setStateInformation (const void* data, int sizeInBytes)
             auto vt = juce::ValueTree::fromXml (*xml);
             apvts.replaceState (vt);
             keyChoice = (int) vt.getProperty ("key", 0);
+            modeChoice = juce::jlimit (-3, NumModes - 1, (int) vt.getProperty ("mode", -1));
             const auto g = GenState::fromString (vt.getProperty ("gen", "").toString());
             if (g.song >= 0 && g.song < numSongs) applyState (g, true);
         }

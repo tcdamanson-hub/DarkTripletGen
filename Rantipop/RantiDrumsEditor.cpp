@@ -107,7 +107,6 @@ void DrumRow::paint (juce::Graphics& g)
     const auto st = proc.getState();
     juce::String t = title;
     if (lane == LHat2) t = st.genre != 3 ? "SHAKER" : "HAT 2";
-    if (lane == LClap && st.genre == 1 && st.clapVariant == 1) t = "SNAP";
     spaced (g, t, { 0.0f, 0.0f, (float) getWidth(), 18.0f }, 13.0f, 0.22f, juce::Justification::centredLeft, text, true);
     spaced (g, juce::String (juce::roundToInt (slider.getValue() * 100.0)) + "%", { 0.0f, 0.0f, (float) getWidth(), 18.0f }, 12.5f, 0.05f,
             juce::Justification::centredRight, text.withAlpha (0.6f));

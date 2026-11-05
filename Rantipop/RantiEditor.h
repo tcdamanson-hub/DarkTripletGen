@@ -66,6 +66,16 @@ private:
     void showInstMenu (const char* paramId, bool bass);
     void showGrooveMenu();
     void showKeyMenu();
+    // gammes
+    juce::Rectangle<float> modePills[24];
+    int modePillValue[24] {}, numModePills = 0;
+    bool modePillEmpty[24] {};
+    int pillGenre = -9;
+    std::array<int, 19> pillCount {};
+    float pillFs[2] { 10.0f, 10.0f };
+    juce::StringArray pillText;
+    std::vector<int> pillVal, pillRow;
+    std::vector<float> pillW;
     static void glass (juce::Graphics&, juce::Rectangle<float>, float radius = 12.0f);
     static void spaced (juce::Graphics&, const juce::String&, juce::Rectangle<float>, float size, float kerning,
                         juce::Justification, juce::Colour, bool bold = false);
