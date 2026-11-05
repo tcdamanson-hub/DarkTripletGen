@@ -31,10 +31,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout RantiProcessor::createLayout
     const auto& bank = SoundBank::get();
     const auto& mel = bank.melodicMenu();
     auto findM = [&] (const char* n, int fb) { const int i = mel.indexOf (n); return i < 0 ? fb : i; };
-    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instMel", 1 },    "Melody Sound", mel, findM ("Piano 01", 0)));
+    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instMel", 1 },    "Melody Sound", mel, findM ("Piano 31", 0)));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instChords", 1 }, "Chords Sound", mel, 0));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instExtra", 1 },  "Counter Sound", mel, findM ("Rhodes Doux", 0)));
-    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instBass", 1 },   "808 Sound", bank.bassMenu(), juce::jmax (0, bank.bassMenu().indexOf ("808 01"))));
+    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instBass", 1 },   "808 Sound", bank.bassMenu(), juce::jmax (0, bank.bassMenu().indexOf ("808 All Alone"))));
     const float defVol[4] = { 0.8f, 0.7f, 0.8f, 0.6f };
     const char* volNames[4] = { "Melody Vol", "Chords Vol", "808 Vol", "Counter Vol" };
     for (int i = 0; i < 4; ++i)
@@ -80,7 +80,7 @@ void RantiProcessor::applyState (const GenState& g, bool pushHistory)
 void RantiProcessor::generate()
 {
     const auto cur = getState();
-    applyState (Generator::randomState (cur.genre, keyChoice, cur.song, rng, modeChoice), true);
+    applyState (Generator::randomState (cur.genre, keyChoice, cur.song, rng), true);
 }
 
 void RantiProcessor::goBack()    { if (canGoBack())    applyState (history[(size_t) --histPos], false); }
@@ -89,11 +89,12 @@ void RantiProcessor::goForward() { if (canGoForward()) applyState (history[(size
 void RantiProcessor::setGenre (int g)
 {
     if (! genreAvailable (g)) return;
-    applyState (Generator::randomState (g, keyChoice, -1, rng, modeChoice), true);
-    applyGenreSounds (g);
+    const int before = getState().genre;
+    applyState (Generator::randomState (g, keyChoice, -1, rng), true);
+    if (g == 1 || before == 1) applyGenreSounds (g);
 }
 
-// en changeant de genre, chaque ligne prend l'instrument de ses pistes (tu peux toujours changer a la main)
+// afro : guitares pour les pistes de guitare, Rhodes pour les keys, 808 ; en quittant l'afro on remet les sons d'origine
 void RantiProcessor::applyGenreSounds (int genre)
 {
     const auto& bank = SoundBank::get();
@@ -107,7 +108,7 @@ void RantiProcessor::applyGenreSounds (int genre)
             p->endChangeGesture();
         }
     };
-    auto guitar = [&] (std::initializer_list<const char*> names) -> int
+    auto pick = [&] (std::initializer_list<const char*> names) -> int
     {
         std::vector<int> c;
         for (auto* n : names) { const int i = bank.melodicMenu().indexOf (n); if (i > 0) c.push_back (i); }
@@ -115,19 +116,17 @@ void RantiProcessor::applyGenreSounds (int genre)
     };
     if (genre == 1)
     {
-        // afro : guitares pour les pistes de guitare, Rhodes pour les keys, 808
-        set ("instMel", guitar ({ "Guitare 01", "Guitare 03", "Guitare 04", "Guitare 05" }));
+        set ("instMel", pick ({ "Guitare 01", "Guitare 03", "Guitare 04", "Guitare 05" }));
         set ("instChords", bank.findMelodic ("Rhodes Doux"));
-        set ("instExtra", guitar ({ "Guitare 02", "Guitare 04", "Guitare 05" }));
-        set ("instBass", bank.findBass ("808 01"));
+        set ("instExtra", pick ({ "Guitare 02", "Guitare 04", "Guitare 05" }));
+        set ("instBass", bank.findBass ("808 All Alone"));
     }
     else
     {
-        // R&B : les sons valides
-        set ("instMel", bank.findMelodic ("Piano 01"));
+        set ("instMel", bank.findMelodic ("Piano 31"));
         set ("instChords", 0);
         set ("instExtra", bank.findMelodic ("Rhodes Doux"));
-        set ("instBass", bank.findBass ("808 01"));
+        set ("instBass", bank.findBass ("808 All Alone"));
     }
 }
 
@@ -142,8 +141,7 @@ void RantiProcessor::stepSong (int dir)
 {
     auto g = getState();
     std::vector<int> list;
-    for (int i = 0; i < numSongs; ++i) if (songs[i].genre == g.genre && modeMatches (i, modeChoice)) list.push_back (i);
-    if (list.empty()) for (int i = 0; i < numSongs; ++i) if (songs[i].genre == g.genre) list.push_back (i);
+    for (int i = 0; i < numSongs; ++i) if (songs[i].genre == g.genre) list.push_back (i);
     if (list.empty()) return;
     int idx = 0;
     for (size_t i = 0; i < list.size(); ++i) if (list[i] == g.song) idx = (int) i;
@@ -153,17 +151,6 @@ void RantiProcessor::stepSong (int dir)
     if (g.genre == 0 && g.bass808 < 0) g.bass808 = Generator::random808 (songs[g.song].bpm, rng);
     g.transpose = Generator::transposeFor (songs[g.song].key, keyChoice);
     applyState (g, true);
-}
-
-void RantiProcessor::setMode (int m)
-{
-    modeChoice = juce::jlimit (-3, NumModes - 1, m);
-    const auto g = getState();
-    // le MIDI actuel n'est pas dans ce mode : on en prend un qui l'est
-    if (g.song < 0 || ! modeMatches (g.song, modeChoice))
-        applyState (Generator::randomState (g.genre, keyChoice, g.song, rng, modeChoice), true);
-    else
-        ++patternVersion;
 }
 
 void RantiProcessor::setKey (int k)
@@ -356,7 +343,6 @@ void RantiProcessor::getStateInformation (juce::MemoryBlock& destData)
     auto s = apvts.copyState();
     s.setProperty ("gen", getState().toString(), nullptr);
     s.setProperty ("key", keyChoice, nullptr);
-    s.setProperty ("mode", modeChoice, nullptr);
     if (auto xml = s.createXml()) copyXmlToBinary (*xml, destData);
 }
 
@@ -368,7 +354,6 @@ void RantiProcessor::setStateInformation (const void* data, int sizeInBytes)
             auto vt = juce::ValueTree::fromXml (*xml);
             apvts.replaceState (vt);
             keyChoice = (int) vt.getProperty ("key", 0);
-            modeChoice = juce::jlimit (-3, NumModes - 1, (int) vt.getProperty ("mode", -1));
             const auto g = GenState::fromString (vt.getProperty ("gen", "").toString());
             if (g.song >= 0 && g.song < numSongs) applyState (g, true);
         }

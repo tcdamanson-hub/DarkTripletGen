@@ -20,21 +20,6 @@ enum Lane { LKick = 0, LSnare, LClap, LHat, LHat2, LOpen, LRim, LPercA, LPercB, 
 static const char* const genreNames[] = { "R&B", "AFRO", "POP", "SYNTHWAVE" };
 static constexpr int numGenres = 4;
 static const char* const keyNames[] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
-// modes (detectes sur les notes de chaque MIDI, les notes ne sont jamais modifiees)
-static const int NumModes = 10;
-static const char* const modeNames[NumModes] = { "Ionien (majeur)", "Dorien", "Phrygien", "Lydien", "Mixolydien", "Eolien (mineur)",
-                                                 "Locrien", "Mineur harmonique", "Mineur melodique", "Majeur harmonique" };
-static const char* const modeShort[NumModes] = { "Ionien", "Dorien", "Phrygien", "Lydien", "Mixolydien", "Eolien", "Locrien", "Min. harm.", "Min. melo.", "Maj. harm." };
-inline bool modeIsMajor (int m) { return m == 0 || m == 3 || m == 4 || m == 9; }
-// choix : -1 = toutes, -2 = tous les majeurs, -3 = tous les mineurs, 0..9 = un mode precis
-inline bool modeMatches (int song, int choice)
-{
-    if (choice == -1) return true;
-    const int m = songs[song].mode;
-    if (choice == -2) return modeIsMajor (m);
-    if (choice == -3) return ! modeIsMajor (m);
-    return m == choice;
-}
 
 // categorie de samples par genre et par piste de drums
 inline juce::String drumCategory (int genre, int lane, int variant)
@@ -46,13 +31,6 @@ inline juce::String drumCategory (int genre, int lane, int variant)
     {
         // kit synthwave ; si une categorie manque, on prend celle du R&B
         if (SoundBank::get().drums (sw[lane]) != nullptr) return sw[lane];
-        return rb[lane];
-    }
-    if (genre == 2)
-    {
-        // kits pop : kick, snare, clap, hats, open hat, crash, toms ; le reste vient du kit R&B
-        static const char* pp[NumLanes] = { "PP_KICK", "PP_SNARE", "PP_CLAP", "PP_HAT", "PP_HAT", "PP_OHAT", "RB_RIM", "PP_LTOM", "PP_HTOM", "RB_PERC", "PP_CRASH" };
-        if (SoundBank::get().drums (pp[lane]) != nullptr) return pp[lane];
         return rb[lane];
     }
     if (genre == 1)
@@ -172,7 +150,7 @@ struct Pattern
     double length = 32.0;
     std::array<std::vector<PNote>, NumParts> parts; // drums : pitch = piste (Lane)
     juce::String songName, grooveName;
-    int bpm = 120, key = 0, minor = 1, mode = 5;
+    int bpm = 120, key = 0, minor = 1;
     bool hasBassLine = false;
     std::vector<ChordName> chords;
 };
@@ -181,13 +159,12 @@ class Generator
 {
 public:
     // nouvelle generation : morceau au hasard du genre, groove au hasard, kit au hasard
-    static GenState randomState (int genre, int keyChoice, int previousSong, juce::Random& rng, int modeChoice = -1)
+    static GenState randomState (int genre, int keyChoice, int previousSong, juce::Random& rng)
     {
         GenState g;
         g.genre = genre;
         std::vector<int> cand;
-        for (int i = 0; i < numSongs; ++i) if (songs[i].genre == genre && i != previousSong && modeMatches (i, modeChoice)) cand.push_back (i);
-        if (cand.empty()) for (int i = 0; i < numSongs; ++i) if (songs[i].genre == genre && modeMatches (i, modeChoice)) cand.push_back (i);
+        for (int i = 0; i < numSongs; ++i) if (songs[i].genre == genre && i != previousSong) cand.push_back (i);
         if (cand.empty()) for (int i = 0; i < numSongs; ++i) if (songs[i].genre == genre) cand.push_back (i);
         if (cand.empty()) return g;
         g.song = cand[(size_t) rng.nextInt ((int) cand.size())];
@@ -220,16 +197,6 @@ public:
             const auto* set = SoundBank::get().drums (drumCategory (g.genre, l, g.clapVariant));
             g.kit[(size_t) l] = (set != nullptr && ! set->empty()) ? rng.nextInt ((int) set->size()) : 0;
         }
-        // pop : un kit complet et coherent (tous les sons du meme kit)
-        if (g.genre == 2)
-            if (const auto* kicks = SoundBank::get().drums ("PP_KICK"); kicks != nullptr && ! kicks->empty())
-            {
-                const auto kitName = (*kicks)[(size_t) rng.nextInt ((int) kicks->size())].name;
-                for (int l = 0; l < NumLanes; ++l)
-                    if (const auto* set = SoundBank::get().drums (drumCategory (2, l, 0)))
-                        for (size_t i = 0; i < set->size(); ++i)
-                            if ((*set)[i].name == kitName) g.kit[(size_t) l] = (int) i;
-            }
     }
 
     // R&B : un MIDI kick, un snare, un hats (+ open hat, percu de temps en temps), tempos compatibles
@@ -292,7 +259,6 @@ public:
         p.bpm = s.bpm;
         p.key = ((s.key + g.transpose) % 12 + 12) % 12;
         p.minor = s.minor;
-        p.mode = s.mode;
         for (int i = 0; i < s.count; ++i)
         {
             const auto& n = songNotes[s.start + i];
@@ -540,7 +506,7 @@ private:
     // registre des sons samples : rien de trop grave (la 808 garde le grave)
     int lift (int part, int n) const
     {
-        if (state.genre != 0) return n; // afro : les pistes jouent a leur vraie hauteur
+        if (state.genre == 1) return n; // afro : les pistes jouent a leur vraie hauteur
         while (n < 48) n += 12;
         if (part == PChords) while (n > 76) n -= 12;
         return n;

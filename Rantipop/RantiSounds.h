@@ -76,45 +76,25 @@ private:
 
     static int groupOrder (const juce::String& g)
     {
-        static const juce::StringArray order { "Piano", "Rhodes", "Keys", "Guitares", "Mallets", "Plucks", "Pads", "Bells", "Leads", "Synths", "Cuivres", "Bass" };
+        static const juce::StringArray order { "Piano", "Rhodes", "Keys", "Pads", "Bells", "Leads", "Synths", "Bass" };
         const int i = order.indexOf (g);
         return i < 0 ? 50 : i;
     }
 
-    // les sons sont stockes chiffres dans le plugin (format RANTIPOP .rnp) : on les dechiffre en memoire
-    static void decrypt (juce::MemoryBlock& mb, const juce::String& name)
-    {
-        juce::uint64 h = 0xcbf29ce484222325ULL;
-        const auto utf8 = name.toRawUTF8();
-        for (size_t i = 0; utf8[i] != 0; ++i) { h ^= (juce::uint8) utf8[i]; h *= 0x100000001b3ULL; }
-        juce::uint64 x = 0x9E3779B97F4A7C15ULL ^ h;
-        if (x == 0) x = 1;
-        auto* d = static_cast<juce::uint8*> (mb.getData());
-        const size_t n = mb.getSize();
-        for (size_t i = 0; i < n; i += 8)
-        {
-            x ^= x >> 12; x ^= x << 25; x ^= x >> 27;
-            const juce::uint64 k = x * 0x2545F4914F6CDD1DULL;
-            for (size_t b = 0; b < 8 && i + b < n; ++b) d[i + b] ^= (juce::uint8) (k >> (8 * b));
-        }
-    }
-
     SoundBank()
     {
-        juce::AudioFormatManager formats;
-        formats.registerBasicFormats();
+        juce::WavAudioFormat wav;
         std::map<juce::String, size_t> instIndex;
         for (int i = 0; i < RantiSamples::namedResourceListSize; ++i)
         {
             const juce::String file = juce::String (RantiSamples::originalFilenames[i]).upToLastOccurrenceOf (".", false, false);
-            if (! juce::String (RantiSamples::originalFilenames[i]).endsWithIgnoreCase (".rnp") || ! file.contains ("__"))
+            if (! juce::String (RantiSamples::originalFilenames[i]).endsWithIgnoreCase (".wav") || ! file.contains ("__"))
                 continue;
             int size = 0;
             const char* data = RantiSamples::getNamedResource (RantiSamples::namedResourceList[i], size);
             if (data == nullptr || size <= 0) continue;
-            juce::MemoryBlock mb (data, (size_t) size);
-            decrypt (mb, file);
-            std::unique_ptr<juce::AudioFormatReader> reader (formats.createReaderFor (std::make_unique<juce::MemoryInputStream> (std::move (mb))));
+            std::unique_ptr<juce::AudioFormatReader> reader (
+                wav.createReaderFor (new juce::MemoryInputStream (data, (size_t) size, false), true));
             if (reader == nullptr) continue;
             Sample s;
             s.sampleRate = reader->sampleRate;
