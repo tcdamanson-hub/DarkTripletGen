@@ -70,7 +70,7 @@ void DrumLook::drawLinearSlider (juce::Graphics& g, int x, int y, int w, int h, 
 
 void DrumLook::drawPopupMenuBackground (juce::Graphics& g, int w, int h)
 {
-    g.fillAll (juce::Colour (0xf2070b22));
+    g.fillAll (juce::Colour (0xff070b22));
     g.setColour (dim);
     g.drawRect (0, 0, w, h, 1);
 }
@@ -106,7 +106,8 @@ void DrumRow::paint (juce::Graphics& g)
 {
     const auto st = proc.getState();
     juce::String t = title;
-    if (lane == LHat2) t = st.genre != 3 ? "SHAKER" : "HAT 2";
+    if (lane == LHat2) t = st.genre >= 2 ? "HAT 2" : "SHAKER";
+    if (lane == LPercA && st.genre == 2) t = "TOMS";
     if (lane == LClap && st.genre == 1 && st.clapVariant == 1) t = "SNAP";
     spaced (g, t, { 0.0f, 0.0f, (float) getWidth(), 18.0f }, 13.0f, 0.22f, juce::Justification::centredLeft, text, true);
     spaced (g, juce::String (juce::roundToInt (slider.getValue() * 100.0)) + "%", { 0.0f, 0.0f, (float) getWidth(), 18.0f }, 12.5f, 0.05f,
@@ -411,7 +412,9 @@ void RantiDrumsEditor::paintOverChildren (juce::Graphics& g)
         g.setColour (juce::Colour (0x40a0beff));
         g.drawRoundedRectangle (r, 12.0f, 1.0f);
         juce::String nm = names[i];
-        if (i == 8 && st.genre == 3) nm = "HAT 2";
+        if (i == 8 && st.genre >= 2) nm = "HAT 2";
+        if (st.genre == 2 && i == 6) nm = "TOM 1";
+        if (st.genre == 2 && i == 7) nm = "TOM 2";
         spaced (g, nm, r.withTrimmedBottom (14.0f).withTrimmedTop (r.getHeight() - 40.0f), 11.0f, 0.2f, juce::Justification::centred,
                 a > 0.5f ? juce::Colour (0xff050a1e) : text, true);
     }

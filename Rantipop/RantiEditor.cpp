@@ -60,7 +60,7 @@ void RantiLook::drawLinearSlider (juce::Graphics& g, int x, int y, int w, int h,
 
 void RantiLook::drawPopupMenuBackground (juce::Graphics& g, int w, int h)
 {
-    g.fillAll (juce::Colour (0xf20d0b08));
+    g.fillAll (juce::Colour (0xff0d0b08));
     g.setColour (goldDim);
     g.drawRect (0, 0, w, h, 1);
 }
@@ -216,7 +216,6 @@ void RantiEditor::resized()
     nextBtn = { genBtn.getRight() + 12.0f, 452.0f, 46.0f, 46.0f };
     songBox = { (float) W - 24 - 330, 26.0f, 330.0f, 44.0f };
     keyBox = { 806.0f, 500.0f, 224.0f, 38.0f };
-    modeBox = { 806.0f, 454.0f, 224.0f, 38.0f };
 }
 
 void RantiEditor::glass (juce::Graphics& g, juce::Rectangle<float> r, float radius)
@@ -412,6 +411,40 @@ void RantiEditor::paint (juce::Graphics& g)
             x += tw[i] + 2.0f;
         }
     }
+    // gamme : juste sous les genres, on voit tout d'un coup d'oeil
+    {
+        const int mc = proc.getModeChoice();
+        int cnt[NumModes] = {};
+        for (int i = 0; i < numSongs; ++i) if (songs[i].genre == st.genre) ++cnt[songs[i].mode];
+        struct Pill { juce::String t; int v; };
+        std::vector<Pill> pills { { "TOUTES", -1 }, { "MAJEUR", -2 }, { "MINEUR", -3 } };
+        const char* up[NumModes] = { "IONIEN", "DORIEN", "PHRYGIEN", "LYDIEN", "MIXOLYDIEN", "EOLIEN", "LOCRIEN", "MIN. HARM.", "MIN. MELO.", "MAJ. HARM." };
+        for (int md : { 0, 3, 4, 9, 5, 1, 2, 6, 7, 8 }) if (cnt[md] > 0 || mc == md) pills.push_back ({ up[md], md });
+        const auto row = juce::Rectangle<float> (336.0f, 78.0f, 694.0f, 28.0f);
+        spaced (g, "GAMME", row.withWidth (64.0f), 10.5f, 0.25f, juce::Justification::centredLeft, gold.withAlpha (0.7f));
+        float fs = 10.5f, total = 0.0f;
+        for (int pass = 0; pass < 6; ++pass)
+        {
+            total = 0.0f;
+            for (auto& p : pills) total += juce::GlyphArrangement::getStringWidth (font (fs, 0.12f, true), p.t) + 18.0f + 4.0f;
+            if (total <= row.getWidth() - 64.0f) break;
+            fs -= 0.5f;
+        }
+        float x = row.getX() + 64.0f;
+        numModePills = 0;
+        for (auto& p : pills)
+        {
+            const float w = juce::GlyphArrangement::getStringWidth (font (fs, 0.12f, true), p.t) + 18.0f;
+            const auto r = juce::Rectangle<float> (x, row.getY() + 2.0f, w, row.getHeight() - 4.0f);
+            const bool on = mc == p.v;
+            if (p.v == -3) { g.setColour (gold.withAlpha (0.25f)); g.fillRect (x + w + 5.0f, r.getY() + 4.0f, 1.0f, r.getHeight() - 8.0f); x += 8.0f; }
+            if (on) { g.setColour (gold); g.fillRoundedRectangle (r, 7.0f); }
+            else { g.setColour (gold.withAlpha (0.25f)); g.drawRoundedRectangle (r.reduced (0.5f), 7.0f, 1.0f); }
+            spaced (g, p.t, r, fs, 0.12f, juce::Justification::centred, on ? juce::Colour (0xff14110a) : gold.withAlpha (0.8f), true);
+            if (numModePills < 16) { modePills[numModePills] = r; modePillValue[numModePills] = p.v; ++numModePills; }
+            x += w + 4.0f;
+        }
+    }
     // morceau
     glass (g, songBox);
     spaced (g, "<", songBox.withWidth (34.0f), 15.0f, 0.0f, juce::Justification::centred, gold);
@@ -465,16 +498,6 @@ void RantiEditor::paint (juce::Graphics& g)
         spaced (g, "TON", keyBox.withWidth (60.0f).withTrimmedLeft (14.0f), 11.0f, 0.2f, juce::Justification::centredLeft, gold.withAlpha (0.7f));
         spaced (g, ton + juce::String (juce::CharPointer_UTF8 (" \xe2\x96\xbe")), keyBox.withX (keyBox.getX() + 46.0f).withWidth (110.0f), 12.5f, 0.1f, juce::Justification::centredLeft, gold, true);
         spaced (g, "BPM " + juce::String (pat.bpm), keyBox.withTrimmedLeft (150.0f).withTrimmedRight (12.0f), 11.0f, 0.2f, juce::Justification::centredRight, gold);
-    }
-
-    // --- gamme / mode
-    glass (g, modeBox, 10.0f);
-    {
-        const int mc = proc.getModeChoice();
-        juce::String t = mc == -1 ? juce::String ("Toutes") : mc == -2 ? juce::String ("Majeurs") : mc == -3 ? juce::String ("Mineurs") : juce::String (modeShort[mc]);
-        if (mc < 0) t << " (" << modeShort[pat.mode] << ")";
-        spaced (g, "GAMME", modeBox.withWidth (70.0f).withTrimmedLeft (14.0f), 11.0f, 0.2f, juce::Justification::centredLeft, gold.withAlpha (0.7f));
-        spaced (g, t + juce::String (juce::CharPointer_UTF8 (" \xe2\x96\xbe")), modeBox.withTrimmedLeft (70.0f).withTrimmedRight (10.0f), 12.0f, 0.05f, juce::Justification::centredLeft, gold, true);
     }
 
     // --- master
@@ -607,7 +630,8 @@ void RantiEditor::mouseUp (const juce::MouseEvent& e)
         return;
     }
     if (keyBox.contains (p) && p.x < keyBox.getX() + 150.0f) { showKeyMenu(); return; }
-    if (modeBox.contains (p)) { showModeMenu(); return; }
+    for (int i = 0; i < numModePills; ++i)
+        if (modePills[i].contains (p)) { proc.setMode (modePillValue[i]); repaint(); return; }
     if (previewBtn.contains (p) || p.getDistanceFrom ({ 590.0f, 285.0f }) < 140.0f)
     {
         proc.togglePreview();
@@ -651,32 +675,6 @@ void RantiEditor::showGrooveMenu()
         if (grooves[i].genre == st.genre || (grooves[i].genre == 0 && ! [&] { for (int j = 0; j < numGrooves; ++j) if (grooves[j].genre == st.genre) return true; return false; }()))
             m.addItem (i + 1, juce::String (grooves[i].name) + "  (" + juce::String (grooves[i].bpm) + " bpm)", true, st.groove == i);
     m.showMenuAsync (juce::PopupMenu::Options().withParentComponent (this), [this] (int r) { if (r > 0) proc.setGroove (r - 1); });
-}
-
-void RantiEditor::showModeMenu()
-{
-    const int genre = proc.getState().genre, mc = proc.getModeChoice();
-    int cnt[NumModes] = {}, nMaj = 0, nMin = 0, nAll = 0;
-    for (int i = 0; i < numSongs; ++i)
-        if (songs[i].genre == genre)
-        {
-            ++cnt[songs[i].mode]; ++nAll;
-            if (modeIsMajor (songs[i].mode)) ++nMaj; else ++nMin;
-        }
-    auto lbl = [] (const juce::String& n, int c) { return n + "  (" + juce::String (c) + ")"; };
-    juce::PopupMenu m;
-    m.addItem (100, lbl ("Toutes les gammes", nAll), nAll > 0, mc == -1);
-    m.addItem (101, lbl ("Tous les majeurs", nMaj), nMaj > 0, mc == -2);
-    m.addItem (102, lbl ("Tous les mineurs", nMin), nMin > 0, mc == -3);
-    m.addSectionHeader ("MAJEURS");
-    for (int md : { 0, 3, 4, 9 }) m.addItem (md + 1, lbl (modeNames[md], cnt[md]), cnt[md] > 0, mc == md);
-    m.addSectionHeader ("MINEURS");
-    for (int md : { 5, 1, 2, 6, 7, 8 }) m.addItem (md + 1, lbl (modeNames[md], cnt[md]), cnt[md] > 0, mc == md);
-    m.showMenuAsync (juce::PopupMenu::Options().withParentComponent (this), [this] (int r)
-    {
-        if (r >= 100) proc.setMode (r == 100 ? -1 : r == 101 ? -2 : -3);
-        else if (r > 0) proc.setMode (r - 1);
-    });
 }
 
 void RantiEditor::showKeyMenu()

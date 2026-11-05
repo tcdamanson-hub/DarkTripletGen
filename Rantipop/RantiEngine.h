@@ -48,6 +48,13 @@ inline juce::String drumCategory (int genre, int lane, int variant)
         if (SoundBank::get().drums (sw[lane]) != nullptr) return sw[lane];
         return rb[lane];
     }
+    if (genre == 2)
+    {
+        // kits pop : kick, snare, clap, hats, open hat, crash, toms ; le reste vient du kit R&B
+        static const char* pp[NumLanes] = { "PP_KICK", "PP_SNARE", "PP_CLAP", "PP_HAT", "PP_HAT", "PP_OHAT", "RB_RIM", "PP_LTOM", "PP_HTOM", "RB_PERC", "PP_CRASH" };
+        if (SoundBank::get().drums (pp[lane]) != nullptr) return pp[lane];
+        return rb[lane];
+    }
     if (genre == 1)
     {
         if (lane == LClap && variant == 1) return "AF_SNAP";
@@ -213,6 +220,16 @@ public:
             const auto* set = SoundBank::get().drums (drumCategory (g.genre, l, g.clapVariant));
             g.kit[(size_t) l] = (set != nullptr && ! set->empty()) ? rng.nextInt ((int) set->size()) : 0;
         }
+        // pop : un kit complet et coherent (tous les sons du meme kit)
+        if (g.genre == 2)
+            if (const auto* kicks = SoundBank::get().drums ("PP_KICK"); kicks != nullptr && ! kicks->empty())
+            {
+                const auto kitName = (*kicks)[(size_t) rng.nextInt ((int) kicks->size())].name;
+                for (int l = 0; l < NumLanes; ++l)
+                    if (const auto* set = SoundBank::get().drums (drumCategory (2, l, 0)))
+                        for (size_t i = 0; i < set->size(); ++i)
+                            if ((*set)[i].name == kitName) g.kit[(size_t) l] = (int) i;
+            }
     }
 
     // R&B : un MIDI kick, un snare, un hats (+ open hat, percu de temps en temps), tempos compatibles

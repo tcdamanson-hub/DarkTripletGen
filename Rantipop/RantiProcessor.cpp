@@ -31,10 +31,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout RantiProcessor::createLayout
     const auto& bank = SoundBank::get();
     const auto& mel = bank.melodicMenu();
     auto findM = [&] (const char* n, int fb) { const int i = mel.indexOf (n); return i < 0 ? fb : i; };
-    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instMel", 1 },    "Melody Sound", mel, findM ("Piano 31", 0)));
+    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instMel", 1 },    "Melody Sound", mel, findM ("Piano 01", 0)));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instChords", 1 }, "Chords Sound", mel, 0));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instExtra", 1 },  "Counter Sound", mel, findM ("Rhodes Doux", 0)));
-    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instBass", 1 },   "808 Sound", bank.bassMenu(), juce::jmax (0, bank.bassMenu().indexOf ("808 All Alone"))));
+    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instBass", 1 },   "808 Sound", bank.bassMenu(), juce::jmax (0, bank.bassMenu().indexOf ("808 01"))));
     const float defVol[4] = { 0.8f, 0.7f, 0.8f, 0.6f };
     const char* volNames[4] = { "Melody Vol", "Chords Vol", "808 Vol", "Counter Vol" };
     for (int i = 0; i < 4; ++i)
