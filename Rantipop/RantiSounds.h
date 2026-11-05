@@ -4,8 +4,6 @@
 #include <array>
 #include <cmath>
 #include <map>
-#include <atomic>
-#include <memory>
 #include "RantiSamples.h"
 
 // =============================================================================
@@ -21,14 +19,6 @@ struct Sample
     double sampleRate = 44100.0;
     int root = 60;
     juce::String name;
-
-    // chargement a la demande : le son n'est decode que lorsqu'il sert (0 = rien, 1 = demande, 2 = pret)
-    const char* src = nullptr;
-    int srcSize = 0;
-    juce::String key;
-    std::shared_ptr<std::atomic<int>> state = std::make_shared<std::atomic<int>> (0);
-    bool isReady() const { return state->load (std::memory_order_acquire) == 2; }
-    void want() const { int e = 0; state->compare_exchange_strong (e, 1); }
 };
 
 struct Instrument
@@ -109,48 +99,10 @@ private:
         }
     }
 
-    // decode les sons demandes, en arriere-plan (FL ne se bloque jamais)
-    struct Loader : juce::Thread
-    {
-        SoundBank& bank;
-        explicit Loader (SoundBank& b) : juce::Thread ("RantipopLoader"), bank (b) {}
-        void run() override
-        {
-            juce::AudioFormatManager formats;
-            formats.registerBasicFormats();
-            while (! threadShouldExit())
-            {
-                bool any = false;
-                for (auto* s : bank.all)
-                {
-                    if (threadShouldExit()) return;
-                    if (s->state->load() != 1) continue;
-                    any = true;
-                    juce::MemoryBlock mb (s->src, (size_t) s->srcSize);
-                    decrypt (mb, s->key);
-                    std::unique_ptr<juce::AudioFormatReader> reader (formats.createReaderFor (std::make_unique<juce::MemoryInputStream> (std::move (mb))));
-                    if (reader != nullptr)
-                    {
-                        const int nch = reader->numChannels > 1 ? 2 : 1;
-                        s->data.setSize (nch, (int) reader->lengthInSamples);
-                        reader->read (&s->data, 0, (int) reader->lengthInSamples, 0, true, nch > 1);
-                        s->sampleRate = reader->sampleRate;
-                    }
-                    s->state->store (2, std::memory_order_release);
-                }
-                if (! any) wait (15);
-            }
-        }
-    };
-    std::vector<Sample*> all;
-    std::unique_ptr<Loader> loader;
-
-public:
-    ~SoundBank() { if (loader != nullptr) loader->stopThread (3000); }
-
-private:
     SoundBank()
     {
+        juce::AudioFormatManager formats;
+        formats.registerBasicFormats();
         std::map<juce::String, size_t> instIndex;
         for (int i = 0; i < RantiSamples::namedResourceListSize; ++i)
         {
@@ -160,8 +112,15 @@ private:
             int size = 0;
             const char* data = RantiSamples::getNamedResource (RantiSamples::namedResourceList[i], size);
             if (data == nullptr || size <= 0) continue;
+            juce::MemoryBlock mb (data, (size_t) size);
+            decrypt (mb, file);
+            std::unique_ptr<juce::AudioFormatReader> reader (formats.createReaderFor (std::make_unique<juce::MemoryInputStream> (std::move (mb))));
+            if (reader == nullptr) continue;
             Sample s;
-            s.src = data; s.srcSize = size; s.key = file;
+            s.sampleRate = reader->sampleRate;
+            const int nch = reader->numChannels > 1 ? 2 : 1;
+            s.data.setSize (nch, (int) reader->lengthInSamples);
+            reader->read (&s.data, 0, (int) reader->lengthInSamples, 0, true, nch > 1);
 
             const auto head = file.upToFirstOccurrenceOf ("__", false, false);
             const auto rest = file.fromFirstOccurrenceOf ("__", false, false);
@@ -201,10 +160,6 @@ private:
             else                    { melIdx.push_back ((int) i);  melNames.add (in.name); }
         }
         if (bassNames.isEmpty()) bassNames.add ("-");
-        for (auto& in : instruments) for (auto& z : in.zones) all.push_back (&z);
-        for (auto& c : drumCats) for (auto& z : c.second) all.push_back (&z);
-        loader = std::make_unique<Loader> (*this);
-        loader->startThread();
     }
 };
 
@@ -222,7 +177,6 @@ public:
     void noteOn (int bus, int note, float vel, const Sample* s, bool pitched, float release, int chokeGroup = -1, float level = 1.0f)
     {
         if (s == nullptr) return;
-        if (! s->isReady()) { s->want(); return; }
         if (chokeGroup >= 0)
             for (auto& v : voices)
                 if (v.active && v.choke == chokeGroup) startRelease (v, 0.03f);

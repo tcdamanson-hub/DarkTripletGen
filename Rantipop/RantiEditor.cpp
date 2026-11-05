@@ -411,43 +411,37 @@ void RantiEditor::paint (juce::Graphics& g)
             x += tw[i] + 2.0f;
         }
     }
-    // gamme : juste sous les genres (la mise en page n'est recalculee que si le genre ou le choix change)
+    // gamme : juste sous les genres, on voit tout d'un coup d'oeil
     {
         const int mc = proc.getModeChoice();
-        if (st.genre != pillGenre || mc != pillMode)
-        {
-            pillGenre = st.genre; pillMode = mc;
-            int cnt[NumModes] = {};
-            for (int i = 0; i < numSongs; ++i) if (songs[i].genre == st.genre) ++cnt[songs[i].mode];
-            pillText.clear(); pillVal.clear(); pillW.clear();
-            auto add = [&] (const char* t, int v) { pillText.add (t); pillVal.push_back (v); };
-            add ("TOUTES", -1); add ("MAJEUR", -2); add ("MINEUR", -3);
-            const char* up[NumModes] = { "IONIEN", "DORIEN", "PHRYGIEN", "LYDIEN", "MIXOLYDIEN", "EOLIEN", "LOCRIEN", "MIN. HARM.", "MIN. MELO.", "MAJ. HARM." };
-            for (int md : { 0, 3, 4, 9, 5, 1, 2, 6, 7, 8 }) if (cnt[md] > 0 || mc == md) add (up[md], md);
-            pillFs = 10.5f;
-            for (int pass = 0; pass < 6; ++pass)
-            {
-                float total = 0.0f;
-                for (auto& t : pillText) total += juce::GlyphArrangement::getStringWidth (font (pillFs, 0.12f, true), t) + 22.0f;
-                if (total <= 694.0f - 64.0f) break;
-                pillFs -= 0.5f;
-            }
-            for (auto& t : pillText) pillW.push_back (juce::GlyphArrangement::getStringWidth (font (pillFs, 0.12f, true), t) + 18.0f);
-        }
+        int cnt[NumModes] = {};
+        for (int i = 0; i < numSongs; ++i) if (songs[i].genre == st.genre) ++cnt[songs[i].mode];
+        struct Pill { juce::String t; int v; };
+        std::vector<Pill> pills { { "TOUTES", -1 }, { "MAJEUR", -2 }, { "MINEUR", -3 } };
+        const char* up[NumModes] = { "IONIEN", "DORIEN", "PHRYGIEN", "LYDIEN", "MIXOLYDIEN", "EOLIEN", "LOCRIEN", "MIN. HARM.", "MIN. MELO.", "MAJ. HARM." };
+        for (int md : { 0, 3, 4, 9, 5, 1, 2, 6, 7, 8 }) if (cnt[md] > 0 || mc == md) pills.push_back ({ up[md], md });
         const auto row = juce::Rectangle<float> (336.0f, 78.0f, 694.0f, 28.0f);
         spaced (g, "GAMME", row.withWidth (64.0f), 10.5f, 0.25f, juce::Justification::centredLeft, gold.withAlpha (0.7f));
+        float fs = 10.5f, total = 0.0f;
+        for (int pass = 0; pass < 6; ++pass)
+        {
+            total = 0.0f;
+            for (auto& p : pills) total += juce::GlyphArrangement::getStringWidth (font (fs, 0.12f, true), p.t) + 18.0f + 4.0f;
+            if (total <= row.getWidth() - 64.0f) break;
+            fs -= 0.5f;
+        }
         float x = row.getX() + 64.0f;
         numModePills = 0;
-        for (size_t k = 0; k < pillW.size(); ++k)
+        for (auto& p : pills)
         {
-            const float w = pillW[k];
+            const float w = juce::GlyphArrangement::getStringWidth (font (fs, 0.12f, true), p.t) + 18.0f;
             const auto r = juce::Rectangle<float> (x, row.getY() + 2.0f, w, row.getHeight() - 4.0f);
-            const bool on = mc == pillVal[k];
-            if (pillVal[k] == -3) { g.setColour (gold.withAlpha (0.25f)); g.fillRect (x + w + 5.0f, r.getY() + 4.0f, 1.0f, r.getHeight() - 8.0f); x += 8.0f; }
+            const bool on = mc == p.v;
+            if (p.v == -3) { g.setColour (gold.withAlpha (0.25f)); g.fillRect (x + w + 5.0f, r.getY() + 4.0f, 1.0f, r.getHeight() - 8.0f); x += 8.0f; }
             if (on) { g.setColour (gold); g.fillRoundedRectangle (r, 7.0f); }
             else { g.setColour (gold.withAlpha (0.25f)); g.drawRoundedRectangle (r.reduced (0.5f), 7.0f, 1.0f); }
-            spaced (g, pillText[(int) k], r, pillFs, 0.12f, juce::Justification::centred, on ? juce::Colour (0xff14110a) : gold.withAlpha (0.8f), true);
-            if (numModePills < 16) { modePills[numModePills] = r; modePillValue[numModePills] = pillVal[k]; ++numModePills; }
+            spaced (g, p.t, r, fs, 0.12f, juce::Justification::centred, on ? juce::Colour (0xff14110a) : gold.withAlpha (0.8f), true);
+            if (numModePills < 16) { modePills[numModePills] = r; modePillValue[numModePills] = p.v; ++numModePills; }
             x += w + 4.0f;
         }
     }

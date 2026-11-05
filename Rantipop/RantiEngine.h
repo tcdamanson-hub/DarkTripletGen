@@ -440,37 +440,7 @@ public:
     }
 
     void setSettings (const Settings& s) { set = s; }
-    void setState (const GenState& g)
-    {
-        state = g;
-        // on ne relance la demande que si le kit ou les sons ont change
-        bool changed = g.genre != preGenre || g.clapVariant != preClap || g.kit != preKit;
-        for (int i = 0; i < 4; ++i) changed = changed || set.inst[i] != preInst[i];
-        for (int i = 0; i < NumParts; ++i) changed = changed || (set.vol[i] > 0.0f) != preOn[i];
-        if (! changed) return;
-        preGenre = g.genre; preClap = g.clapVariant; preKit = g.kit;
-        for (int i = 0; i < 4; ++i) preInst[i] = set.inst[i];
-        for (int i = 0; i < NumParts; ++i) preOn[i] = set.vol[i] > 0.0f;
-        preload();
-    }
-    int preGenre = -1, preClap = -1, preInst[4] { -1, -1, -1, -1 };
-    bool preOn[NumParts] {};
-    std::array<int, NumLanes> preKit {};
-
-    // demande le decodage des sons en service (kit + instruments choisis), avant qu'ils ne jouent
-    void preload()
-    {
-        auto& bank = SoundBank::get();
-        if (set.vol[PDrums] > 0.0f)
-            for (int l = 0; l < NumLanes; ++l)
-                if (const auto* s = bank.drums (drumCategory (state.genre, l, state.clapVariant)); s != nullptr && ! s->empty())
-                    (*s)[(size_t) juce::jlimit (0, (int) s->size() - 1, state.kit[(size_t) l])].want();
-        for (int p : { (int) PMel, (int) PChords, (int) PExtra })
-            if (set.vol[p] > 0.0f)
-                if (const auto* in = bank.melodic (set.inst[p])) for (auto& z : in->zones) z.want();
-        if (set.vol[PBass] > 0.0f)
-            if (const auto* in = bank.bass (set.inst[PBass])) for (auto& z : in->zones) z.want();
-    }
+    void setState (const GenState& g) { state = g; }
 
     void noteOn (int part, int pitch, int vel)
     {
