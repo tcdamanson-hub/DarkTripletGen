@@ -80,7 +80,7 @@ void RantiProcessor::applyState (const GenState& g, bool pushHistory)
 void RantiProcessor::generate()
 {
     const auto cur = getState();
-    applyState (Generator::randomState (cur.genre, keyChoice, cur.song, rng, modeChoice, hostBpm.load()), true);
+    applyState (Generator::randomState (cur.genre, keyChoice, cur.song, rng, modeChoice), true);
 }
 
 void RantiProcessor::goBack()    { if (canGoBack())    applyState (history[(size_t) --histPos], false); }
@@ -89,60 +89,7 @@ void RantiProcessor::goForward() { if (canGoForward()) applyState (history[(size
 void RantiProcessor::setGenre (int g)
 {
     if (! genreAvailable (g)) return;
-    applyState (Generator::randomState (g, keyChoice, -1, rng, modeChoice, hostBpm.load()), true);
-    applyGenreSounds (g);
-}
-
-// chaque genre a ses sons : en changeant de genre, les instruments suivent (tu peux toujours les changer a la main)
-void RantiProcessor::applyGenreSounds (int genre)
-{
-    const auto& bank = SoundBank::get();
-    auto pickMel = [&] (std::initializer_list<const char*> groups) -> int
-    {
-        std::vector<int> c;
-        for (int i = 1; i < bank.melodicMenu().size(); ++i)
-            if (const auto* in = bank.melodic (i))
-                for (auto* gname : groups) if (in->group == gname) c.push_back (i);
-        return c.empty() ? -1 : c[(size_t) rng.nextInt ((int) c.size())];
-    };
-    auto pickBass = [&] (const char* prefix) -> int
-    {
-        std::vector<int> c;
-        for (int i = 0; i < bank.bassMenu().size(); ++i) if (bank.bassMenu()[i].startsWith (prefix)) c.push_back (i);
-        return c.empty() ? -1 : c[(size_t) rng.nextInt ((int) c.size())];
-    };
-    auto set = [&] (const char* id, int index)
-    {
-        if (index < 0) return;
-        if (auto* p = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter (id)))
-        {
-            p->beginChangeGesture();
-            p->setValueNotifyingHost (p->convertTo0to1 ((float) index));
-            p->endChangeGesture();
-        }
-    };
-    if (genre == 0)
-    {
-        // R&B : les sons valides (piano, piano de synthese, Rhodes doux, 808)
-        set ("instMel", bank.findMelodic ("Piano 01"));
-        set ("instChords", 0);
-        set ("instExtra", bank.findMelodic ("Rhodes Doux"));
-        set ("instBass", bank.findBass ("808 01"));
-    }
-    else if (genre == 1)
-    {
-        set ("instMel", pickMel ({ "Mallets", "Plucks", "Guitares", "Keys" }));
-        set ("instChords", pickMel ({ "Keys", "Rhodes", "Guitares", "Piano" }));
-        set ("instExtra", pickMel ({ "Mallets", "Plucks", "Bells" }));
-        set ("instBass", pickBass ("808"));
-    }
-    else
-    {
-        set ("instMel", pickMel ({ "Synths", "Plucks", "Leads", "Piano", "Bells" }));
-        set ("instChords", pickMel ({ "Pads", "Piano", "Keys", "Synths" }));
-        set ("instExtra", pickMel ({ "Plucks", "Bells", "Synths" }));
-        set ("instBass", pickBass ("Bass"));
-    }
+    applyState (Generator::randomState (g, keyChoice, -1, rng, modeChoice), true);
 }
 
 void RantiProcessor::setGroove (int grooveIndex)
@@ -175,7 +122,7 @@ void RantiProcessor::setMode (int m)
     const auto g = getState();
     // le MIDI actuel n'est pas dans ce mode : on en prend un qui l'est
     if (g.song < 0 || ! modeMatches (g.song, modeChoice))
-        applyState (Generator::randomState (g.genre, keyChoice, g.song, rng, modeChoice, hostBpm.load()), true);
+        applyState (Generator::randomState (g.genre, keyChoice, g.song, rng, modeChoice), true);
     else
         ++patternVersion;
 }
@@ -268,7 +215,7 @@ void RantiProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiB
     if (auto* ph = getPlayHead())
         if (auto pos = ph->getPosition())
         {
-            if (auto b = pos->getBpm()) { bpm = *b; hostBpm = *b; }
+            if (auto b = pos->getBpm()) bpm = *b;
             hostPlaying = pos->getIsPlaying();
             if (auto q = pos->getPpqPosition()) ppq = *q;
         }

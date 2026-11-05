@@ -41,7 +41,6 @@ public:
     void goBack();
     void goForward();
     void setGenre (int g);
-    void applyGenreSounds (int genre);
     void setGroove (int grooveIndex);
     void stepSong (int dir);         // MIDI precedent / suivant du genre
     void setKey (int keyChoice);     // 0 = auto
@@ -79,7 +78,6 @@ private:
     int histPos = -1;
     int keyChoice = 0;
     int modeChoice = -1;
-    std::atomic<double> hostBpm { 0.0 }; // tempo de FL : GENERER prend les MIDI faits pour ce tempo
     juce::Random rng;
 
     std::atomic<bool> patternChanged { false };

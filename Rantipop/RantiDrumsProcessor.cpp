@@ -68,11 +68,11 @@ void RantiDrumsProcessor::generate()
 {
     auto g = getState();
     const int prev = g.groove;
-    if (g.genre == 0) Generator::randomRnb (g, rng, hostBpm.load());
+    if (g.genre == 0) Generator::randomRnb (g, rng);
     else
         for (int tries = 0; tries < 6; ++tries)
         {
-            g.groove = Generator::randomGroove (g.genre, rng, hostBpm.load());
+            g.groove = Generator::randomGroove (g.genre, rng);
             if (g.groove != prev) break;
         }
     Generator::randomKit (g, rng);
@@ -93,8 +93,8 @@ void RantiDrumsProcessor::setGenre (int genre)
 {
     GenState g;
     g.genre = genre;
-    if (genre == 0) Generator::randomRnb (g, rng, hostBpm.load());
-    else g.groove = Generator::randomGroove (genre, rng, hostBpm.load());
+    if (genre == 0) Generator::randomRnb (g, rng);
+    else g.groove = Generator::randomGroove (genre, rng);
     Generator::randomKit (g, rng);
     applyState (g, true);
 }
@@ -102,7 +102,7 @@ void RantiDrumsProcessor::setGenre (int genre)
 void RantiDrumsProcessor::stepGroove (int dir)
 {
     auto g = getState();
-    if (g.genre == 0) { Generator::randomRnb (g, rng, hostBpm.load()); applyState (g, true); return; }
+    if (g.genre == 0) { Generator::randomRnb (g, rng); applyState (g, true); return; }
     std::vector<int> list;
     for (int i = 0; i < numGrooves; ++i) if (grooves[i].genre == g.genre) list.push_back (i);
     if (list.empty()) return;
@@ -192,7 +192,7 @@ void RantiDrumsProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     if (auto* ph = getPlayHead())
         if (auto pos = ph->getPosition())
         {
-            if (auto b = pos->getBpm()) { bpm = *b; hostBpm = *b; }
+            if (auto b = pos->getBpm()) bpm = *b;
             hostPlaying = pos->getIsPlaying();
             if (auto q = pos->getPpqPosition()) ppq = *q;
         }

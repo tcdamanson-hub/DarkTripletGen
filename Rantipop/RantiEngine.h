@@ -3,8 +3,6 @@
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <array>
 #include <vector>
-#include <functional>
-#include <algorithm>
 #include "RantiData.h"
 #include "RantiSounds.h"
 #include "RantiPiano.h"
@@ -19,9 +17,8 @@ namespace ranti
 enum Part { PMel = 0, PChords = 1, PBass = 2, PExtra = 3, PDrums = 4, NumParts = 5 };
 enum Lane { LKick = 0, LSnare, LClap, LHat, LHat2, LOpen, LRim, LPercA, LPercB, LPercC, LCrash, NumLanes };
 
-// la synthwave fait partie de la pop
-static const char* const genreNames[] = { "R&B", "AFRO", "POP" };
-static constexpr int numGenres = 3;
+static const char* const genreNames[] = { "R&B", "AFRO", "POP", "SYNTHWAVE" };
+static constexpr int numGenres = 4;
 static const char* const keyNames[] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
 // modes (detectes sur les notes de chaque MIDI, les notes ne sont jamais modifiees)
 static const int NumModes = 10;
@@ -54,7 +51,7 @@ inline juce::String drumCategory (int genre, int lane, int variant)
     if (genre == 2)
     {
         // kits pop : kick, snare, clap, hats, open hat, crash, toms ; le reste vient du kit R&B
-        static const char* pp[NumLanes] = { "PP_KICK", "PP_SNARE", "PP_CLAP", "PP_HAT", "PP_HAT", "PP_OHAT", "RB_RIM", "PP_LTOM", "PP_HTOM", "PP_PERC", "PP_CRASH" };
+        static const char* pp[NumLanes] = { "PP_KICK", "PP_SNARE", "PP_CLAP", "PP_HAT", "PP_HAT", "PP_OHAT", "RB_RIM", "PP_LTOM", "PP_HTOM", "RB_PERC", "PP_CRASH" };
         if (SoundBank::get().drums (pp[lane]) != nullptr) return pp[lane];
         return rb[lane];
     }
@@ -100,7 +97,7 @@ struct GenState
         auto a = juce::StringArray::fromTokens (s, ",", "");
         if (a.size() < 4 + 4 + NumLanes + 1) return g;
         int i = 0;
-        g.genre = juce::jlimit (0, numGenres - 1, a[i++].getIntValue()); g.song = a[i++].getIntValue(); g.groove = a[i++].getIntValue(); g.transpose = a[i++].getIntValue();
+        g.genre = a[i++].getIntValue(); g.song = a[i++].getIntValue(); g.groove = a[i++].getIntValue(); g.transpose = a[i++].getIntValue();
         for (auto& x : g.stem) x = a[i++].getIntValue();
         for (auto& x : g.kit) x = a[i++].getIntValue();
         g.clapVariant = a[i++].getIntValue();
@@ -184,37 +181,17 @@ class Generator
 {
 public:
     // nouvelle generation : morceau au hasard du genre, groove au hasard, kit au hasard
-    // ecart entre le tempo pour lequel le MIDI a ete compose (ou sa plage) et le tempo de FL
-    static double tempoGap (std::pair<int, int> range, double host)
-    {
-        if (host <= 0.0 || range.second <= 0) return 0.0;
-        if (host >= range.first && host <= range.second) return 0.0;
-        return juce::jmin (std::abs (range.first - host), std::abs (range.second - host)) / host;
-    }
-    // garde les MIDI composes pour ce tempo (10 % pres) ; s'il y en a trop peu, les plus proches
-    static std::vector<int> byTempo (std::vector<int> cand, double host, std::function<std::pair<int, int> (int)> bpmOf)
-    {
-        if (host <= 0.0 || cand.empty()) return cand;
-        std::vector<int> ok;
-        for (int i : cand) if (tempoGap (bpmOf (i), host) <= 0.10) ok.push_back (i);
-        if (ok.size() >= 3) return ok;
-        std::stable_sort (cand.begin(), cand.end(), [&] (int a, int b) { return tempoGap (bpmOf (a), host) < tempoGap (bpmOf (b), host); });
-        cand.resize (juce::jmin ((size_t) 6, cand.size()));
-        return cand;
-    }
-
-    static GenState randomState (int genre, int keyChoice, int previousSong, juce::Random& rng, int modeChoice = -1, double hostBpm = 0.0)
+    static GenState randomState (int genre, int keyChoice, int previousSong, juce::Random& rng, int modeChoice = -1)
     {
         GenState g;
         g.genre = genre;
         std::vector<int> cand;
-        for (int i = 0; i < numSongs; ++i) if (songs[i].genre == genre && modeMatches (i, modeChoice)) cand.push_back (i);
+        for (int i = 0; i < numSongs; ++i) if (songs[i].genre == genre && i != previousSong && modeMatches (i, modeChoice)) cand.push_back (i);
+        if (cand.empty()) for (int i = 0; i < numSongs; ++i) if (songs[i].genre == genre && modeMatches (i, modeChoice)) cand.push_back (i);
         if (cand.empty()) for (int i = 0; i < numSongs; ++i) if (songs[i].genre == genre) cand.push_back (i);
-        cand = byTempo (cand, hostBpm, [] (int i) { return std::make_pair (songs[i].lo, songs[i].hi); });
-        if (cand.size() > 1) cand.erase (std::remove (cand.begin(), cand.end(), previousSong), cand.end());
         if (cand.empty()) return g;
         g.song = cand[(size_t) rng.nextInt ((int) cand.size())];
-        g.groove = randomGroove (genre, rng, hostBpm);
+        g.groove = randomGroove (genre, rng);
         const auto& s = songs[g.song];
         for (int r = 0; r < 4; ++r)
         {
@@ -222,17 +199,16 @@ public:
             g.stem[(size_t) r] = n > 0 ? rng.nextInt (n) : 0;
         }
         randomKit (g, rng);
-        if (genre == 0) { randomRnb (g, rng, hostBpm); g.bass808 = random808 (hostBpm > 0.0 ? juce::roundToInt (hostBpm) : s.bpm, rng); }
+        if (genre == 0) { randomRnb (g, rng); g.bass808 = random808 (s.bpm, rng); }
         g.transpose = transposeFor (s.key, keyChoice);
         return g;
     }
 
-    static int randomGroove (int genre, juce::Random& rng, double hostBpm = 0.0)
+    static int randomGroove (int genre, juce::Random& rng)
     {
         std::vector<int> gc;
         for (int i = 0; i < numGrooves; ++i) if (grooves[i].genre == genre) gc.push_back (i);
         if (gc.empty()) for (int i = 0; i < numGrooves; ++i) if (grooves[i].genre == 0) gc.push_back (i);
-        gc = byTempo (gc, hostBpm, [] (int i) { return std::make_pair (grooves[i].bpm, grooves[i].bpm); });
         return gc.empty() ? -1 : gc[(size_t) rng.nextInt ((int) gc.size())];
     }
 
@@ -244,35 +220,11 @@ public:
             const auto* set = SoundBank::get().drums (drumCategory (g.genre, l, g.clapVariant));
             g.kit[(size_t) l] = (set != nullptr && ! set->empty()) ? rng.nextInt ((int) set->size()) : 0;
         }
-        // afro : chaque percu prend une seule famille (congas, djembes, talking drum...) ; on evite les sons qui ne sont pas afro
-        if (g.genre == 1)
-        {
-            auto family = [] (const juce::String& n) { return n.trimEnd().upToLastOccurrenceOf (" ", false, false); };
-            for (int l : { (int) LPercA, (int) LPercB, (int) LPercC, (int) LHat2 })
-                if (const auto* set = SoundBank::get().drums (drumCategory (1, l, 0)); set != nullptr && ! set->empty())
-                {
-                    std::vector<juce::String> fams;
-                    for (auto& smp : *set)
-                    {
-                        const auto f = family (smp.name);
-                        if (f == "Doumbek" || f == "Frame Drum" || f == "Metal" || f == "Click") continue;
-                        if (std::find (fams.begin(), fams.end(), f) == fams.end()) fams.push_back (f);
-                    }
-                    if (fams.empty()) continue;
-                    const auto fam = fams[(size_t) rng.nextInt ((int) fams.size())];
-                    std::vector<int> idx;
-                    for (size_t i = 0; i < set->size(); ++i) if (family ((*set)[i].name) == fam) idx.push_back ((int) i);
-                    g.kit[(size_t) l] = idx[(size_t) rng.nextInt ((int) idx.size())];
-                }
-        }
         // pop : un kit complet et coherent (tous les sons du meme kit)
         if (g.genre == 2)
             if (const auto* kicks = SoundBank::get().drums ("PP_KICK"); kicks != nullptr && ! kicks->empty())
             {
-                std::vector<juce::String> kitNames;
-                for (auto& k : *kicks) if (k.name.startsWith ("Kit ")) kitNames.push_back (k.name);
-                if (kitNames.empty()) return;
-                const auto kitName = kitNames[(size_t) rng.nextInt ((int) kitNames.size())];
+                const auto kitName = (*kicks)[(size_t) rng.nextInt ((int) kicks->size())].name;
                 for (int l = 0; l < NumLanes; ++l)
                     if (const auto* set = SoundBank::get().drums (drumCategory (2, l, 0)))
                         for (size_t i = 0; i < set->size(); ++i)
@@ -295,10 +247,8 @@ public:
         return v.empty() ? -1 : v[(size_t) rng.nextInt ((int) v.size())];
     }
 
-    static void randomRnb (GenState& g, juce::Random& rng, double hostBpm = 0.0)
+    static void randomRnb (GenState& g, juce::Random& rng, int lo = 60, int hi = 200)
     {
-        int lo = 60, hi = 200;
-        if (hostBpm > 0.0) { lo = juce::roundToInt (hostBpm * 0.92); hi = juce::roundToInt (hostBpm * 1.08); }
         g.rnb[0] = pickPart ({ 0 }, lo, hi, rng);
         if (g.rnb[0] >= 0) { lo = juce::jmax (lo, parts[g.rnb[0]].lo); hi = juce::jmin (hi, parts[g.rnb[0]].hi); }
         g.rnb[1] = pickPart ({ 1, 2 }, lo, hi, rng);

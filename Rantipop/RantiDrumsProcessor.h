@@ -85,7 +85,6 @@ private:
     std::array<std::atomic<juce::uint32>, ranti::NumLanes> laneHit {};
     juce::uint32 hitCounter = 0;
 
-    std::atomic<double> hostBpm { 0.0 };
     double sampleRate = 44100.0, internalPpq = 0.0, expectedPpq = 0.0;
     bool wasRunning = false, previewWasOn = false;
     ranti::Engine engine;
