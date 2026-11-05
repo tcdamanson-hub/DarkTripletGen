@@ -57,7 +57,7 @@ inline juce::String drumCategory (int genre, int lane, int variant)
     }
     if (genre == 1)
     {
-        if (lane == LClap && variant == 1) return "AF_SNAP";
+        juce::ignoreUnused (variant); // kit afro : clap (pas de snap)
         return af[lane];
     }
     return rb[lane];
@@ -538,8 +538,9 @@ public:
 
 private:
     // registre des sons samples : rien de trop grave (la 808 garde le grave)
-    static int lift (int part, int n)
+    int lift (int part, int n) const
     {
+        if (state.genre != 0) return n; // afro : les pistes jouent a leur vraie hauteur
         while (n < 48) n += 12;
         if (part == PChords) while (n > 76) n -= 12;
         return n;

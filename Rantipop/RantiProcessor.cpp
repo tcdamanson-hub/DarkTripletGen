@@ -90,6 +90,45 @@ void RantiProcessor::setGenre (int g)
 {
     if (! genreAvailable (g)) return;
     applyState (Generator::randomState (g, keyChoice, -1, rng, modeChoice), true);
+    applyGenreSounds (g);
+}
+
+// en changeant de genre, chaque ligne prend l'instrument de ses pistes (tu peux toujours changer a la main)
+void RantiProcessor::applyGenreSounds (int genre)
+{
+    const auto& bank = SoundBank::get();
+    auto set = [&] (const char* id, int index)
+    {
+        if (index < 0) return;
+        if (auto* p = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter (id)))
+        {
+            p->beginChangeGesture();
+            p->setValueNotifyingHost (p->convertTo0to1 ((float) index));
+            p->endChangeGesture();
+        }
+    };
+    auto guitar = [&] (std::initializer_list<const char*> names) -> int
+    {
+        std::vector<int> c;
+        for (auto* n : names) { const int i = bank.melodicMenu().indexOf (n); if (i > 0) c.push_back (i); }
+        return c.empty() ? -1 : c[(size_t) rng.nextInt ((int) c.size())];
+    };
+    if (genre == 1)
+    {
+        // afro : guitares pour les pistes de guitare, Rhodes pour les keys, 808
+        set ("instMel", guitar ({ "Guitare 01", "Guitare 03", "Guitare 04", "Guitare 05" }));
+        set ("instChords", bank.findMelodic ("Rhodes Doux"));
+        set ("instExtra", guitar ({ "Guitare 02", "Guitare 04", "Guitare 05" }));
+        set ("instBass", bank.findBass ("808 01"));
+    }
+    else
+    {
+        // R&B : les sons valides
+        set ("instMel", bank.findMelodic ("Piano 01"));
+        set ("instChords", 0);
+        set ("instExtra", bank.findMelodic ("Rhodes Doux"));
+        set ("instBass", bank.findBass ("808 01"));
+    }
 }
 
 void RantiProcessor::setGroove (int grooveIndex)
