@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest]
+        os: [windows-latest]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -24,19 +24,7 @@ jobs:
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release "-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64"
 
       - name: Build
-        run: cmake --build build --config Release --parallel
-
-      - name: Upload
-        uses: actions/upload-artifact@v4
-        with:
-          name: DarkTripletGen-${{ runner.os }}
-          path: |
-            build/DarkTripletGen_artefacts/Release/VST3
-            build/DarkTripletGen_artefacts/Release/AU
-            build/DarkTripletGen_artefacts/Release/Standalone
-            build/DarkTrapDrums_artefacts/Release/VST3
-            build/DarkTrapDrums_artefacts/Release/AU
-            build/DarkTrapDrums_artefacts/Release/Standalone
+        run: cmake --build build --config Release --parallel --target RantipopMelodie_All
 
       - name: Upload RANTIPOP
         uses: actions/upload-artifact@v4
