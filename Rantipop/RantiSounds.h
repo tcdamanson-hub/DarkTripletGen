@@ -76,25 +76,27 @@ private:
 
     static int groupOrder (const juce::String& g)
     {
-        static const juce::StringArray order { "Piano", "Rhodes", "Keys", "Pads", "Bells", "Leads", "Synths", "Bass" };
+        static const juce::StringArray order { "Piano", "Rhodes", "Keys", "Guitares", "Mallets", "Plucks", "Pads", "Bells", "Leads", "Synths", "Cuivres", "Bass" };
         const int i = order.indexOf (g);
         return i < 0 ? 50 : i;
     }
 
     SoundBank()
     {
-        juce::WavAudioFormat wav;
+        juce::AudioFormatManager formats;
+        formats.registerBasicFormats();
         std::map<juce::String, size_t> instIndex;
         for (int i = 0; i < RantiSamples::namedResourceListSize; ++i)
         {
             const juce::String file = juce::String (RantiSamples::originalFilenames[i]).upToLastOccurrenceOf (".", false, false);
-            if (! juce::String (RantiSamples::originalFilenames[i]).endsWithIgnoreCase (".wav") || ! file.contains ("__"))
+            const juce::String fn (RantiSamples::originalFilenames[i]);
+            if (! (fn.endsWithIgnoreCase (".wav") || fn.endsWithIgnoreCase (".ogg")) || ! file.contains ("__"))
                 continue;
             int size = 0;
             const char* data = RantiSamples::getNamedResource (RantiSamples::namedResourceList[i], size);
             if (data == nullptr || size <= 0) continue;
             std::unique_ptr<juce::AudioFormatReader> reader (
-                wav.createReaderFor (new juce::MemoryInputStream (data, (size_t) size, false), true));
+                formats.createReaderFor (std::make_unique<juce::MemoryInputStream> (data, (size_t) size, false)));
             if (reader == nullptr) continue;
             Sample s;
             s.sampleRate = reader->sampleRate;

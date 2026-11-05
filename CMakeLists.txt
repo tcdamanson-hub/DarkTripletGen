@@ -123,7 +123,8 @@ target_link_libraries (DarkTrapDrums
 #  3e plugin : RANTIPOP MELODIE (R&B / Afro / Synthwave) - projet a part, rien a voir avec RAIZER
 # =============================================================================
 file (GLOB RANTI_SOUNDS CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/Rantipop/Sounds/Inst/*.wav")
+    "${CMAKE_CURRENT_SOURCE_DIR}/Rantipop/Sounds/Inst/*.wav"
+    "${CMAKE_CURRENT_SOURCE_DIR}/Rantipop/Sounds/Inst/*.ogg")
 list (APPEND RANTI_SOUNDS "${CMAKE_CURRENT_SOURCE_DIR}/Rantipop/logo.jpg")
 juce_add_binary_data (RantipopSamples
     HEADER_NAME RantiSamples.h
