@@ -109,14 +109,19 @@ void RantiDrumsProcessor::stepGroove (int dir)
     int idx = 0;
     for (size_t i = 0; i < list.size(); ++i) if (list[i] == g.groove) idx = (int) i;
     idx = (idx + dir + (int) list.size()) % (int) list.size();
+    const int before = g.groove;
     g.groove = list[(size_t) idx];
+    // pop : si on change de groupe, on prend un kit du nouveau groupe
+    if (g.genre == 2 && (before < 0 || grooves[before].group != grooves[g.groove].group)) Generator::randomKit (g, rng);
     applyState (g, true);
 }
 
 void RantiDrumsProcessor::setGroove (int gr)
 {
     auto g = getState();
+    const int before = g.groove;
     g.groove = gr;
+    if (g.genre == 2 && gr >= 0 && (before < 0 || grooves[before].group != grooves[gr].group)) Generator::randomKit (g, rng);
     applyState (g, true);
 }
 

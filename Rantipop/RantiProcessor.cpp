@@ -125,9 +125,9 @@ void RantiProcessor::applyGenreSounds (int genre)
     {
         // synthwave : tes reglages de base
         set ("instMel", bank.findMelodic ("Electric Key 2"));
-        set ("instChords", bank.findMelodic ("Pad Shot 2"));
-        set ("instExtra", bank.findMelodic ("Pad Shot 3"));
-        set ("instBass", bank.findBass ("808 All Alone"));
+        set ("instChords", bank.findMelodic ("Pad 18"));
+        set ("instExtra", bank.findMelodic ("Synth 25"));
+        set ("instBass", bank.findBass ("808 Senior"));
     }
     else
     {

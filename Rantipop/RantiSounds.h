@@ -90,7 +90,7 @@ private:
         {
             const juce::String file = juce::String (RantiSamples::originalFilenames[i]).upToLastOccurrenceOf (".", false, false);
             const juce::String fn (RantiSamples::originalFilenames[i]);
-            if (! (fn.endsWithIgnoreCase (".wav") || fn.endsWithIgnoreCase (".ogg")) || ! file.contains ("__"))
+            if (! (fn.endsWithIgnoreCase (".wav") || fn.endsWithIgnoreCase (".ogg") || fn.endsWithIgnoreCase (".flac")) || ! file.contains ("__"))
                 continue;
             int size = 0;
             const char* data = RantiSamples::getNamedResource (RantiSamples::namedResourceList[i], size);

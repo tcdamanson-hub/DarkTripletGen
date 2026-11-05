@@ -33,6 +33,13 @@ inline juce::String drumCategory (int genre, int lane, int variant)
         if (SoundBank::get().drums (sw[lane]) != nullptr) return sw[lane];
         return rb[lane];
     }
+    if (genre == 2)
+    {
+        // pop : kits Prism (le kit vient du meme groupe que le groove)
+        static const char* pp[NumLanes] = { "PP_KICK", "PP_SNARE", "PP_CLAP", "PP_HAT", "PP_HAT", "PP_OHAT", "RB_RIM", "PP_LTOM", "PP_HTOM", "RB_PERC", "PP_CRASH" };
+        if (SoundBank::get().drums (pp[lane]) != nullptr) return pp[lane];
+        return rb[lane];
+    }
     if (genre == 1)
     {
         juce::ignoreUnused (variant); // kit afro : clap (pas de snap)
@@ -196,6 +203,33 @@ public:
         {
             const auto* set = SoundBank::get().drums (drumCategory (g.genre, l, g.clapVariant));
             g.kit[(size_t) l] = (set != nullptr && ! set->empty()) ? rng.nextInt ((int) set->size()) : 0;
+        }
+        // pop : un kit complet du groupe du groove (moderne, californie, retro, indie), jamais melange
+        if (g.genre == 2 && g.groove >= 0 && g.groove < numGrooves)
+        {
+            static const char* groupName[] = { "", "Moderne", "Californie", "Retro", "Indie" };
+            const int grp = juce::jlimit (0, 4, grooves[g.groove].group);
+            if (const auto* kicks = SoundBank::get().drums ("PP_KICK"); kicks != nullptr && grp > 0)
+            {
+                std::vector<juce::String> names;
+                for (auto& k : *kicks) if (k.name.startsWith (groupName[grp])) names.push_back (k.name);
+                if (! names.empty())
+                {
+                    const auto kitName = names[(size_t) rng.nextInt ((int) names.size())];
+                    for (int l = 0; l < NumLanes; ++l)
+                        if (const auto* set = SoundBank::get().drums (drumCategory (2, l, 0)))
+                        {
+                            int found = -1, sameGroup = -1;
+                            for (size_t i = 0; i < set->size(); ++i)
+                            {
+                                if ((*set)[i].name == kitName) found = (int) i;
+                                if (sameGroup < 0 && (*set)[i].name.startsWith (groupName[grp])) sameGroup = (int) i;
+                            }
+                            if (found >= 0) g.kit[(size_t) l] = found;
+                            else if (sameGroup >= 0) g.kit[(size_t) l] = sameGroup;
+                        }
+                }
+            }
         }
     }
 
