@@ -4,6 +4,8 @@
 #include <array>
 #include <cmath>
 #include <map>
+#include <atomic>
+#include <memory>
 #include "RantiSamples.h"
 
 // =============================================================================
@@ -19,6 +21,11 @@ struct Sample
     double sampleRate = 44100.0;
     int root = 60;
     juce::String name;
+    // decode en arriere-plan au demarrage : FL n'attend plus le chargement des sons
+    const char* src = nullptr;
+    int srcSize = 0;
+    std::shared_ptr<std::atomic<bool>> ready = std::make_shared<std::atomic<bool>> (false);
+    bool isReady() const { return ready->load (std::memory_order_acquire); }
 };
 
 struct Instrument
@@ -83,8 +90,6 @@ private:
 
     SoundBank()
     {
-        juce::AudioFormatManager formats;
-        formats.registerBasicFormats();
         std::map<juce::String, size_t> instIndex;
         for (int i = 0; i < RantiSamples::namedResourceListSize; ++i)
         {
@@ -95,14 +100,8 @@ private:
             int size = 0;
             const char* data = RantiSamples::getNamedResource (RantiSamples::namedResourceList[i], size);
             if (data == nullptr || size <= 0) continue;
-            std::unique_ptr<juce::AudioFormatReader> reader (
-                formats.createReaderFor (std::make_unique<juce::MemoryInputStream> (data, (size_t) size, false)));
-            if (reader == nullptr) continue;
             Sample s;
-            s.sampleRate = reader->sampleRate;
-            const int nch = reader->numChannels > 1 ? 2 : 1;
-            s.data.setSize (nch, (int) reader->lengthInSamples);
-            reader->read (&s.data, 0, (int) reader->lengthInSamples, 0, true, nch > 1);
+            s.src = data; s.srcSize = size;
 
             const auto head = file.upToFirstOccurrenceOf ("__", false, false);
             const auto rest = file.fromFirstOccurrenceOf ("__", false, false);
@@ -142,7 +141,42 @@ private:
             else                    { melIdx.push_back ((int) i);  melNames.add (in.name); }
         }
         if (bassNames.isEmpty()) bassNames.add ("-");
+        // ordre de chargement : instruments puis tambours ; tout est pret en une ou deux secondes
+        for (auto& in : instruments) for (auto& z : in.zones) all.push_back (&z);
+        for (auto& c : drumCats) for (auto& z : c.second) all.push_back (&z);
+        loader = std::make_unique<Loader> (*this);
+        loader->startThread (juce::Thread::Priority::low);
     }
+
+    struct Loader : juce::Thread
+    {
+        SoundBank& bank;
+        explicit Loader (SoundBank& b) : juce::Thread ("RantipopSons"), bank (b) {}
+        void run() override
+        {
+            juce::AudioFormatManager formats;
+            formats.registerBasicFormats();
+            for (auto* s : bank.all)
+            {
+                if (threadShouldExit()) return;
+                std::unique_ptr<juce::AudioFormatReader> reader (
+                    formats.createReaderFor (std::make_unique<juce::MemoryInputStream> (s->src, (size_t) s->srcSize, false)));
+                if (reader != nullptr)
+                {
+                    const int nch = reader->numChannels > 1 ? 2 : 1;
+                    s->data.setSize (nch, (int) reader->lengthInSamples);
+                    reader->read (&s->data, 0, (int) reader->lengthInSamples, 0, true, nch > 1);
+                    s->sampleRate = reader->sampleRate;
+                }
+                s->ready->store (true, std::memory_order_release);
+            }
+        }
+    };
+    std::vector<Sample*> all;
+    std::unique_ptr<Loader> loader;
+public:
+    ~SoundBank() { if (loader != nullptr) loader->stopThread (4000); }
+private:
 };
 
 // -----------------------------------------------------------------------------
@@ -158,7 +192,7 @@ public:
     // pitched = transpose le sample vers note ; sinon lecture a hauteur d'origine (drums)
     void noteOn (int bus, int note, float vel, const Sample* s, bool pitched, float release, int chokeGroup = -1, float level = 1.0f)
     {
-        if (s == nullptr) return;
+        if (s == nullptr || ! s->isReady()) return;
         if (chokeGroup >= 0)
             for (auto& v : voices)
                 if (v.active && v.choke == chokeGroup) startRelease (v, 0.03f);

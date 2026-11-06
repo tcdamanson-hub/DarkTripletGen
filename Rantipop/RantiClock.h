@@ -26,7 +26,13 @@ public:
     // appele par un timer (thread des messages) : lit l'etat partage
     void poll()
     {
-        const auto t = file().loadFileAsString();
+        // on ne relit le fichier que s'il a change (evite des acces disque continus)
+        const auto f = file();
+        const auto mod = f.getLastModificationTime().toMilliseconds();
+        if (mod == lastMod && ! running.load()) return;
+        if (mod == lastMod && juce::Time::currentTimeMillis() - startMs.load() < 3 * 3600 * 1000) return;
+        lastMod = mod;
+        const auto t = f.loadFileAsString();
         const auto a = juce::StringArray::fromTokens (t, " ", "");
         if (a.size() >= 2)
         {
@@ -46,5 +52,6 @@ public:
 
     std::atomic<bool> running { false };
     std::atomic<juce::int64> startMs { 0 };
+    juce::int64 lastMod = -1;
 };
 } // namespace ranti
