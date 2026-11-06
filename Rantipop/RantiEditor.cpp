@@ -296,7 +296,8 @@ void RantiEditor::drawPlanet (juce::Graphics& g, juce::Point<float> c, float r)
     }
     if (planetDynamic)
     {
-    ranti::drawSpin (g, c, r, spin, juce::Colour (0xfff3d28c));
+    if (! faceOnly) ranti::drawSpin (g, c, r, spin, juce::Colour (0xfff3d28c));
+    if (faceOnly)
     {
         auto P = [&] (float x, float y) { return juce::Point<float> (c.x + (x - 125.0f) * k, c.y + (y - 125.0f) * k); };
         juce::Path face, thin;
@@ -312,10 +313,6 @@ void RantiEditor::drawPlanet (juce::Graphics& g, juce::Point<float> c, float r)
         thin.startNewSubPath (P (66, 162)); thin.lineTo (P (74, 150)); thin.lineTo (P (84, 158));
         thin.startNewSubPath (P (184, 158)); thin.lineTo (P (176, 150)); thin.lineTo (P (168, 160));
         thin.startNewSubPath (P (146, 178)); thin.quadraticTo (P (150, 202), P (162, 196)); thin.quadraticTo (P (172, 190), P (160, 170));
-        // le smiley tourne avec la planete
-        const float faceVis = ranti::spinPath (face, c, r, spin);
-        ranti::spinPath (thin, c, r, spin);
-        juce::ignoreUnused (faceVis);
         const float glow = playing ? 1.0f : 0.8f;
         for (auto [w, a] : { std::pair<float, float> { 16.0f, 0.08f }, { 10.0f, 0.18f }, { 6.0f, 0.4f } })
         {
@@ -326,6 +323,22 @@ void RantiEditor::drawPlanet (juce::Graphics& g, juce::Point<float> c, float r)
         g.setColour (juce::Colour (0xffffe7ae));
         g.strokePath (face, juce::PathStrokeType (4.0f * k, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
         g.strokePath (thin, juce::PathStrokeType (3.2f * k, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    }
+    if (faceOnly) return;
+    // le visage (dessine une fois en image) tourne avec la planete : il glisse, se resserre et passe derriere
+    if (faceImg.isValid())
+    {
+        const float th = spin * juce::MathConstants<float>::twoPi, cs = std::cos (th);
+        if (cs > 0.02f)
+        {
+            juce::Graphics::ScopedSaveState s (g);
+            g.setOpacity (juce::jmin (1.0f, cs * 1.4f));
+            const auto tr = juce::AffineTransform::scale (1.0f / faceScale)
+                              .translated (c.x - r, c.y - r)
+                              .scaled (cs, 1.0f, c.x, c.y)
+                              .translated (r * std::sin (th), 0.0f);
+            g.drawImageTransformed (faceImg, tr);
+        }
     }
     // orbite (moitie avant)
     {
@@ -605,17 +618,29 @@ void RantiEditor::refreshPlanetBase()
         paint (ig);
     }
     planetLayer.base = img;
+    {
+        const juce::Point<float> c (590.0f, 285.0f);
+        const float r = 135.0f;
+        juce::Image fi (juce::Image::ARGB, juce::roundToInt (2.0f * r * faceScale), juce::roundToInt (2.0f * r * faceScale), true, juce::SoftwareImageType());
+        juce::Graphics fg (fi);
+        fg.addTransform (juce::AffineTransform::translation (-(c.x - r), -(c.y - r)).scaled (faceScale));
+        planetDynamic = true; faceOnly = true;
+        drawPlanet (fg, c, r);
+        planetDynamic = false; faceOnly = false;
+        faceImg = fi;
+    }
 }
 
 void RantiEditor::timerCallback()
 {
     ranti::useSoftwareRenderer (*this);
-    spin = std::fmod (spin + 1.0f / 600.0f, 1.0f);
+    const bool animFrame = (++animTick & 1) == 0;
+    if (animFrame) spin = std::fmod (spin + 1.0f / 300.0f, 1.0f);
     {
         const bool pl = proc.previewPlaying.load() || proc.getPlayhead() >= 0.0;
         const int v = proc.getPatternVersion();
         if (! planetLayer.base.isValid() || v != planetVersion || pl != planetPlaying) { planetVersion = v; planetPlaying = pl; refreshPlanetBase(); }
-        planetLayer.repaint();
+        if (animFrame) planetLayer.repaint();
     }
     keys = proc.getActiveKeys();
     const int v = proc.getPatternVersion();

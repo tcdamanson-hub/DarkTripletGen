@@ -64,6 +64,10 @@ private:
     juce::Image logo, stars;
     float spin = 0.0f; // rotation de la planete
     bool planetDynamic = false;      // false : decor fixe ; true : ce qui tourne
+    bool faceOnly = false;
+    juce::Image faceImg;
+    float faceScale = 2.0f;
+    int animTick = 0;
     int planetVersion = -1;
     bool planetPlaying = false;
     ranti::PlanetLayer planetLayer;
