@@ -91,7 +91,7 @@ void RantiProcessor::setGenre (int g)
     if (! genreAvailable (g)) return;
     const int before = getState().genre;
     applyState (Generator::randomState (g, keyChoice, -1, rng, modeChoice), true);
-    if (g == 1 || g == 3 || before == 1 || before == 3) applyGenreSounds (g);
+    if (g == 1 || g == 3 || g == 4 || before == 1 || before == 3 || before == 4) applyGenreSounds (g);
 }
 
 // afro : guitares pour les pistes de guitare, Rhodes pour les keys, 808 ; en quittant l'afro on remet les sons d'origine
@@ -129,6 +129,14 @@ void RantiProcessor::applyGenreSounds (int genre)
         set ("instChords", bank.findMelodic ("Pad 18"));
         set ("instExtra", bank.findMelodic ("Synth 25"));
         set ("instBass", bank.findBass ("808 Senior"));
+    }
+    else if (genre == 4)
+    {
+        // pop punk : guitares et basse du pop punk
+        set ("instMel", bank.findMelodic ("Guitare 44"));
+        set ("instChords", bank.findMelodic ("Guitare 30"));
+        set ("instExtra", bank.findMelodic ("Guitare 12"));
+        set ("instBass", bank.findBass ("Bass 135"));
     }
     else
     {

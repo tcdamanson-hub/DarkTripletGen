@@ -188,7 +188,10 @@ struct PlanetLayer : juce::Component
     void paint (juce::Graphics& g) override
     {
         const double t0 = juce::Time::getMillisecondCounterHiRes();
-        struct Done { PlanetLayer& p; double t0; ~Done() { p.lastPaintEnd = juce::Time::getMillisecondCounterHiRes(); p.lastPaintMs = p.lastPaintEnd - t0; } } done { *this, t0 };
+        // seule une image complete compte : un petit bout redessine par la fenetre (ex. la case des accords
+        // qui touche le calque) ne doit pas bloquer l'animation (c'est ce qui figeait la planete jaune)
+        const bool full = g.getClipBounds().contains (getLocalBounds().reduced (4));
+        struct Done { PlanetLayer& p; double t0; bool full; ~Done() { if (! full) return; p.lastPaintEnd = juce::Time::getMillisecondCounterHiRes(); p.lastPaintMs = p.lastPaintEnd - t0; } } done { *this, t0, full };
         if (! base.isValid() && needBase) needBase();
         if (base.isValid()) g.drawImage (base, getLocalBounds().toFloat());
         if (drawDynamic)

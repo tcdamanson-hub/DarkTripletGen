@@ -83,7 +83,7 @@ private:
 
     static int groupOrder (const juce::String& g)
     {
-        static const juce::StringArray order { "Piano", "Rhodes", "Keys", "Guitares", "Mallets", "Plucks", "Pads", "Bells", "Leads", "Synths", "Cuivres", "Bass" };
+        static const juce::StringArray order { "Piano", "Rhodes", "Keys", "Guitares", "Mallets", "Plucks", "Pads", "Cordes", "Bells", "Leads", "Synths", "Cuivres", "Bass" };
         const int i = order.indexOf (g);
         return i < 0 ? 50 : i;
     }

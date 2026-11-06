@@ -422,9 +422,9 @@ void RantiEditor::paint (juce::Graphics& g)
 
     // genres
     {
-        const auto box = juce::Rectangle<float> (336.0f, 26.0f, 400.0f, 44.0f);
+        const auto box = juce::Rectangle<float> (336.0f, 26.0f, 466.0f, 44.0f);
         glass (g, box);
-        const float tw[4] = { 72.0f, 86.0f, 72.0f, 150.0f };
+        const float tw[5] = { 62.0f, 74.0f, 62.0f, 134.0f, 118.0f };
         float x = box.getX() + 5.0f;
         for (int i = 0; i < numGenres; ++i)
         {
@@ -536,7 +536,7 @@ void RantiEditor::paint (juce::Graphics& g)
         const juce::String ton = juce::String (keyNames[pat.key]) + (pat.minor ? "m" : "") + (proc.getKeyChoice() == 0 ? " (auto)" : "");
         spaced (g, "TON", keyBox.withWidth (60.0f).withTrimmedLeft (14.0f), 11.0f, 0.2f, juce::Justification::centredLeft, gold.withAlpha (0.7f));
         spaced (g, ton + juce::String (juce::CharPointer_UTF8 (" \xe2\x96\xbe")), keyBox.withX (keyBox.getX() + 46.0f).withWidth (110.0f), 12.5f, 0.1f, juce::Justification::centredLeft, gold, true);
-        spaced (g, "BPM " + juce::String (pat.bpm), keyBox.withTrimmedLeft (150.0f).withTrimmedRight (12.0f), 11.0f, 0.2f, juce::Justification::centredRight, gold);
+        spaced (g, pat.bpm > 0 ? "BPM " + juce::String (pat.bpm) : juce::String ("BPM -"), keyBox.withTrimmedLeft (150.0f).withTrimmedRight (12.0f), 11.0f, 0.2f, juce::Justification::centredRight, gold);
     }
 
     // --- master
@@ -635,7 +635,7 @@ void RantiEditor::timerCallback()
 {
     ranti::useSoftwareRenderer (*this, rendererSet);
     const bool animFrame = (++animTick & 1) == 0;
-    spin = (float) std::fmod (juce::Time::getMillisecondCounterHiRes() / 8000.0, 1.0);   // un tour en 8 s, meme vitesse partout
+    spin = (float) std::fmod (juce::Time::getMillisecondCounterHiRes() / 12000.0, 1.0);   // un tour en 12 s, meme vitesse partout
     {
         const bool pl = proc.previewPlaying.load() || proc.getPlayhead() >= 0.0;
         const int v = proc.getPatternVersion();
@@ -653,7 +653,7 @@ void RantiEditor::timerCallback()
     }
     repaint (juce::Rectangle<int> (W - 24 - 106, 210, 106, 310));
     repaint (juce::Rectangle<int> (24, 548, W - 48, 170));
-    repaint (chordBox.toNearestInt().expanded (2));
+    repaint (chordBox.toNearestInt().expanded (2).withLeft (planetLayer.getRight()));
 }
 
 // ------------------------------------------------------------------ souris

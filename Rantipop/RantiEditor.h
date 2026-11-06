@@ -100,7 +100,7 @@ private:
     std::unique_ptr<juce::SliderParameterAttachment> masterAtt;
 
     // zones cliquables
-    juce::Rectangle<float> genreTabs[4], prevBtn, nextBtn, genBtn, planetArea, songBox, keyBox, previewBtn, chordBox, dragChips[5];
+    juce::Rectangle<float> genreTabs[5], prevBtn, nextBtn, genBtn, planetArea, songBox, keyBox, previewBtn, chordBox, dragChips[5];
     int hoverChip = -1;
     bool dragging = false, genDown = false;
     float pulse = 0.0f;
