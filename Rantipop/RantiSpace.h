@@ -1,6 +1,7 @@
 #pragma once
-#include <juce_graphics/juce_graphics.h>
+#include <juce_gui_basics/juce_gui_basics.h>
 #include <cmath>
+#include <functional>
 
 // Fond "espace" (nebuleuses, poussiere, etoiles scintillantes, vignette), dessine une seule fois.
 // warm = true : touches dorees (MELODIE) ; false : bleu / violet (DRUMS)
@@ -165,4 +166,27 @@ inline float spinPath (juce::Path& p, juce::Point<float> c, float r, float phase
     p = out;
     return juce::jmax (0.0f, std::cos (th));
 }
+} // namespace ranti
+
+namespace ranti
+{
+// Calque de la planete : le decor fixe est photographie une fois (image), seule la rotation est redessinee.
+// Le calque est opaque : l'animation ne redessine jamais le reste de l'interface (CPU tres bas).
+struct PlanetLayer : juce::Component
+{
+    juce::Image base;
+    std::function<void (juce::Graphics&)> drawDynamic;   // dessine en coordonnees de la fenetre parente
+    std::function<void()> needBase;                       // demande la photo du decor fixe
+    PlanetLayer() { setOpaque (true); setInterceptsMouseClicks (false, false); }
+    void paint (juce::Graphics& g) override
+    {
+        if (! base.isValid() && needBase) needBase();
+        if (base.isValid()) g.drawImage (base, getLocalBounds().toFloat());
+        if (drawDynamic)
+        {
+            g.addTransform (juce::AffineTransform::translation ((float) -getX(), (float) -getY()));
+            drawDynamic (g);
+        }
+    }
+};
 } // namespace ranti

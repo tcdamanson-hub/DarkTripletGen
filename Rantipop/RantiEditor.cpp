@@ -153,6 +153,11 @@ RantiEditor::RantiEditor (RantiProcessor& p)
     // ciel etoile (fixe)
     // ciel : espace profond (nebuleuses, poussiere, etoiles scintillantes), dessine une seule fois
     stars = ranti::makeSpace (W, H, 7, true);
+    // planete animee sur son propre calque
+    planetLayer.drawDynamic = [this] (juce::Graphics& pg) { planetDynamic = true; drawPlanet (pg, { 590.0f, 285.0f }, 135.0f); planetDynamic = false; };
+    planetLayer.needBase = [this] { refreshPlanetBase(); };
+    planetLayer.setBounds (420, 128, 340, 284);
+    addAndMakeVisible (planetLayer);
 
     auto& bank = SoundBank::get();
     auto instText = [this] (const char* id, bool bass)
@@ -229,6 +234,9 @@ void RantiEditor::drawPlanet (juce::Graphics& g, juce::Point<float> c, float r)
 {
     const float k = r / 135.0f;
     const bool playing = proc.previewPlaying.load() || proc.getPlayhead() >= 0.0;
+    juce::ignoreUnused (playing);
+    if (! planetDynamic)
+    {
 
     // nebuleuse doree
     {
@@ -247,9 +255,12 @@ void RantiEditor::drawPlanet (juce::Graphics& g, juce::Point<float> c, float r)
         g.fillEllipse (c.x - r * 1.45f, c.y - r * 1.45f, r * 2.9f, r * 2.9f);
     }
     // orbite (moitie arriere)
+    }
     juce::Path orbit;
     orbit.addEllipse (-162 * k, -42 * k, 324 * k, 84 * k);
     orbit.applyTransform (juce::AffineTransform::rotation (juce::degreesToRadians (-7.0f)).translated (c.x, c.y + 50 * k));
+    if (! planetDynamic)
+    {
     {
         juce::Graphics::ScopedSaveState s (g);
         g.reduceClipRegion (juce::Rectangle<float> (c.x - 400, c.y - 400, 800, 400 + 50 * k).toNearestInt());
@@ -282,6 +293,9 @@ void RantiEditor::drawPlanet (juce::Graphics& g, juce::Point<float> c, float r)
         g.strokePath (arc, juce::PathStrokeType (1.8f));
     }
     // R + perso en neon
+    }
+    if (planetDynamic)
+    {
     ranti::drawSpin (g, c, r, spin, juce::Colour (0xfff3d28c));
     {
         auto P = [&] (float x, float y) { return juce::Point<float> (c.x + (x - 125.0f) * k, c.y + (y - 125.0f) * k); };
@@ -323,6 +337,7 @@ void RantiEditor::drawPlanet (juce::Graphics& g, juce::Point<float> c, float r)
         g.strokePath (orbit, juce::PathStrokeType (2.6f));
     }
     ranti::drawOrbitSpark (g, c, k, spin, juce::Colour (0xfffff1cc));
+    }
 }
 
 void RantiEditor::drawKeyboard (juce::Graphics& g, juce::Rectangle<float> area)
@@ -578,10 +593,29 @@ void RantiEditor::drawChords (juce::Graphics& g)
         spaced (g, "-", { chordBox.getX(), chordBox.getY() + 26.0f, 40.0f, 22.0f }, 12.0f, 0.0f, juce::Justification::centredLeft, gold.withAlpha (0.5f));
 }
 
+void RantiEditor::refreshPlanetBase()
+{
+    const auto b = planetLayer.getBounds();
+    const float sc = 2.0f;
+    juce::Image img (juce::Image::ARGB, juce::roundToInt (b.getWidth() * sc), juce::roundToInt (b.getHeight() * sc), true, juce::SoftwareImageType());
+    {
+        juce::Graphics ig (img);
+        ig.addTransform (juce::AffineTransform::translation ((float) -b.getX(), (float) -b.getY()).scaled (sc));
+        planetDynamic = false;
+        paint (ig);
+    }
+    planetLayer.base = img;
+}
+
 void RantiEditor::timerCallback()
 {
     spin = std::fmod (spin + 1.0f / 600.0f, 1.0f);
-    repaint (juce::Rectangle<int> (590 - 215, 285 - 205, 430, 420));
+    {
+        const bool pl = proc.previewPlaying.load() || proc.getPlayhead() >= 0.0;
+        const int v = proc.getPatternVersion();
+        if (! planetLayer.base.isValid() || v != planetVersion || pl != planetPlaying) { planetVersion = v; planetPlaying = pl; refreshPlanetBase(); }
+        planetLayer.repaint();
+    }
     keys = proc.getActiveKeys();
     const int v = proc.getPatternVersion();
     if (v != lastVersion)

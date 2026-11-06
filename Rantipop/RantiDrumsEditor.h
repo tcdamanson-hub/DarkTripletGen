@@ -1,4 +1,5 @@
 #pragma once
+#include "RantiSpace.h"
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_extra/juce_gui_extra.h>
 #include "RantiDrumsProcessor.h"
@@ -62,6 +63,11 @@ private:
     DrumLook look;
     juce::Image logo, stars;
     float spin = 0.0f; // rotation de la planete
+    bool planetDynamic = false;      // false : decor fixe ; true : ce qui tourne
+    int planetVersion = -1;
+    bool planetPlaying = false;
+    ranti::PlanetLayer planetLayer;
+    void refreshPlanetBase();
     std::vector<std::unique_ptr<DrumRow>> rows;
     juce::Slider master;
     std::unique_ptr<juce::SliderParameterAttachment> masterAtt;
