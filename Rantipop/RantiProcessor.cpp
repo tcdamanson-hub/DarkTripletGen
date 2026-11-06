@@ -147,11 +147,11 @@ void RantiProcessor::applyGenreSounds (int genre, int before)
     else if (genre == 4)
     {
         // pop punk : tes reglages de base (sons et volumes)
-        set ("instMel", bank.findMelodic ("Piano 09"));
-        set ("instChords", bank.findMelodic ("Pad 08"));
+        set ("instMel", bank.findMelodic ("Pad 11"));
+        set ("instChords", bank.findMelodic ("Guitare 30"));
         set ("instExtra", bank.findMelodic ("Guitare 49"));
         set ("instBass", bank.findBass ("Bass 135"));
-        setVol ("volMel", 0.32f); setVol ("volChords", 0.59f); setVol ("volExtra", 0.79f); setVol ("volBass", 0.80f); setVol ("reverb", 0.30f);
+        setVol ("volMel", 0.39f); setVol ("volChords", 0.37f); setVol ("volExtra", 0.45f); setVol ("volBass", 0.80f); setVol ("reverb", 0.30f);
     }
     else
     {
