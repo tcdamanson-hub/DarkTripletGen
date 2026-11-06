@@ -183,7 +183,7 @@ struct PlanetLayer : juce::Component
     bool readyForNextFrame() const
     {
         const double now = juce::Time::getMillisecondCounterHiRes();
-        return now - lastPaintEnd > juce::jmax (60.0, lastPaintMs * 5.0);
+        return now - lastPaintEnd > juce::jmax (55.0, juce::jmin (lastPaintMs * 3.0, 250.0));
     }
     void paint (juce::Graphics& g) override
     {
@@ -204,10 +204,12 @@ namespace ranti
 {
 // Sous Windows, certains hotes (FL) affichent mal le rendu Direct2D quand une zone est animee :
 // on force le rendu logiciel, stable partout.
-inline void useSoftwareRenderer (juce::Component& c)
+inline void useSoftwareRenderer (juce::Component& c, bool& done)
 {
+    if (done) return;   // une seule fois : changer de moteur d'affichage en boucle figerait la fenetre
     if (auto* peer = c.getPeer())
     {
+        done = true;
         const int sw = peer->getAvailableRenderingEngines().indexOf ("Software Renderer");
         if (sw >= 0 && peer->getCurrentRenderingEngine() != sw) peer->setCurrentRenderingEngine (sw);
     }

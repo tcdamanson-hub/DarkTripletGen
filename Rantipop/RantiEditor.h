@@ -90,6 +90,7 @@ private:
     juce::Image faceImg;
     float faceScale = 2.0f;
     int animTick = 0;
+    bool rendererSet = false;
     int planetVersion = -1;
     bool planetPlaying = false;
     ranti::PlanetLayer planetLayer;

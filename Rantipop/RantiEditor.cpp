@@ -633,9 +633,9 @@ void RantiEditor::refreshPlanetBase()
 
 void RantiEditor::timerCallback()
 {
-    ranti::useSoftwareRenderer (*this);
+    ranti::useSoftwareRenderer (*this, rendererSet);
     const bool animFrame = (++animTick & 1) == 0;
-    if (animFrame) spin = std::fmod (spin + 1.0f / 300.0f, 1.0f);
+    if (animFrame) spin = std::fmod (spin + 1.0f / 120.0f, 1.0f);   // un tour en 8 s
     {
         const bool pl = proc.previewPlaying.load() || proc.getPlayhead() >= 0.0;
         const int v = proc.getPatternVersion();
