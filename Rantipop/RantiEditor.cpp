@@ -640,7 +640,7 @@ void RantiEditor::timerCallback()
         const bool pl = proc.previewPlaying.load() || proc.getPlayhead() >= 0.0;
         const int v = proc.getPatternVersion();
         if (! planetLayer.base.isValid() || v != planetVersion || pl != planetPlaying) { planetVersion = v; planetPlaying = pl; refreshPlanetBase(); }
-        if (animFrame) planetLayer.repaint();
+        if (animFrame && planetLayer.readyForNextFrame()) planetLayer.repaint();
     }
     keys = proc.getActiveKeys();
     const int v = proc.getPatternVersion();

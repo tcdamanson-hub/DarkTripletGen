@@ -475,7 +475,7 @@ void RantiDrumsEditor::timerCallback()
         const bool pl = proc.previewPlaying.load() || proc.getPlayhead() >= 0.0;
         const int v = proc.getVersion();
         if (! planetLayer.base.isValid() || v != planetVersion || pl != planetPlaying) { planetVersion = v; planetPlaying = pl; refreshPlanetBase(); }
-        if (animFrame) planetLayer.repaint();
+        if (animFrame && planetLayer.readyForNextFrame()) planetLayer.repaint();
     }
     const int v = proc.getVersion();
     if (v != lastVersion) { lastVersion = v; repaint(); for (auto& r : rows) r->repaint(); }

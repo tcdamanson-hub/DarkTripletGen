@@ -178,8 +178,17 @@ struct PlanetLayer : juce::Component
     std::function<void (juce::Graphics&)> drawDynamic;   // dessine en coordonnees de la fenetre parente
     std::function<void()> needBase;                       // demande la photo du decor fixe
     PlanetLayer() { setOpaque (true); setInterceptsMouseClicks (false, false); }
+    double lastPaintMs = 0.0, lastPaintEnd = 0.0;
+    // l'animation ne prend jamais plus d'environ 20 % du temps : si le dessin est lent, on espace les images
+    bool readyForNextFrame() const
+    {
+        const double now = juce::Time::getMillisecondCounterHiRes();
+        return now - lastPaintEnd > juce::jmax (60.0, lastPaintMs * 5.0);
+    }
     void paint (juce::Graphics& g) override
     {
+        const double t0 = juce::Time::getMillisecondCounterHiRes();
+        struct Done { PlanetLayer& p; double t0; ~Done() { p.lastPaintEnd = juce::Time::getMillisecondCounterHiRes(); p.lastPaintMs = p.lastPaintEnd - t0; } } done { *this, t0 };
         if (! base.isValid() && needBase) needBase();
         if (base.isValid()) g.drawImage (base, getLocalBounds().toFloat());
         if (drawDynamic)
