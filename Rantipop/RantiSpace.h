@@ -190,3 +190,17 @@ struct PlanetLayer : juce::Component
     }
 };
 } // namespace ranti
+
+namespace ranti
+{
+// Sous Windows, certains hotes (FL) affichent mal le rendu Direct2D quand une zone est animee :
+// on force le rendu logiciel, stable partout.
+inline void useSoftwareRenderer (juce::Component& c)
+{
+    if (auto* peer = c.getPeer())
+    {
+        const int sw = peer->getAvailableRenderingEngines().indexOf ("Software Renderer");
+        if (sw >= 0 && peer->getCurrentRenderingEngine() != sw) peer->setCurrentRenderingEngine (sw);
+    }
+}
+} // namespace ranti

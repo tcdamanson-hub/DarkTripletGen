@@ -444,6 +444,7 @@ void RantiDrumsEditor::refreshPlanetBase()
 
 void RantiDrumsEditor::timerCallback()
 {
+    ranti::useSoftwareRenderer (*this);
     spin = std::fmod (spin + 1.0f / 600.0f, 1.0f);
     {
         const bool pl = proc.previewPlaying.load() || proc.getPlayhead() >= 0.0;
