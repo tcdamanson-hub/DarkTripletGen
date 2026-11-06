@@ -470,7 +470,7 @@ void RantiDrumsEditor::timerCallback()
 {
     ranti::useSoftwareRenderer (*this, rendererSet);
     const bool animFrame = (++animTick & 1) == 0;
-    if (animFrame) spin = std::fmod (spin + 1.0f / 120.0f, 1.0f);   // un tour en 8 s
+    spin = (float) std::fmod (juce::Time::getMillisecondCounterHiRes() / 8000.0, 1.0);   // un tour en 8 s, meme vitesse partout
     {
         const bool pl = proc.previewPlaying.load() || proc.getPlayhead() >= 0.0;
         const int v = proc.getVersion();
