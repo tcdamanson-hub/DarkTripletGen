@@ -1,5 +1,6 @@
 #pragma once
 #include <juce_graphics/juce_graphics.h>
+#include <cmath>
 
 // Fond "espace" (nebuleuses, poussiere, etoiles scintillantes, vignette), dessine une seule fois.
 // warm = true : touches dorees (MELODIE) ; false : bleu / violet (DRUMS)
@@ -7,7 +8,7 @@ namespace ranti
 {
 inline juce::Image makeSpace (int W, int H, int seed, bool warm)
 {
-    juce::Image img (juce::Image::ARGB, W, H, true);
+    juce::Image img (juce::Image::ARGB, W, H, true, juce::SoftwareImageType());
     juce::Graphics g (img);
     juce::Random r (seed);
     auto cloud = [&] (float cx, float cy, float rx, float ry, juce::Colour c)
@@ -83,9 +84,7 @@ namespace ranti
 // planete qui tourne : meridiens qui defilent sur la sphere (le visage reste fixe)
 inline void drawSpin (juce::Graphics& g, juce::Point<float> c, float r, float phase, juce::Colour col)
 {
-    juce::Graphics::ScopedSaveState s (g);
-    juce::Path clip; clip.addEllipse (c.x - r + 3.0f, c.y - r + 3.0f, r * 2.0f - 6.0f, r * 2.0f - 6.0f);
-    g.reduceClipRegion (clip);
+    r -= 3.0f;
     const int N = 9;
     for (int i = 0; i < N; ++i)
     {
@@ -106,12 +105,14 @@ inline void drawSpin (juce::Graphics& g, juce::Point<float> c, float r, float ph
             g.strokePath (m, juce::PathStrokeType (1.2f));
         }
     }
-    // paralleles (fixes)
+    // paralleles (fixes), seulement la partie avant
     for (float lat : { -0.55f, -0.2f, 0.2f, 0.55f })
     {
         const float y = c.y + r * std::sin (lat), rx = r * std::cos (lat);
+        juce::Path pl;
+        pl.addCentredArc (c.x, y, rx, rx * 0.12f, 0.0f, juce::MathConstants<float>::halfPi, juce::MathConstants<float>::halfPi + juce::MathConstants<float>::pi, true);
         g.setColour (col.withAlpha (0.06f));
-        g.drawEllipse (c.x - rx, y - rx * 0.12f, rx * 2.0f, rx * 0.24f, 1.0f);
+        g.strokePath (pl, juce::PathStrokeType (1.0f));
     }
 }
 
@@ -143,11 +144,13 @@ inline float spinPath (juce::Path& p, juce::Point<float> c, float r, float phase
     juce::Path out;
     juce::PathFlatteningIterator it (p, {}, 0.6f);
     bool penDown = false;
-    while (it.next())
+    int guard = 0;
+    while (it.next() && ++guard < 4000)
     {
         for (int e = 0; e < 2; ++e)
         {
             const float x = e == 0 ? it.x1 : it.x2, y = e == 0 ? it.y1 : it.y2;
+            if (! std::isfinite (x) || ! std::isfinite (y)) { penDown = false; continue; }
             const float dy = juce::jlimit (-0.98f, 0.98f, (y - c.y) / r);
             const float lat = std::asin (dy), rc = r * std::cos (lat);
             const float lon = std::asin (juce::jlimit (-0.98f, 0.98f, (x - c.x) / rc)) + th;
