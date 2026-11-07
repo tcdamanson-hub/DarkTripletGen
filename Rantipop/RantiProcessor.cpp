@@ -6,11 +6,10 @@ using namespace ranti;
 namespace
 {
 // sons de base du POP WAVE : melodie, accords, contre-melo, basse, arp, pad
-// base = tes presets synthwave (Electric Key 2, Pad 18, Synth 25, 808 Senior), qui sonnent tres bien ensemble ;
-// on y ajoute un pluck tres court pour l'arp et un pad doux et sombre qui reste derriere le Pad 18 des accords
-const char* popWaveSounds[6] = { "Electric Key 2", "Pad 18", "Synth 25", "808 Senior", "Pluck 14", "Pad 67" };
+// tes reglages de base POP WAVE
+const char* popWaveSounds[6] = { "Electric Key 2", "Rhodes 04", "Guitare 12", "Synth Bass 14", "Synth 10", "Pad 67" };
 // volumes POP WAVE : melodie, accords, basse, contre-melo, arp, pad (dans l'ordre des volIds)
-const float popWaveVol[6] = { 0.80f, 0.60f, 0.75f, 0.55f, 0.45f, 0.35f };
+const float popWaveVol[6] = { 0.61f, 0.54f, 0.81f, 0.57f, 0.48f, 0.61f };
 const float defaultVol[6] = { 0.80f, 0.70f, 0.80f, 0.60f, 0.60f, 0.50f };
 // une entree par piste melodique : (piste, volume, son)
 constexpr int numRows = 6;
