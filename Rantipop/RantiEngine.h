@@ -213,9 +213,25 @@ public:
         return g;
     }
 
-    static int randomGroove (int genre, juce::Random& rng)
+    // POP WAVE : on prend un groove joue a un tempo proche de celui du projet (sinon il tombe mal sur la melodie)
+    static int randomGroove (int genre, juce::Random& rng, double hostBpm = 0.0)
     {
         std::vector<int> gc;
+        if (genre == 4 && hostBpm > 40.0)
+        {
+            std::vector<std::pair<double, int>> byGap;
+            for (int i = 0; i < numGrooves; ++i)
+                if (grooves[i].genre == genre)
+                {
+                    // un groove a 70 bpm sonne aussi en double tempo a 140 : on garde l'ecart le plus petit
+                    const double b = grooves[i].bpm;
+                    const double gap = juce::jmin (std::abs (b - hostBpm), std::abs (b * 2.0 - hostBpm), std::abs (b * 0.5 - hostBpm));
+                    byGap.push_back ({ gap, i });
+                }
+            std::sort (byGap.begin(), byGap.end());
+            for (auto& [gap, i] : byGap) if (gap <= 10.0 || gc.size() < 6) gc.push_back (i);
+            if (! gc.empty()) return gc[(size_t) rng.nextInt ((int) gc.size())];
+        }
         for (int i = 0; i < numGrooves; ++i) if (grooves[i].genre == genre) gc.push_back (i);
         if (gc.empty()) for (int i = 0; i < numGrooves; ++i) if (grooves[i].genre == 0) gc.push_back (i);
         return gc.empty() ? -1 : gc[(size_t) rng.nextInt ((int) gc.size())];
@@ -233,35 +249,10 @@ public:
         if (g.genre == 1)
             if (const auto* c = SoundBank::get().drums ("AF_CONGA"); c != nullptr && c->size() > 1)
                 while (g.kit[(size_t) LPercB] == g.kit[(size_t) LPercA]) g.kit[(size_t) LPercB] = rng.nextInt ((int) c->size());
-        // pop wave : une seule machine pour tout le kit ; ce qu'elle n'a pas reste muet
+        // pop wave : une seule machine pour tout le kit, et seulement une machine qui a TOUS les elements
+        //            que joue le groove (rien de muet) ; on prend ses sons d'origine (n. 01), qui vont ensemble
         if (g.genre == 4)
-        {
-            std::vector<juce::String> machines;
-            for (int l = 0; l < NumLanes; ++l)
-                if (const auto* set = SoundBank::get().drums (drumCategory (4, l, 0)))
-                    for (auto& smp : *set)
-                    {
-                        const auto m = smp.name.upToLastOccurrenceOf (" ", false, false);
-                        if (std::find (machines.begin(), machines.end(), m) == machines.end()) machines.push_back (m);
-                    }
-            if (! machines.empty())
-            {
-                const auto m = machines[(size_t) rng.nextInt ((int) machines.size())];
-                for (int l = 0; l < NumLanes; ++l)
-                {
-                    g.kit[(size_t) l] = -1;
-                    if (const auto* set = SoundBank::get().drums (drumCategory (4, l, 0)))
-                    {
-                        std::vector<int> mine;
-                        for (size_t i = 0; i < set->size(); ++i)
-                            if ((*set)[i].name.upToLastOccurrenceOf (" ", false, false) == m) mine.push_back ((int) i);
-                        if (! mine.empty()) g.kit[(size_t) l] = mine[(size_t) rng.nextInt ((int) mine.size())];
-                    }
-                }
-                // deux toms differents si la machine en a plusieurs
-                if (g.kit[(size_t) LPercA] >= 0 && g.kit[(size_t) LPercA] == g.kit[(size_t) LPercB]) g.kit[(size_t) LPercB] = -1;
-            }
-        }
+            pickPopWaveKit (g, rng);
         // pop : un kit complet du groupe du groove (moderne, californie, retro, indie), jamais melange
         if (g.genre == 2 && g.groove >= 0 && g.groove < numGrooves)
         {
@@ -289,6 +280,56 @@ public:
                 }
             }
         }
+    }
+
+    static std::array<bool, NumLanes> lanesUsed (int groove)
+    {
+        std::array<bool, NumLanes> u {};
+        if (groove >= 0 && groove < numGrooves)
+            for (int i = 0; i < grooves[groove].count; ++i)
+                u[(size_t) juce::jlimit (0, NumLanes - 1, (int) grooveHits[grooves[groove].start + i].lane)] = true;
+        return u;
+    }
+
+    // index du son d'origine (le plus petit numero) de cette machine pour cette piste, -1 si elle n'en a pas
+    static int machineSample (int lane, const juce::String& machine)
+    {
+        const auto* set = SoundBank::get().drums (drumCategory (4, lane, 0));
+        if (set == nullptr) return -1;
+        for (size_t i = 0; i < set->size(); ++i)
+            if ((*set)[i].name.upToLastOccurrenceOf (" ", false, false) == machine) return (int) i; // trie par nom : 01 en premier
+        return -1;
+    }
+
+    static bool kitCoversGroove (const GenState& g)
+    {
+        const auto used = lanesUsed (g.groove);
+        for (int l = 0; l < NumLanes; ++l) if (used[(size_t) l] && g.kit[(size_t) l] < 0) return false;
+        return true;
+    }
+
+    static void pickPopWaveKit (GenState& g, juce::Random& rng)
+    {
+        std::vector<juce::String> machines;
+        if (const auto* kicks = SoundBank::get().drums (drumCategory (4, LKick, 0)))
+            for (auto& smp : *kicks)
+            {
+                const auto m = smp.name.upToLastOccurrenceOf (" ", false, false);
+                if (std::find (machines.begin(), machines.end(), m) == machines.end()) machines.push_back (m);
+            }
+        if (machines.empty()) return;
+        const auto used = lanesUsed (g.groove);
+        std::vector<juce::String> full;
+        for (auto& m : machines)
+        {
+            bool ok = true;
+            for (int l = 0; l < NumLanes; ++l) if (used[(size_t) l] && machineSample (l, m) < 0) ok = false;
+            if (ok) full.push_back (m);
+        }
+        const auto& from = full.empty() ? machines : full;
+        const auto m = from[(size_t) rng.nextInt ((int) from.size())];
+        for (int l = 0; l < NumLanes; ++l) g.kit[(size_t) l] = machineSample (l, m);
+        // toms : le grave et l'aigu d'origine de la machine
     }
 
     // R&B : un MIDI kick, un snare, un hats (+ open hat, percu de temps en temps), tempos compatibles

@@ -72,7 +72,7 @@ void RantiDrumsProcessor::generate()
     else
         for (int tries = 0; tries < 6; ++tries)
         {
-            g.groove = Generator::randomGroove (g.genre, rng);
+            g.groove = Generator::randomGroove (g.genre, rng, hostBpm.load());
             if (g.groove != prev) break;
         }
     Generator::randomKit (g, rng);
@@ -94,7 +94,7 @@ void RantiDrumsProcessor::setGenre (int genre)
     GenState g;
     g.genre = genre;
     if (genre == 0) Generator::randomRnb (g, rng);
-    else g.groove = Generator::randomGroove (genre, rng);
+    else g.groove = Generator::randomGroove (genre, rng, hostBpm.load());
     Generator::randomKit (g, rng);
     applyState (g, true);
 }
@@ -113,6 +113,8 @@ void RantiDrumsProcessor::stepGroove (int dir)
     g.groove = list[(size_t) idx];
     // pop : si on change de groupe, on prend un kit du nouveau groupe
     if (g.genre == 2 && (before < 0 || grooves[before].group != grooves[g.groove].group)) Generator::randomKit (g, rng);
+    // pop wave : si la machine n'a pas tous les elements du nouveau groove, on en prend une qui les a
+    if (g.genre == 4 && ! Generator::kitCoversGroove (g)) Generator::randomKit (g, rng);
     applyState (g, true);
 }
 
@@ -122,6 +124,7 @@ void RantiDrumsProcessor::setGroove (int gr)
     const int before = g.groove;
     g.groove = gr;
     if (g.genre == 2 && gr >= 0 && (before < 0 || grooves[before].group != grooves[gr].group)) Generator::randomKit (g, rng);
+    if (g.genre == 4 && ! Generator::kitCoversGroove (g)) Generator::randomKit (g, rng);
     applyState (g, true);
 }
 
@@ -197,7 +200,7 @@ void RantiDrumsProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     if (auto* ph = getPlayHead())
         if (auto pos = ph->getPosition())
         {
-            if (auto b = pos->getBpm()) bpm = *b;
+            if (auto b = pos->getBpm()) { bpm = *b; hostBpm = bpm; }
             hostPlaying = pos->getIsPlaying();
             if (auto q = pos->getPpqPosition()) ppq = *q;
         }

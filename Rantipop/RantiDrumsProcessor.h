@@ -81,6 +81,7 @@ private:
     std::atomic<double> length { 16.0 };
     std::atomic<int> version { 0 }, pendingPad { -1 };
     std::atomic<double> playhead { -1.0 };
+    std::atomic<double> hostBpm { 0.0 }; // tempo du projet (0 = inconnu)
     std::atomic<float> meter { 0.0f };
     std::array<std::atomic<juce::uint32>, ranti::NumLanes> laneHit {};
     juce::uint32 hitCounter = 0;
