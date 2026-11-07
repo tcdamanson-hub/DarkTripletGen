@@ -77,7 +77,7 @@ private:
     juce::Slider master;
     std::unique_ptr<juce::SliderParameterAttachment> masterAtt;
 
-    juce::Rectangle<float> genreTabs[5], prevBtn, nextBtn, genBtn, previewBtn, grooveBox, dragBox, infoBox, pads[10];
+    juce::Rectangle<float> genreTabs[4], prevBtn, nextBtn, genBtn, previewBtn, grooveBox, dragBox, infoBox, pads[10];
     bool dragging = false, genDown = false;
     std::array<juce::uint32, ranti::NumLanes> seenHit {};
     std::array<float, 10> padGlow {};

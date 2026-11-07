@@ -91,11 +91,11 @@ void RantiProcessor::setGenre (int g)
     if (! genreAvailable (g)) return;
     const int before = getState().genre;
     applyState (Generator::randomState (g, keyChoice, -1, rng, modeChoice), true);
-    if (g == 1 || g == 3 || g == 4 || before == 1 || before == 3 || before == 4) applyGenreSounds (g, before);
+    if (g == 1 || g == 3 || before == 1 || before == 3) applyGenreSounds (g);
 }
 
 // afro : guitares pour les pistes de guitare, Rhodes pour les keys, 808 ; en quittant l'afro on remet les sons d'origine
-void RantiProcessor::applyGenreSounds (int genre, int before)
+void RantiProcessor::applyGenreSounds (int genre)
 {
     const auto& bank = SoundBank::get();
     auto set = [&] (const char* id, int index)
@@ -108,20 +108,6 @@ void RantiProcessor::applyGenreSounds (int genre, int before)
             p->endChangeGesture();
         }
     };
-    auto setVol = [&] (const char* id, float v)
-    {
-        if (auto* p = apvts.getParameter (id))
-        {
-            p->beginChangeGesture();
-            p->setValueNotifyingHost (p->convertTo0to1 (v));
-            p->endChangeGesture();
-        }
-    };
-    // en quittant le pop punk, on remet les volumes d'origine
-    if (before == 4 && genre != 4)
-    {
-        setVol ("volMel", 0.80f); setVol ("volChords", 0.70f); setVol ("volExtra", 0.60f); setVol ("volBass", 0.80f); setVol ("reverb", 0.30f);
-    }
     auto pick = [&] (std::initializer_list<const char*> names) -> int
     {
         std::vector<int> c;
@@ -143,15 +129,6 @@ void RantiProcessor::applyGenreSounds (int genre, int before)
         set ("instChords", bank.findMelodic ("Pad 18"));
         set ("instExtra", bank.findMelodic ("Synth 25"));
         set ("instBass", bank.findBass ("808 Senior"));
-    }
-    else if (genre == 4)
-    {
-        // pop punk : tes reglages de base (sons et volumes)
-        set ("instMel", bank.findMelodic ("Pad 11"));
-        set ("instChords", bank.findMelodic ("Guitare 30"));
-        set ("instExtra", bank.findMelodic ("Guitare 49"));
-        set ("instBass", bank.findBass ("Bass 135"));
-        setVol ("volMel", 0.39f); setVol ("volChords", 0.37f); setVol ("volExtra", 0.45f); setVol ("volBass", 0.80f); setVol ("reverb", 0.30f);
     }
     else
     {

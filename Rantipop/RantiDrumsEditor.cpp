@@ -331,9 +331,9 @@ void RantiDrumsEditor::paint (juce::Graphics& g)
     spaced (g, "RANTIPOP", { 116.0f, 62.0f, 200.0f, 16.0f }, 10.5f, 0.55f, juce::Justification::centredLeft, text.withAlpha (0.7f));
 
     {
-        const auto box = juce::Rectangle<float> (300.0f, 26.0f, 466.0f, 44.0f);
+        const auto box = juce::Rectangle<float> (300.0f, 26.0f, 400.0f, 44.0f);
         glass (g, box);
-        const float tw[5] = { 62.0f, 74.0f, 62.0f, 134.0f, 118.0f };
+        const float tw[4] = { 72.0f, 86.0f, 72.0f, 150.0f };
         float x = box.getX() + 5.0f;
         for (int i = 0; i < numGenres; ++i)
         {

@@ -17,8 +17,8 @@ namespace ranti
 enum Part { PMel = 0, PChords = 1, PBass = 2, PExtra = 3, PDrums = 4, NumParts = 5 };
 enum Lane { LKick = 0, LSnare, LClap, LHat, LHat2, LOpen, LRim, LPercA, LPercB, LPercC, LCrash, NumLanes };
 
-static const char* const genreNames[] = { "R&B", "AFRO", "POP", "SYNTHWAVE", "POP PUNK" };
-static constexpr int numGenres = 5;
+static const char* const genreNames[] = { "R&B", "AFRO", "POP", "SYNTHWAVE" };
+static constexpr int numGenres = 4;
 static const char* const keyNames[] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
 // gammes / modes (detectes sur les notes de chaque MIDI ; les notes ne sont jamais modifiees)
 static const int NumModes = 19;
@@ -58,12 +58,6 @@ inline juce::String drumCategory (int genre, int lane, int variant)
     {
         juce::ignoreUnused (variant); // kit afro : clap (pas de snap)
         return af[lane];
-    }
-    if (genre == 4)
-    {
-        // pop punk : kit pop punk uniquement (pas de son = piste muette, rien d'emprunte ailleurs)
-        static const char* pk[NumLanes] = { "PK_KICK", "PK_SNARE", "PK_CLAP", "PK_HAT", "PK_SHAKER", "PK_OHAT", "PK_RIM", "PK_TOM", "PK_TOM", "PK_TOM", "PK_CRASH" };
-        return pk[lane];
     }
     return rb[lane];
 }
@@ -225,13 +219,6 @@ public:
             const auto* set = SoundBank::get().drums (drumCategory (g.genre, l, g.clapVariant));
             g.kit[(size_t) l] = (set != nullptr && ! set->empty()) ? rng.nextInt ((int) set->size()) : 0;
         }
-        // pop punk : deux toms differents (le plus aigu sur les toms hauts, le plus grave sur les toms bas)
-        if (g.genre == 4)
-            if (const auto* t = SoundBank::get().drums ("PK_TOM"); t != nullptr && t->size() > 1)
-            {
-                while (g.kit[(size_t) LPercB] == g.kit[(size_t) LPercA]) g.kit[(size_t) LPercB] = rng.nextInt ((int) t->size());
-                if (g.kit[(size_t) LPercA] > g.kit[(size_t) LPercB]) std::swap (g.kit[(size_t) LPercA], g.kit[(size_t) LPercB]);
-            }
         // afro : deux congas differentes pour Percussion et Percussion 2
         if (g.genre == 1)
             if (const auto* c = SoundBank::get().drums ("AF_CONGA"); c != nullptr && c->size() > 1)
