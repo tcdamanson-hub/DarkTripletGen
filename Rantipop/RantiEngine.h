@@ -213,11 +213,11 @@ public:
         return g;
     }
 
-    // POP WAVE : on prend un groove joue a un tempo proche de celui du projet (sinon il tombe mal sur la melodie)
+    // POP WAVE et AFRO : on prend un groove joue a un tempo proche de celui du projet (sinon il tombe mal sur la melodie)
     static int randomGroove (int genre, juce::Random& rng, double hostBpm = 0.0)
     {
         std::vector<int> gc;
-        if (genre == 4 && hostBpm > 40.0)
+        if ((genre == 4 || genre == 1) && hostBpm > 40.0)
         {
             std::vector<std::pair<double, int>> byGap;
             for (int i = 0; i < numGrooves; ++i)
