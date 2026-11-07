@@ -8,13 +8,17 @@ using namespace rtheme;
 namespace
 {
 constexpr int W = 1180, H = 740;
-const int chipPart[5] = { 0, 1, 3, 2, 5 }; // MELO ACC CONTRE 808 TOUT
+const int numChips = 7;
+const int chipPart[numChips] = { PMel, PChords, PExtra, PArp, PPad, PBass, RantiProcessor::allParts }; // MELO ACC CONTRE ARP PAD 808 TOUT
 
 juce::Font font (float size, float kerning = 0.0f, bool bold = false)
 {
     juce::Font f (juce::FontOptions (size, bold ? juce::Font::bold : juce::Font::plain));
     return f.withExtraKerningFactor (kerning);
 }
+
+// case des MIDI a glisser (sous les pistes, a cote des boutons)
+juce::Rectangle<float> dragBox() { return { 24.0f, 502.0f, 404.0f, 38.0f }; }
 
 juce::Path curvePath (juce::Rectangle<float> r)
 {
@@ -110,8 +114,8 @@ void ControlRow::resized()
 
 void ControlRow::paint (juce::Graphics& g)
 {
-    RantiEditor* ed = nullptr;
-    juce::ignoreUnused (ed);
+    // piste vide dans ce morceau : tout en plus discret
+    if (isEmpty && isEmpty()) g.beginTransparencyLayer (0.4f);
     g.setColour (gold);
     g.setFont (font (13.0f, 0.22f, true));
     g.drawText (title, 0, 0, getWidth(), 18, juce::Justification::centredLeft);
@@ -126,6 +130,7 @@ void ControlRow::paint (juce::Graphics& g)
         if (onSubClick) txt << juce::String (juce::CharPointer_UTF8 ("  \xe2\x96\xbe"));
         g.drawText (txt, subArea, juce::Justification::centredLeft);
     }
+    if (isEmpty && isEmpty()) g.endTransparencyLayer();
 }
 
 void ControlRow::mouseUp (const juce::MouseEvent& e)
@@ -141,6 +146,8 @@ RantiEditor::RantiEditor (RantiProcessor& p)
       rowMel (p, juce::String (juce::CharPointer_UTF8 ("M\xc3\x89LODIE")), "volMel"),
       rowChords (p, "ACCORDS", "volChords"),
       rowExtra (p, juce::String (juce::CharPointer_UTF8 ("CONTRE-M\xc3\x89LO")), "volExtra"),
+      rowArp (p, "ARP", "volArp"),
+      rowPad (p, "PAD", "volPad"),
       rowBass (p, "808 / BASSE", "volBass"),
       rowVerb (p, "REVERB", "reverb")
 {
@@ -173,9 +180,19 @@ RantiEditor::RantiEditor (RantiProcessor& p)
     rowChords.subText = instText ("instChords", false); rowChords.onSubClick = [this] { showInstMenu ("instChords", false); };
     rowExtra.subText = instText ("instExtra", false);   rowExtra.onSubClick = [this] { showInstMenu ("instExtra", false); };
     rowBass.subText = instText ("instBass", true);      rowBass.onSubClick = [this] { showInstMenu ("instBass", true); };
+    rowArp.subText = instText ("instArp", false);       rowArp.onSubClick = [this] { showInstMenu ("instArp", false); };
+    rowPad.subText = instText ("instPad", false);       rowPad.onSubClick = [this] { showInstMenu ("instPad", false); };
+    {
+        const std::pair<ControlRow*, int> rp[] = { { &rowMel, PMel }, { &rowChords, PChords }, { &rowExtra, PExtra }, { &rowArp, PArp }, { &rowPad, PPad } };
+        for (auto& [row, part] : rp)
+        {
+            const int pt = part;
+            row->isEmpty = [this, pt] { return proc.getPattern().parts[(size_t) pt].empty(); };
+        }
+    }
     rowVerb.subText = [] { return juce::String ("Room"); };
 
-    for (auto* r : { &rowMel, &rowChords, &rowExtra, &rowBass, &rowVerb })
+    for (auto* r : { &rowMel, &rowChords, &rowExtra, &rowArp, &rowPad, &rowBass, &rowVerb })
         addAndMakeVisible (r);
 
     master.setSliderStyle (juce::Slider::LinearHorizontal);
@@ -197,9 +214,12 @@ RantiEditor::~RantiEditor()
 
 void RantiEditor::resized()
 {
-    rowMel.setBounds (40, 120, 270, 76);
-    rowChords.setBounds (40, 210, 270, 76);
-    rowExtra.setBounds (40, 300, 270, 76);
+    // colonne gauche : 5 pistes
+    rowMel.setBounds (40, 116, 270, 76);
+    rowChords.setBounds (40, 192, 270, 76);
+    rowExtra.setBounds (40, 268, 270, 76);
+    rowArp.setBounds (40, 344, 270, 76);
+    rowPad.setBounds (40, 420, 270, 76);
     rowBass.setBounds (760, 120, 270, 76);
     rowVerb.setBounds (760, 316, 270, 76);
     chordBox = { 760.0f, 204.0f, 270.0f, 86.0f };
@@ -422,9 +442,9 @@ void RantiEditor::paint (juce::Graphics& g)
 
     // genres
     {
-        const auto box = juce::Rectangle<float> (336.0f, 26.0f, 400.0f, 44.0f);
+        const auto box = juce::Rectangle<float> (336.0f, 26.0f, 466.0f, 44.0f);
         glass (g, box);
-        const float tw[4] = { 72.0f, 86.0f, 72.0f, 150.0f };
+        const float tw[5] = { 64.0f, 76.0f, 64.0f, 136.0f, 110.0f };
         float x = box.getX() + 5.0f;
         for (int i = 0; i < numGenres; ++i)
         {
@@ -511,15 +531,16 @@ void RantiEditor::paint (juce::Graphics& g)
 
     // --- glisser le MIDI
     {
-        const auto box = juce::Rectangle<float> (40.0f, 500.0f, 346.0f, 38.0f);
+        const auto box = dragBox();
         glass (g, box, 10.0f);
         spaced (g, juce::String (juce::CharPointer_UTF8 ("\xe2\x87\xa3")), box.withWidth (30.0f).withTrimmedLeft (10.0f), 14.0f, 0.0f,
                 juce::Justification::centredLeft, gold);
-        static const char* chips[5] = { "MELO", "ACC", "CONTRE", "808", "TOUT" };
-        float x = box.getX() + 32.0f;
-        for (int i = 0; i < 5; ++i)
+        static const char* chips[numChips] = { "MELO", "ACC", "CONTRE", "ARP", "PAD", "808", "TOUT" };
+        static const float chipW[numChips] = { 52.0f, 44.0f, 64.0f, 44.0f, 44.0f, 44.0f, 52.0f };
+        float x = box.getX() + 28.0f;
+        for (int i = 0; i < numChips; ++i)
         {
-            const float w = i == 2 ? 70.0f : i == 1 || i == 3 ? 52.0f : 58.0f;
+            const float w = chipW[i];
             dragChips[i] = { x, box.getY() + 6.0f, w, box.getHeight() - 12.0f };
             g.setColour (gold.withAlpha (hoverChip == i ? 0.25f : 0.08f));
             g.fillRoundedRectangle (dragChips[i], 6.0f);
@@ -589,7 +610,9 @@ void RantiEditor::drawChords (juce::Graphics& g)
         for (int i = 0; i < (int) pat.chords.size(); ++i) if (pat.chords[(size_t) i].start <= ph + 1.0e-3) cur = i;
     float x = chordBox.getX(), y = chordBox.getY() + 26.0f;
     const auto f = font (11.5f, 0.03f, true);
-    for (int i = 0; i < (int) pat.chords.size() && i < 12; ++i)
+    // morceaux longs : la liste suit la lecture (on montre 12 accords autour de l'accord en cours)
+    const int first = cur >= 9 ? cur - 3 : 0;
+    for (int i = first; i < (int) pat.chords.size() && i < first + 12; ++i)
     {
         const auto& nm = pat.chords[(size_t) i].name;
         const float w = juce::jmax (30.0f, juce::GlyphArrangement::getStringWidth (f, nm) + 12.0f);
@@ -648,7 +671,7 @@ void RantiEditor::timerCallback()
     {
         lastVersion = v;
         repaint();
-        for (auto* r : { &rowMel, &rowChords, &rowExtra, &rowBass, &rowVerb }) r->repaint();
+        for (auto* r : { &rowMel, &rowChords, &rowExtra, &rowArp, &rowPad, &rowBass, &rowVerb }) r->repaint();
         return;
     }
     repaint (juce::Rectangle<int> (W - 24 - 106, 210, 106, 310));
@@ -660,8 +683,8 @@ void RantiEditor::timerCallback()
 void RantiEditor::mouseMove (const juce::MouseEvent& e)
 {
     int h = -1;
-    for (int i = 0; i < 5; ++i) if (dragChips[i].contains (e.position)) h = i;
-    if (h != hoverChip) { hoverChip = h; repaint (juce::Rectangle<int> (40, 500, 346, 38)); }
+    for (int i = 0; i < numChips; ++i) if (dragChips[i].contains (e.position)) h = i;
+    if (h != hoverChip) { hoverChip = h; repaint (dragBox().toNearestInt()); }
     setMouseCursor (h >= 0 ? juce::MouseCursor::DraggingHandCursor : juce::MouseCursor::NormalCursor);
 }
 
@@ -673,7 +696,7 @@ void RantiEditor::mouseDown (const juce::MouseEvent& e)
 void RantiEditor::mouseDrag (const juce::MouseEvent& e)
 {
     if (dragging) return;
-    for (int i = 0; i < 5; ++i)
+    for (int i = 0; i < numChips; ++i)
         if (dragChips[i].contains (e.mouseDownPosition))
         {
             auto f = proc.writeTempMidi (chipPart[i]);
@@ -736,7 +759,7 @@ void RantiEditor::showInstMenu (const char* id, bool bass)
         prm->setValueNotifyingHost (prm->convertTo0to1 ((float) (r - 1)));
         prm->endChangeGesture();
         repaint();
-        for (auto* row : { &rowMel, &rowChords, &rowExtra, &rowBass }) row->repaint();
+        for (auto* row : { &rowMel, &rowChords, &rowExtra, &rowArp, &rowPad, &rowBass }) row->repaint();
     });
 }
 

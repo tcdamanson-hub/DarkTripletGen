@@ -14,11 +14,12 @@
 // =============================================================================
 namespace ranti
 {
-enum Part { PMel = 0, PChords = 1, PBass = 2, PExtra = 3, PDrums = 4, NumParts = 5 };
+enum Part { PMel = 0, PChords = 1, PBass = 2, PExtra = 3, PDrums = 4, PArp = 5, PPad = 6, NumParts = 7 };
+inline bool isMelodicPart (int p) { return p >= 0 && p < NumParts && p != PDrums; }
 enum Lane { LKick = 0, LSnare, LClap, LHat, LHat2, LOpen, LRim, LPercA, LPercB, LPercC, LCrash, NumLanes };
 
-static const char* const genreNames[] = { "R&B", "AFRO", "POP", "SYNTHWAVE" };
-static constexpr int numGenres = 4;
+static const char* const genreNames[] = { "R&B", "AFRO", "POP", "SYNTHWAVE", "POP WAVE" };
+static constexpr int numGenres = 5;
 static const char* const keyNames[] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
 // gammes / modes (detectes sur les notes de chaque MIDI ; les notes ne sont jamais modifiees)
 static const int NumModes = 19;
@@ -59,6 +60,12 @@ inline juce::String drumCategory (int genre, int lane, int variant)
         juce::ignoreUnused (variant); // kit afro : clap (pas de snap)
         return af[lane];
     }
+    if (genre == 4)
+    {
+        // pop wave : boites a rythmes 80s, un kit = une machine (jamais melange)
+        static const char* pw[NumLanes] = { "PW_KICK", "PW_SNARE", "PW_CLAP", "PW_HAT", "PW_RIDE", "PW_OHAT", "PW_RIM", "PW_LTOM", "PW_HTOM", "PW_PERC", "PW_CRASH" };
+        return pw[lane];
+    }
     return rb[lane];
 }
 
@@ -72,7 +79,7 @@ inline bool genreAvailable (int g)
 struct GenState
 {
     int genre = 0, song = -1, groove = -1, transpose = 0;
-    std::array<int, 4> stem { 0, 0, 0, 0 };
+    std::array<int, NumParts> stem {};
     std::array<int, NumLanes> kit {};
     int clapVariant = 0;
     // R&B : un MIDI par element (index dans parts[], -1 = rien) ; bass808 = rythme de la 808
@@ -83,11 +90,12 @@ struct GenState
     {
         juce::StringArray a;
         a.add (juce::String (genre)); a.add (juce::String (song)); a.add (juce::String (groove)); a.add (juce::String (transpose));
-        for (auto s : stem) a.add (juce::String (s));
+        for (int i = 0; i < 4; ++i) a.add (juce::String (stem[(size_t) i]));
         for (auto k : kit) a.add (juce::String (k));
         a.add (juce::String (clapVariant));
         for (auto r : rnb) a.add (juce::String (r));
         a.add (juce::String (bass808));
+        a.add (juce::String (stem[PArp])); a.add (juce::String (stem[PPad]));
         return a.joinIntoString (",");
     }
     static GenState fromString (const juce::String& s)
@@ -97,7 +105,7 @@ struct GenState
         if (a.size() < 4 + 4 + NumLanes + 1) return g;
         int i = 0;
         g.genre = a[i++].getIntValue(); g.song = a[i++].getIntValue(); g.groove = a[i++].getIntValue(); g.transpose = a[i++].getIntValue();
-        for (auto& x : g.stem) x = a[i++].getIntValue();
+        for (int k = 0; k < 4; ++k) g.stem[(size_t) k] = a[i++].getIntValue();
         for (auto& x : g.kit) x = a[i++].getIntValue();
         g.clapVariant = a[i++].getIntValue();
         if (a.size() >= i + 6)
@@ -105,6 +113,7 @@ struct GenState
             for (auto& x : g.rnb) x = a[i++].getIntValue();
             g.bass808 = a[i++].getIntValue();
         }
+        if (a.size() >= i + 2) { g.stem[PArp] = a[i++].getIntValue(); g.stem[PPad] = a[i++].getIntValue(); }
         return g;
     }
 };
@@ -192,8 +201,9 @@ public:
         g.song = cand[(size_t) rng.nextInt ((int) cand.size())];
         g.groove = randomGroove (genre, rng);
         const auto& s = songs[g.song];
-        for (int r = 0; r < 4; ++r)
+        for (int r = 0; r < NumParts; ++r)
         {
+            if (! isMelodicPart (r)) continue;
             const int n = stemCount (g.song, r);
             g.stem[(size_t) r] = n > 0 ? rng.nextInt (n) : 0;
         }
@@ -223,6 +233,35 @@ public:
         if (g.genre == 1)
             if (const auto* c = SoundBank::get().drums ("AF_CONGA"); c != nullptr && c->size() > 1)
                 while (g.kit[(size_t) LPercB] == g.kit[(size_t) LPercA]) g.kit[(size_t) LPercB] = rng.nextInt ((int) c->size());
+        // pop wave : une seule machine pour tout le kit ; ce qu'elle n'a pas reste muet
+        if (g.genre == 4)
+        {
+            std::vector<juce::String> machines;
+            for (int l = 0; l < NumLanes; ++l)
+                if (const auto* set = SoundBank::get().drums (drumCategory (4, l, 0)))
+                    for (auto& smp : *set)
+                    {
+                        const auto m = smp.name.upToLastOccurrenceOf (" ", false, false);
+                        if (std::find (machines.begin(), machines.end(), m) == machines.end()) machines.push_back (m);
+                    }
+            if (! machines.empty())
+            {
+                const auto m = machines[(size_t) rng.nextInt ((int) machines.size())];
+                for (int l = 0; l < NumLanes; ++l)
+                {
+                    g.kit[(size_t) l] = -1;
+                    if (const auto* set = SoundBank::get().drums (drumCategory (4, l, 0)))
+                    {
+                        std::vector<int> mine;
+                        for (size_t i = 0; i < set->size(); ++i)
+                            if ((*set)[i].name.upToLastOccurrenceOf (" ", false, false) == m) mine.push_back ((int) i);
+                        if (! mine.empty()) g.kit[(size_t) l] = mine[(size_t) rng.nextInt ((int) mine.size())];
+                    }
+                }
+                // deux toms differents si la machine en a plusieurs
+                if (g.kit[(size_t) LPercA] >= 0 && g.kit[(size_t) LPercA] == g.kit[(size_t) LPercB]) g.kit[(size_t) LPercB] = -1;
+            }
+        }
         // pop : un kit complet du groupe du groove (moderne, californie, retro, indie), jamais melange
         if (g.genre == 2 && g.groove >= 0 && g.groove < numGrooves)
         {
@@ -316,7 +355,7 @@ public:
         for (int i = 0; i < s.count; ++i)
         {
             const auto& n = songNotes[s.start + i];
-            if (n.part > 3 || n.stem != g.stem[(size_t) n.part]) continue;
+            if (! isMelodicPart (n.part) || n.stem != g.stem[(size_t) n.part]) continue;
             const double st = n.s, len = juce::jmin ((double) n.l, p.length - n.s);
             if (st >= p.length || len <= 0.0) continue;
             p.parts[(size_t) n.part].push_back ({ st, juce::jmax (0.05, len), juce::jlimit (0, 127, n.p + g.transpose), juce::jlimit (1, 127, (int) n.v) });
@@ -439,8 +478,8 @@ class Engine
 public:
     struct Settings
     {
-        int inst[4] { 1, 0, 0, 0 };     // melodie, accords, basse (menu basse), contre-melo
-        float vol[NumParts] { 0.8f, 0.6f, 0.8f, 0.5f, 0.85f };
+        int inst[NumParts] { 1, 0, 0, 0, 0, 0, 0 };     // par piste (basse : menu basse)
+        float vol[NumParts] { 0.8f, 0.6f, 0.8f, 0.5f, 0.85f, 0.6f, 0.5f };
         float reverb = 0.25f, master = 0.8f;
         float lane[NumLanes] { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
     };
@@ -469,6 +508,7 @@ public:
         {
             const auto* set2 = SoundBank::get().drums (drumCategory (state.genre, pitch, state.clapVariant));
             if (set2 == nullptr || set2->empty()) return;
+            if (state.kit[(size_t) pitch] < 0) return; // pas de son pour cette piste dans ce kit
             const auto& smp = (*set2)[(size_t) juce::jlimit (0, (int) set2->size() - 1, state.kit[(size_t) pitch])];
             const int choke = (pitch == LHat || pitch == LOpen) ? 1 : -1;
             sampler.noteOn (PDrums, pitch, v, &smp, false, 0.05f, choke, set.lane[pitch]);
@@ -485,7 +525,7 @@ public:
         if (auto* in = SoundBank::get().melodic (sel))
         {
             const int n = lift (part, pitch);
-            sampler.noteOn (part, n, v, in->zoneFor (n), true, in->group == "Pads" ? 0.6f : 0.3f);
+            sampler.noteOn (part, n, v, in->zoneFor (n), true, (in->group == "Pads" || in->group == "Cordes") ? 0.6f : 0.3f);
         }
     }
 
@@ -516,7 +556,7 @@ public:
         renderRange (pos, num);
 
         // gains par partie (niveaux de base calibres pour que tout soit equilibre a 100 %)
-        static const float base[NumParts] = { 0.85f, 0.65f, 0.5f, 0.55f, 0.62f };
+        static const float base[NumParts] = { 0.85f, 0.65f, 0.5f, 0.55f, 0.62f, 0.55f, 0.5f };
         verbBuf.clear();
         out.clear();
         auto* L = out.getWritePointer (0);
@@ -524,7 +564,7 @@ public:
         for (int b = 0; b < NumParts; ++b)
         {
             const float g = base[b] * set.vol[b];
-            const float send = (b == PMel || b == PChords || b == PExtra) ? set.reverb : 0.0f;
+            const float send = (b == PMel || b == PChords || b == PExtra || b == PArp || b == PPad) ? set.reverb : 0.0f;
             const float* bl = buses.getReadPointer (b * 2);
             const float* br = buses.getReadPointer (b * 2 + 1);
             for (int i = 0; i < num; ++i)
@@ -562,7 +602,7 @@ private:
     {
         if (state.genre == 1) return n; // afro : les pistes jouent a leur vraie hauteur
         while (n < 48) n += 12;
-        if (part == PChords) while (n > 76) n -= 12;
+        if (part == PChords || part == PPad) while (n > 76) n -= 12;
         return n;
     }
 

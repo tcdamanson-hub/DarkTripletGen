@@ -35,7 +35,7 @@ void spaced (juce::Graphics& g, const juce::String& t, juce::Rectangle<float> r,
 juce::String sampleName (int genre, int lane, int clapVariant, int idx)
 {
     const auto* set = SoundBank::get().drums (drumCategory (genre, lane, clapVariant));
-    if (set == nullptr || set->empty()) return "-";
+    if (set == nullptr || set->empty() || idx < 0) return "-";
     return (*set)[(size_t) juce::jlimit (0, (int) set->size() - 1, idx)].name;
 }
 }
@@ -107,7 +107,8 @@ void DrumRow::paint (juce::Graphics& g)
 {
     const auto st = proc.getState();
     juce::String t = title;
-    if (lane == LHat2) t = st.genre != 3 ? "SHAKER" : "HAT 2";
+    if (lane == LHat2) t = st.genre == 4 ? "RIDE" : st.genre != 3 ? "SHAKER" : "HAT 2";
+    if (lane == LPercA && st.genre == 4) t = "TOMS";
     spaced (g, t, { 0.0f, 0.0f, (float) getWidth(), 18.0f }, 13.0f, 0.22f, juce::Justification::centredLeft, text, true);
     spaced (g, juce::String (juce::roundToInt (slider.getValue() * 100.0)) + "%", { 0.0f, 0.0f, (float) getWidth(), 18.0f }, 12.5f, 0.05f,
             juce::Justification::centredRight, text.withAlpha (0.6f));
@@ -331,9 +332,9 @@ void RantiDrumsEditor::paint (juce::Graphics& g)
     spaced (g, "RANTIPOP", { 116.0f, 62.0f, 200.0f, 16.0f }, 10.5f, 0.55f, juce::Justification::centredLeft, text.withAlpha (0.7f));
 
     {
-        const auto box = juce::Rectangle<float> (300.0f, 26.0f, 400.0f, 44.0f);
+        const auto box = juce::Rectangle<float> (300.0f, 26.0f, 466.0f, 44.0f);
         glass (g, box);
-        const float tw[4] = { 72.0f, 86.0f, 72.0f, 150.0f };
+        const float tw[5] = { 64.0f, 76.0f, 64.0f, 136.0f, 110.0f };
         float x = box.getX() + 5.0f;
         for (int i = 0; i < numGenres; ++i)
         {
@@ -436,6 +437,7 @@ void RantiDrumsEditor::paintOverChildren (juce::Graphics& g)
         g.drawRoundedRectangle (r, 12.0f, 1.0f);
         juce::String nm = names[i];
         if (i == 8 && st.genre == 3) nm = "HAT 2";
+        if (st.genre == 4) { if (i == 8) nm = "RIDE"; if (i == 6) nm = "TOM 1"; if (i == 7) nm = "TOM 2"; }
         spaced (g, nm, r.withTrimmedBottom (14.0f).withTrimmedTop (r.getHeight() - 40.0f), 11.0f, 0.2f, juce::Justification::centred,
                 a > 0.5f ? juce::Colour (0xff050a1e) : text, true);
     }

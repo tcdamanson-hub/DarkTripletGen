@@ -38,6 +38,7 @@ public:
     void mouseUp (const juce::MouseEvent&) override;
     std::function<juce::String()> subText;     // texte sous le titre
     std::function<void()> onSubClick;          // clic sur ce texte
+    std::function<bool()> isEmpty;             // piste vide dans ce morceau : ligne estompee
     juce::Slider slider;
 private:
     RantiProcessor& proc;
@@ -95,12 +96,12 @@ private:
     bool planetPlaying = false;
     ranti::PlanetLayer planetLayer;
     void refreshPlanetBase();
-    ControlRow rowMel, rowChords, rowExtra, rowBass, rowVerb;
+    ControlRow rowMel, rowChords, rowExtra, rowArp, rowPad, rowBass, rowVerb;
     juce::Slider master;
     std::unique_ptr<juce::SliderParameterAttachment> masterAtt;
 
     // zones cliquables
-    juce::Rectangle<float> genreTabs[4], prevBtn, nextBtn, genBtn, planetArea, songBox, keyBox, previewBtn, chordBox, dragChips[5];
+    juce::Rectangle<float> genreTabs[5], prevBtn, nextBtn, genBtn, planetArea, songBox, keyBox, previewBtn, chordBox, dragChips[7];
     int hoverChip = -1;
     bool dragging = false, genDown = false;
     float pulse = 0.0f;

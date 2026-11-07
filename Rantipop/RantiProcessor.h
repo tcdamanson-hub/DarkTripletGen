@@ -53,6 +53,7 @@ public:
     int getPatternVersion() const { return patternVersion.load(); }
     double getPlayhead() const { return playhead.load(); }
     float getMeter() const { return meter.load(); }
+    static constexpr int allParts = 99;
     juce::File writeTempMidi (int part); // 0..4, 5 = tout
     std::array<bool, 128> getActiveKeys();
 

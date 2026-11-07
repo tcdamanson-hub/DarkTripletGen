@@ -185,7 +185,7 @@ private:
 class Sampler
 {
 public:
-    static constexpr int numBuses = 5; // 0 melodie, 1 accords, 2 basse, 3 contre-melo, 4 drums
+    static constexpr int numBuses = 7; // 0 melodie, 1 accords, 2 basse, 3 contre-melo, 4 drums, 5 arp, 6 pad
 
     void prepare (double sampleRate) { sr = sampleRate; for (auto& v : voices) v.active = false; }
 

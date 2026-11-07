@@ -5,8 +5,13 @@ using namespace ranti;
 
 namespace
 {
-const char* volIds[4] = { "volMel", "volChords", "volBass", "volExtra" };
-const char* instIds[4]       = { "instMel", "instChords", "instBass", "instExtra" };
+// sons de base du POP WAVE : melodie, accords, contre-melo, basse, arp, pad
+const char* popWaveSounds[6] = { "Synth 39", "Rhodes 01", "Pluck 16", "Bass 157", "Pluck 17", "Pad 18" };
+// une entree par piste melodique : (piste, volume, son)
+constexpr int numRows = 6;
+const int rowPart[numRows]      = { PMel, PChords, PBass, PExtra, PArp, PPad };
+const char* volIds[numRows]  = { "volMel", "volChords", "volBass", "volExtra", "volArp", "volPad" };
+const char* instIds[numRows] = { "instMel", "instChords", "instBass", "instExtra", "instArp", "instPad" };
 // sortie MIDI : canal par partie, drums sur le canal 10 (General MIDI)
 const int gmDrum[NumLanes] = { 36, 38, 39, 42, 44, 46, 37, 63, 64, 76, 49 };
 }
@@ -35,9 +40,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout RantiProcessor::createLayout
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instChords", 1 }, "Chords Sound", mel, 0));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instExtra", 1 },  "Counter Sound", mel, findM ("Rhodes Doux", 0)));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instBass", 1 },   "808 Sound", bank.bassMenu(), juce::jmax (0, bank.bassMenu().indexOf ("808 All Alone"))));
-    const float defVol[4] = { 0.8f, 0.7f, 0.8f, 0.6f };
-    const char* volNames[4] = { "Melody Vol", "Chords Vol", "808 Vol", "Counter Vol" };
-    for (int i = 0; i < 4; ++i)
+    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instArp", 1 },    "Arp Sound", mel, findM ("Pluck 01", 0)));
+    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instPad", 1 },    "Pad Sound", mel, findM ("Pad 18", 0)));
+    const float defVol[numRows] = { 0.8f, 0.7f, 0.8f, 0.6f, 0.6f, 0.5f };
+    const char* volNames[numRows] = { "Melody Vol", "Chords Vol", "808 Vol", "Counter Vol", "Arp Vol", "Pad Vol" };
+    for (int i = 0; i < numRows; ++i)
         ps.push_back (std::make_unique<AudioParameterFloat> (ParameterID { volIds[i], 1 }, volNames[i], NormalisableRange<float> (0.0f, 1.5f), defVol[i], pct));
     ps.push_back (std::make_unique<AudioParameterFloat> (ParameterID { "reverb", 1 }, "Reverb", NormalisableRange<float> (0.0f, 1.0f), 0.3f, pct));
     ps.push_back (std::make_unique<AudioParameterFloat> (ParameterID { "master", 1 }, "Master", NormalisableRange<float> (0.0f, 1.5f), 0.8f, pct));
@@ -91,7 +98,7 @@ void RantiProcessor::setGenre (int g)
     if (! genreAvailable (g)) return;
     const int before = getState().genre;
     applyState (Generator::randomState (g, keyChoice, -1, rng, modeChoice), true);
-    if (g == 1 || g == 3 || before == 1 || before == 3) applyGenreSounds (g);
+    if (g == 1 || g == 3 || g == 4 || before == 1 || before == 3 || before == 4) applyGenreSounds (g);
 }
 
 // afro : guitares pour les pistes de guitare, Rhodes pour les keys, 808 ; en quittant l'afro on remet les sons d'origine
@@ -130,6 +137,16 @@ void RantiProcessor::applyGenreSounds (int genre)
         set ("instExtra", bank.findMelodic ("Synth 25"));
         set ("instBass", bank.findBass ("808 Senior"));
     }
+    else if (genre == 4)
+    {
+        // pop wave : synthes 80s
+        set ("instMel", bank.findMelodic (popWaveSounds[0]));
+        set ("instChords", bank.findMelodic (popWaveSounds[1]));
+        set ("instExtra", bank.findMelodic (popWaveSounds[2]));
+        set ("instBass", bank.findBass (popWaveSounds[3]));
+        set ("instArp", bank.findMelodic (popWaveSounds[4]));
+        set ("instPad", bank.findMelodic (popWaveSounds[5]));
+    }
     else
     {
         set ("instMel", bank.findMelodic ("Piano 31"));
@@ -157,7 +174,7 @@ void RantiProcessor::stepSong (int dir)
     for (size_t i = 0; i < list.size(); ++i) if (list[i] == g.song) idx = (int) i;
     idx = (idx + dir + (int) list.size()) % (int) list.size();
     g.song = list[(size_t) idx];
-    for (int r = 0; r < 4; ++r) g.stem[(size_t) r] = 0;
+    for (auto& x : g.stem) x = 0;
     if (g.genre == 0 && g.bass808 < 0) g.bass808 = Generator::random808 (songs[g.song].bpm, rng);
     g.transpose = Generator::transposeFor (songs[g.song].key, keyChoice);
     applyState (g, true);
@@ -204,18 +221,18 @@ std::array<bool, 128> RantiProcessor::getActiveKeys()
 juce::File RantiProcessor::writeTempMidi (int part)
 {
     const auto pat = getPattern();
-    static const char* names[] = { "melodie", "accords", "808", "contre_melo", "drums", "tout" };
+    static const char* names[] = { "melodie", "accords", "808", "contre_melo", "drums", "arp", "pad" };
     constexpr int res = 960;
     juce::MidiFile mf;
     mf.setTicksPerQuarterNote (res);
     for (int p = 0; p < NumParts; ++p)
     {
-        if (part != 5 && part != p) continue;
+        if (part != allParts && part != p) continue;
         if (pat.parts[(size_t) p].empty()) continue;
         juce::MidiMessageSequence seq;
         seq.addEvent (juce::MidiMessage::timeSignatureMetaEvent (4, 4), 0);
         seq.addEvent (juce::MidiMessage::textMetaEvent (3, juce::String (names[p])), 0);
-        const int ch = p == PDrums ? 10 : 1;
+        const int ch = p == PDrums ? 10 : 1 + p;
         for (auto& n : pat.parts[(size_t) p])
         {
             const int pitch = p == PDrums ? gmDrum[juce::jlimit (0, NumLanes - 1, n.pitch)] : n.pitch;
@@ -228,7 +245,8 @@ juce::File RantiProcessor::writeTempMidi (int part)
     }
     auto dir = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("Rantipop");
     dir.createDirectory();
-    auto name = juce::File::createLegalFileName ("Rantipop " + pat.songName + " " + keyNames[pat.key] + (pat.minor ? "m" : "") + " " + names[part]);
+    auto name = juce::File::createLegalFileName ("Rantipop " + pat.songName + " " + keyNames[pat.key] + (pat.minor ? "m" : "") + " "
+                                                 + (part == allParts ? juce::String ("tout") : juce::String (names[juce::jlimit (0, NumParts - 1, part)])));
     auto f = dir.getChildFile (name.replaceCharacter (' ', '_') + ".mid");
     f.deleteFile();
     juce::FileOutputStream out (f);
@@ -279,8 +297,8 @@ void RantiProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiB
     const double blockBeats = numSamples * beatsPerSample;
 
     Engine::Settings st;
-    for (int i = 0; i < 4; ++i) st.inst[i] = (int) apvts.getRawParameterValue (instIds[i])->load();
-    for (int i = 0; i < 4; ++i) st.vol[i] = apvts.getRawParameterValue (volIds[i])->load();
+    for (int i = 0; i < numRows; ++i) st.inst[rowPart[i]] = (int) apvts.getRawParameterValue (instIds[i])->load();
+    for (int i = 0; i < numRows; ++i) st.vol[rowPart[i]] = apvts.getRawParameterValue (volIds[i])->load();
     st.vol[PDrums] = 0.0f;
     st.reverb = apvts.getRawParameterValue ("reverb")->load();
     st.master = apvts.getRawParameterValue ("master")->load();
