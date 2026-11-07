@@ -742,6 +742,25 @@ void RantiEditor::showInstMenu (const char* id, bool bass)
     if (prm == nullptr) return;
     juce::PopupMenu m;
     const auto& names = prm->choices;
+    // POP WAVE : d'abord une selection de sons synth-pop 80s qui vont ensemble
+    if (proc.getState().genre == 4)
+    {
+        static const char* melSel[] = { "Electric Key 2", "Synth 25", "Synth 41", "Synth 37", "Synth 38", "Synth 40", "Synth 42", "Lead 10", "Lead 19", "Lead 07", "Electric Key 5",
+                                        "Rhodes 01", "Rhodes 02", "Rhodes 03", "Rhodes 04", "Piano 32", "Keys 20", "Pluck 10", "Pluck 13", "Pluck 14", "Pluck 16", "Pluck 17",
+                                        "Synth 23", "Synth 32", "Pad 67", "Pad 41", "Pad 28", "Pad 75", "Pad 90", "Pad 18" };
+        static const char* bassSel[] = { "Bass 158", "Bass 157", "Bass 155", "Bass 156", "808 Wave 01", "808 Wave 02", "808 Wave 03", "808 Wave 04",
+                                         "808 Wave 05", "808 Wave 06", "808 Wave 07", "808 Senior" };
+        m.addSectionHeader ("POP WAVE");
+        auto addSel = [&] (const char* const* list, int n)
+        {
+            for (int k = 0; k < n; ++k)
+                if (const int i = names.indexOf (list[k]); i >= 0) m.addItem (i + 1, names[i], true, prm->getIndex() == i);
+        };
+        if (bass) addSel (bassSel, (int) (sizeof (bassSel) / sizeof (bassSel[0])));
+        else      addSel (melSel, (int) (sizeof (melSel) / sizeof (melSel[0])));
+        m.addSeparator();
+        m.addSectionHeader ("TOUS LES SONS");
+    }
     juce::String lastGroup;
     for (int i = 0; i < names.size(); ++i)
     {

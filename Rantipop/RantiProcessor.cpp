@@ -6,7 +6,12 @@ using namespace ranti;
 namespace
 {
 // sons de base du POP WAVE : melodie, accords, contre-melo, basse, arp, pad
-const char* popWaveSounds[6] = { "Synth 39", "Rhodes 01", "Pluck 16", "Bass 157", "Pluck 17", "Pad 18" };
+// base = tes presets synthwave (Electric Key 2, Pad 18, Synth 25, 808 Senior), qui sonnent tres bien ensemble ;
+// on y ajoute un pluck tres court pour l'arp et un pad doux et sombre qui reste derriere le Pad 18 des accords
+const char* popWaveSounds[6] = { "Electric Key 2", "Pad 18", "Synth 25", "808 Senior", "Pluck 14", "Pad 67" };
+// volumes POP WAVE : melodie, accords, basse, contre-melo, arp, pad (dans l'ordre des volIds)
+const float popWaveVol[6] = { 0.80f, 0.60f, 0.75f, 0.55f, 0.45f, 0.35f };
+const float defaultVol[6] = { 0.80f, 0.70f, 0.80f, 0.60f, 0.60f, 0.50f };
 // une entree par piste melodique : (piste, volume, son)
 constexpr int numRows = 6;
 const int rowPart[numRows]      = { PMel, PChords, PBass, PExtra, PArp, PPad };
@@ -98,11 +103,11 @@ void RantiProcessor::setGenre (int g)
     if (! genreAvailable (g)) return;
     const int before = getState().genre;
     applyState (Generator::randomState (g, keyChoice, -1, rng, modeChoice), true);
-    if (g == 1 || g == 3 || g == 4 || before == 1 || before == 3 || before == 4) applyGenreSounds (g);
+    if (g == 1 || g == 3 || g == 4 || before == 1 || before == 3 || before == 4) applyGenreSounds (g, before);
 }
 
 // afro : guitares pour les pistes de guitare, Rhodes pour les keys, 808 ; en quittant l'afro on remet les sons d'origine
-void RantiProcessor::applyGenreSounds (int genre)
+void RantiProcessor::applyGenreSounds (int genre, int before)
 {
     const auto& bank = SoundBank::get();
     auto set = [&] (const char* id, int index)
@@ -115,6 +120,18 @@ void RantiProcessor::applyGenreSounds (int genre)
             p->endChangeGesture();
         }
     };
+    auto setVol = [&] (const char* id, float v)
+    {
+        if (auto* p = apvts.getParameter (id))
+        {
+            p->beginChangeGesture();
+            p->setValueNotifyingHost (p->convertTo0to1 (v));
+            p->endChangeGesture();
+        }
+    };
+    // volumes : equilibre POP WAVE en y entrant, volumes d'origine en en sortant
+    if (genre == 4)                     for (int i = 0; i < numRows; ++i) setVol (volIds[i], popWaveVol[i]);
+    else if (before == 4)               for (int i = 0; i < numRows; ++i) setVol (volIds[i], defaultVol[i]);
     auto pick = [&] (std::initializer_list<const char*> names) -> int
     {
         std::vector<int> c;
