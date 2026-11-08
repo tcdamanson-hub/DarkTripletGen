@@ -596,7 +596,7 @@ inline void highPass (Biquad& q, double sr, double f)
     const double w = 2.0 * juce::MathConstants<double>::pi * f / sr, c = std::cos (w), al = std::sin (w) / (2.0 * 0.707), a0 = 1 + al;
     q.b0 = (1 + c) / 2 / a0; q.b1 = -(1 + c) / a0; q.b2 = q.b0; q.a1 = -2 * c / a0; q.a2 = (1 - al) / a0; q.reset();
 }
-static constexpr double SUBDB = -2.0, PRESDB = 4.0, TOPDB = 0.0, BODYDB = -11.0;
+static constexpr double SUBDB = -9.0, PRESDB = 4.0, TOPDB = 0.0, BODYDB = -11.0;
 struct PopWaveColour
 {
     void prepare (double sampleRate)
