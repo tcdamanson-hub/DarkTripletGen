@@ -11,7 +11,7 @@ const char* popWaveSounds[6] = { "Electric Key 2", "Rhodes 04", "Guitare 12", "S
 // volumes POP WAVE : melodie, accords, basse, contre-melo, arp, pad (dans l'ordre des volIds)
 const float popWaveVol[6] = { 0.61f, 0.54f, 0.81f, 0.57f, 0.48f, 0.61f };
 // tes reglages de base AFRO (meme ordre) : volumes
-const float afroVol[6] = { 0.73f, 0.43f, 0.80f, 0.60f, 0.60f, 0.50f };
+const float afroVol[6] = { 0.45f, 0.27f, 0.80f, 0.54f, 0.60f, 0.50f };
 const float defaultVol[6] = { 0.80f, 0.70f, 0.80f, 0.60f, 0.60f, 0.50f };
 // une entree par piste melodique : (piste, volume, son)
 constexpr int numRows = 6;
@@ -143,11 +143,11 @@ void RantiProcessor::applyGenreSounds (int genre, int before)
     if (genre == 1)
     {
         // afro : tes reglages de base
-        set ("instMel", bank.findMelodic ("Synth 12"));
+        set ("instMel", bank.findMelodic ("Electric Key 3"));
         set ("instChords", bank.findMelodic ("Rhodes Doux"));
-        set ("instExtra", bank.findMelodic ("Keys 18"));
-        set ("instBass", bank.findBass ("Synth Bass 13"));
-        set ("instArp", bank.findMelodic ("Synth 13"));
+        set ("instExtra", bank.findMelodic ("Rhodes 01"));
+        set ("instBass", bank.findBass ("Bass 62"));
+        set ("instArp", bank.findMelodic ("Synth 20"));
         set ("instPad", bank.findMelodic ("Pad 67"));
     }
     else if (genre == 3)
