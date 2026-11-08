@@ -10,6 +10,8 @@ namespace
 const char* popWaveSounds[6] = { "Electric Key 2", "Rhodes 04", "Guitare 12", "Synth Bass 14", "Synth 10", "Pad 67" };
 // volumes POP WAVE : melodie, accords, basse, contre-melo, arp, pad (dans l'ordre des volIds)
 const float popWaveVol[6] = { 0.61f, 0.54f, 0.81f, 0.57f, 0.48f, 0.61f };
+// tes reglages de base AFRO (meme ordre) : volumes
+const float afroVol[6] = { 0.73f, 0.43f, 0.80f, 0.60f, 0.60f, 0.50f };
 const float defaultVol[6] = { 0.80f, 0.70f, 0.80f, 0.60f, 0.60f, 0.50f };
 // une entree par piste melodique : (piste, volume, son)
 constexpr int numRows = 6;
@@ -129,8 +131,9 @@ void RantiProcessor::applyGenreSounds (int genre, int before)
         }
     };
     // volumes : equilibre POP WAVE en y entrant, volumes d'origine en en sortant
-    if (genre == 4)                     for (int i = 0; i < numRows; ++i) setVol (volIds[i], popWaveVol[i]);
-    else if (before == 4)               for (int i = 0; i < numRows; ++i) setVol (volIds[i], defaultVol[i]);
+    if (genre == 4)                          for (int i = 0; i < numRows; ++i) setVol (volIds[i], popWaveVol[i]);
+    else if (genre == 1)                     for (int i = 0; i < numRows; ++i) setVol (volIds[i], afroVol[i]);
+    else if (before == 4 || before == 1)     for (int i = 0; i < numRows; ++i) setVol (volIds[i], defaultVol[i]);
     auto pick = [&] (std::initializer_list<const char*> names) -> int
     {
         std::vector<int> c;
@@ -141,9 +144,11 @@ void RantiProcessor::applyGenreSounds (int genre, int before)
     {
         // afro : tes reglages de base
         set ("instMel", bank.findMelodic ("Synth 12"));
-        set ("instChords", 0);
+        set ("instChords", bank.findMelodic ("Rhodes Doux"));
         set ("instExtra", bank.findMelodic ("Keys 18"));
-        set ("instBass", bank.findBass ("Synth Bass 12"));
+        set ("instBass", bank.findBass ("Synth Bass 13"));
+        set ("instArp", bank.findMelodic ("Synth 13"));
+        set ("instPad", bank.findMelodic ("Pad 67"));
     }
     else if (genre == 3)
     {
