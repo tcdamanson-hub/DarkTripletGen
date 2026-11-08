@@ -646,6 +646,15 @@ public:
         if (auto* in = SoundBank::get().melodic (sel))
         {
             const int n = lift (part, pitch);
+            if (state.genre == 4)
+            {
+                // POP WAVE : chaque nouvel accord / nouvelle note coupe proprement ce qui sonnait avant sur la piste
+                // (rien ne deborde sur l'harmonie suivante) ; les notes d'un meme accord (< 30 ms) restent ensemble
+                if (now - lastOn[part] > (long long) (0.03 * sr)) sampler.cutBus (part, 0.06f);
+                lastOn[part] = now;
+                sampler.noteOn (part, n, v, in->zoneFor (n), true, 0.12f);
+                return;
+            }
             sampler.noteOn (part, n, v, in->zoneFor (n), true, (in->group == "Pads" || in->group == "Cordes") ? 0.6f : 0.3f);
         }
     }
@@ -670,11 +679,13 @@ public:
         {
             const int t = juce::jlimit (0, num, e.first);
             renderRange (pos, t);
+            now = clock + t;
             if (e.second[0]) noteOn (e.second[1], e.second[2], e.second[3]);
             else             noteOff (e.second[1], e.second[2]);
             pos = t;
         }
         renderRange (pos, num);
+        clock += num;
 
         // gains par partie (niveaux de base calibres pour que tout soit equilibre a 100 %)
         static const float base[NumParts] = { 0.85f, 0.65f, 0.5f, 0.55f, 0.62f, 0.55f, 0.5f };
@@ -767,6 +778,8 @@ private:
     }
 
     double sr = 44100.0;
+    long long clock = 0, now = 0;                       // temps en samples (coupure des notes POP WAVE)
+    long long lastOn[NumParts] { -1000000, -1000000, -1000000, -1000000, -1000000, -1000000, -1000000 };
     Sampler sampler;
     PianoSynth piano;
     juce::AudioBuffer<float> buses, verbBuf, colBuf;

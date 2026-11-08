@@ -223,6 +223,14 @@ public:
 
     void allOff() { for (auto& v : voices) if (v.active) startRelease (v, 0.04f); }
 
+    // coupe tout ce qui sonne encore sur une piste (notes tenues ET queues de relache) : la note suivante arrive propre
+    void cutBus (int bus, float release)
+    {
+        const float target = (float) std::exp (-1.0 / (juce::jmax (0.01f, release) * sr));
+        for (auto& v : voices)
+            if (v.active && v.bus == bus && (v.held || v.relMul > target)) startRelease (v, release);
+    }
+
     void render (juce::AudioBuffer<float>& buses, int start, int end)
     {
         for (auto& v : voices)
