@@ -553,8 +553,8 @@ struct PopWaveColour
         const int n = (int) (sr * 0.03) + 4;
         for (auto& d : dl) { d.assign ((size_t) n, 0.0f); }
         w = 0; ph[0] = 0.0; ph[1] = 0.37;
-        mid.peak (sr, 1600.0, 0.7, -4.5);
-        top.highShelf (sr, 6500.0, -4.0);
+        mid.peak (sr, 1500.0, 0.55, -7.0);
+        top.highShelf (sr, 6500.0, -1.5);
         mid.reset(); top.reset();
     }
     // chorus d'ensemble stereo (deux lignes modulees en opposition) + egalisation

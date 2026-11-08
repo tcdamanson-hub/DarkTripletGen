@@ -9,7 +9,7 @@ namespace
 // tes reglages de base POP WAVE
 const char* popWaveSounds[6] = { "PW Lead Sombre", "PW Pad Nuit", "PW Cloche Sombre", "PW Basse Dark", "PW Arp Nuit", "PW Pad Brume" };
 // volumes POP WAVE : melodie, accords, basse, contre-melo, arp, pad (dans l'ordre des volIds)
-const float popWaveVol[6] = { 0.70f, 0.55f, 0.75f, 0.50f, 0.50f, 0.45f };
+const float popWaveVol[6] = { 0.70f, 0.60f, 0.70f, 0.50f, 0.50f, 0.50f };
 // tes reglages de base AFRO (meme ordre) : volumes
 const float afroVol[6] = { 0.45f, 0.27f, 0.80f, 0.54f, 0.60f, 0.50f };
 const float defaultVol[6] = { 0.80f, 0.70f, 0.80f, 0.60f, 0.60f, 0.50f };
