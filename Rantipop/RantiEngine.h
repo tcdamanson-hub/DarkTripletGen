@@ -556,6 +556,14 @@ struct Biquad
         b0 = A * ((A + 1) + (A - 1) * c + sq) / a0; b1 = -2 * A * ((A - 1) + (A + 1) * c) / a0; b2 = A * ((A + 1) + (A - 1) * c - sq) / a0;
         a1 = 2 * ((A - 1) - (A + 1) * c) / a0; a2 = ((A + 1) - (A - 1) * c - sq) / a0;
     }
+    void lowShelf (double sr, double f, double dB)
+    {
+        const double A = std::pow (10.0, dB / 40.0), w = 2.0 * juce::MathConstants<double>::pi * f / sr, c = std::cos (w), s = std::sin (w);
+        const double al = s / 2.0 * std::sqrt (2.0), sq = 2.0 * std::sqrt (A) * al;
+        const double a0 = (A + 1) + (A - 1) * c + sq;
+        b0 = A * ((A + 1) - (A - 1) * c + sq) / a0; b1 = 2 * A * ((A - 1) - (A + 1) * c) / a0; b2 = A * ((A + 1) - (A - 1) * c - sq) / a0;
+        a1 = -2 * ((A - 1) + (A + 1) * c) / a0; a2 = ((A + 1) + (A - 1) * c - sq) / a0;
+    }
     void lowPass (double sr, double f, double q)
     {
         const double w = 2.0 * juce::MathConstants<double>::pi * f / sr, c = std::cos (w), al = std::sin (w) / (2.0 * q), a0 = 1 + al;
@@ -571,6 +579,24 @@ struct Biquad
     void reset() { z1[0] = z1[1] = z2[0] = z2[1] = 0; }
 };
 
+// POP WAVE : vrai mixage par piste (coupe-bas, nettoyage, place de chacun dans le spectre, position stereo fixe)
+struct PopWaveMixStrip
+{
+    Biquad f[3]; int n = 0; float panL = 1.0f, panR = 1.0f;
+    void process (float* L, float* R, int num)
+    {
+        for (int k = 0; k < n; ++k)
+            for (int i = 0; i < num; ++i) { L[i] = f[k].process (0, L[i]); R[i] = f[k].process (1, R[i]); }
+        if (panL != 1.0f || panR != 1.0f)
+            for (int i = 0; i < num; ++i) { L[i] *= panL; R[i] *= panR; }
+    }
+};
+inline void highPass (Biquad& q, double sr, double f)
+{
+    const double w = 2.0 * juce::MathConstants<double>::pi * f / sr, c = std::cos (w), al = std::sin (w) / (2.0 * 0.707), a0 = 1 + al;
+    q.b0 = (1 + c) / 2 / a0; q.b1 = -(1 + c) / a0; q.b2 = q.b0; q.a1 = -2 * c / a0; q.a2 = (1 - al) / a0; q.reset();
+}
+static constexpr double SUBDB = -15.0, PRESDB = 10.0, TOPDB = 1.0, BODYDB = -7.0;
 struct PopWaveColour
 {
     void prepare (double sampleRate)
@@ -579,8 +605,9 @@ struct PopWaveColour
         const int n = (int) (sr * 0.03) + 4;
         for (auto& d : dl) { d.assign ((size_t) n, 0.0f); }
         w = 0; ph[0] = 0.0; ph[1] = 0.37;
-        mid.peak (sr, 1500.0, 0.55, 0.0);
-        top.highShelf (sr, 6500.0, -1.5);
+        mid.peak (sr, 4300.0, 1.1, PRESDB);   // presence (haut-medium) au niveau des demos
+        top.highShelf (sr, 6500.0, TOPDB);
+        body.peak (sr, 1400.0, 0.7, BODYDB); body.reset();   // mediums en retrait comme dans les demos
         mid.reset(); top.reset();
         exLp[0] = exLp[1] = 0.0f;
         exK = (float) (1.0 - std::exp (-2.0 * juce::MathConstants<double>::pi * 3000.0 / sr));
@@ -606,10 +633,10 @@ struct PopWaveColour
                 const auto& d = dl[(size_t) (1 - c)];   // croise : la gauche lit la droite retardee (elargit)
                 wet[c] = d[(size_t) i0] * (1.0f - fr) + d[(size_t) ((i0 + 1) % n)] * fr;
             }
-            float l = inL * 0.85f + wet[0] * 0.35f;
-            float r = inR * 0.85f + wet[1] * 0.35f;
-            l = top.process (0, mid.process (0, l));
-            r = top.process (1, mid.process (1, r));
+            float l = inL * 0.85f + wet[0] * 0.5f;
+            float r = inR * 0.85f + wet[1] * 0.5f;
+            l = top.process (0, mid.process (0, body.process (0, l)));
+            r = top.process (1, mid.process (1, body.process (1, r)));
             // brillance 80s : le haut du spectre est legerement sature (excitateur) -> de l'air au-dessus de 5 kHz
             exLp[0] += exK * (l - exLp[0]); exLp[1] += exK * (r - exLp[1]);
             l += exAmt * std::tanh (4.0f * (l - exLp[0]));
@@ -621,7 +648,7 @@ struct PopWaveColour
     double sr = 44100.0, ph[2] {};
     std::vector<float> dl[2];
     int w = 0;
-    Biquad mid, top;
+    Biquad mid, top, body;
     float exLp[2] {}, exK = 0.35f, exAmt = 0.0f;
 };
 
@@ -636,6 +663,7 @@ struct PopWaveBassColour
         for (auto& d : dl) d.assign ((size_t) n, 0.0f);
         w = 0; ph = 0.0; low[0] = low[1] = 0.0f;
         lp.lowPass (sr, 520.0, 0.7); lp.reset();
+        sub.lowShelf (sr, 90.0, SUBDB); sub.reset();
         k = (float) (1.0 - std::exp (-2.0 * juce::MathConstants<double>::pi * 160.0 / sr));
     }
     void process (float* L, float* R, int num)
@@ -644,7 +672,7 @@ struct PopWaveBassColour
         const int n = (int) dl[0].size();
         for (int i = 0; i < num; ++i)
         {
-            float x[2] = { lp.process (0, L[i]), lp.process (1, R[i]) };
+            float x[2] = { sub.process (0, lp.process (0, L[i])), sub.process (1, lp.process (1, R[i])) };
             float o[2];
             ph += 0.33 / sr; if (ph >= 1.0) ph -= 1.0;
             for (int c = 0; c < 2; ++c)
@@ -667,7 +695,7 @@ struct PopWaveBassColour
     std::vector<float> dl[2];
     int w = 0;
     float low[2] {}, k = 0.02f;
-    Biquad lp;
+    Biquad lp, sub;
 };
 
 class Engine
@@ -694,6 +722,15 @@ public:
         reverb.setParameters (rp);
         reverb.reset();
         colour.prepare (sr);
+        {
+            auto pan = [] (PopWaveMixStrip& m, float p) { m.panL = std::sqrt (0.5f * (1.0f - p)) * 1.414f; m.panR = std::sqrt (0.5f * (1.0f + p)) * 1.414f; };
+            auto& me = mix[PMel];   me.n = 2;   highPass (me.f[0], sr, 180.0); me.f[1].peak (sr, 3000.0, 0.9, 2.0);
+            auto& ch = mix[PChords]; ch.n = 3;  highPass (ch.f[0], sr, 160.0); ch.f[1].peak (sr, 420.0, 1.0, -3.5); ch.f[2].peak (sr, 2800.0, 0.9, -3.0);
+            auto& ex = mix[PExtra]; ex.n = 2;   highPass (ex.f[0], sr, 250.0); ex.f[1].peak (sr, 1000.0, 1.0, -2.5); pan (ex, 0.3f);
+            auto& ar = mix[PArp];   ar.n = 2;   highPass (ar.f[0], sr, 300.0); ar.f[1].peak (sr, 700.0, 1.0, -3.0); pan (ar, -0.3f);
+            auto& pd = mix[PPad];   pd.n = 3;   highPass (pd.f[0], sr, 200.0); pd.f[1].peak (sr, 450.0, 1.0, -3.0); pd.f[2].peak (sr, 2500.0, 0.8, -4.0);
+            for (auto& m : mix) for (auto& q : m.f) q.reset();
+        }
         colBuf.setSize (2, juce::jmax (16, maxBlock));
         bassColour.prepare (sr);
         bassBuf.setSize (2, juce::jmax (16, maxBlock));
@@ -784,6 +821,7 @@ public:
             // POP WAVE : les synthes passent par la couleur du genre avant le mixage
             float* dstL = (popWave && melodic) ? colBuf.getWritePointer (0) : (popWave && b == PBass) ? bassBuf.getWritePointer (0) : L;
             float* dstR = (popWave && melodic) ? colBuf.getWritePointer (1) : (popWave && b == PBass) ? bassBuf.getWritePointer (1) : R;
+            if (popWave && melodic) mix[b].process (buses.getWritePointer (b * 2), buses.getWritePointer (b * 2 + 1), num);
             const float* bl = buses.getReadPointer (b * 2);
             const float* br = buses.getReadPointer (b * 2 + 1);
             for (int i = 0; i < num; ++i)
@@ -872,6 +910,7 @@ private:
     juce::AudioBuffer<float> buses, verbBuf, colBuf, bassBuf;
     juce::Reverb reverb;
     PopWaveColour colour;
+    PopWaveMixStrip mix[NumParts];
     PopWaveBassColour bassColour;
     bool verbIsPopWave = false;
     float verbLp[2] {};
