@@ -189,34 +189,11 @@ class Generator
 {
 public:
     // nouvelle generation : morceau au hasard du genre, groove au hasard, kit au hasard
-    // POP WAVE : GENERER ne tire que les morceaux riches (au moins 3 pistes melodiques remplies) ;
-    // les autres restent accessibles avec les fleches
-    static bool richSong (int i)
-    {
-        static const std::vector<char> rich = []
-        {
-            std::vector<char> r ((size_t) numSongs, 0);
-            for (int k = 0; k < numSongs; ++k)
-            {
-                bool has[NumParts] {};
-                for (int n = 0; n < songs[k].count; ++n) has[(size_t) songNotes[songs[k].start + n].part] = true;
-                int c = 0;
-                for (int p = 0; p < NumParts; ++p) if (has[p] && isMelodicPart (p)) ++c;
-                r[(size_t) k] = c >= 3 ? 1 : 0;
-            }
-            return r;
-        }();
-        return rich[(size_t) i] != 0;
-    }
-
     static GenState randomState (int genre, int keyChoice, int previousSong, juce::Random& rng, int modeChoice = -1)
     {
         GenState g;
         g.genre = genre;
         std::vector<int> cand;
-        if (genre == 4)
-            for (int i = 0; i < numSongs; ++i) if (songs[i].genre == genre && i != previousSong && modeMatches (i, modeChoice) && richSong (i)) cand.push_back (i);
-        if (cand.empty())
         for (int i = 0; i < numSongs; ++i) if (songs[i].genre == genre && i != previousSong && modeMatches (i, modeChoice)) cand.push_back (i);
         if (cand.empty()) for (int i = 0; i < numSongs; ++i) if (songs[i].genre == genre && modeMatches (i, modeChoice)) cand.push_back (i);
         if (cand.empty()) for (int i = 0; i < numSongs; ++i) if (songs[i].genre == genre) cand.push_back (i);
@@ -427,7 +404,7 @@ public:
         p.hasBassLine = ! p.parts[PBass].empty();
 
         // POP WAVE : la basse reste dans le grave. Toute la ligne descend d'octave(s) pour que son centre tombe
-        // dans le registre des basses de tes kits (MIDI 36-47 : la ou les basses de tes kits sonnent vraiment) ; les notes au-dessus de Sol2 (55) descendent d'une octave.
+        // dans le registre des basses de tes kits (MIDI 31-42 : meme hauteur entendue que la version de 12 h 42, maintenant que les basses des kits sont etiquetees a leur vraie note) ; les notes au-dessus de Do3 (48) descendent d'une octave.
         // Rythme et notes inchanges, seule l'octave bouge.
         if (g.genre == 4 && p.hasBassLine)
         {
@@ -436,12 +413,12 @@ public:
             for (auto& n : b) ps.push_back (n.pitch);
             std::nth_element (ps.begin(), ps.begin() + (long) ps.size() / 2, ps.end());
             int med = ps[ps.size() / 2], shift = 0;
-            while (med + shift > 47) shift -= 12;
-            while (med + shift < 36) shift += 12;
+            while (med + shift > 42) shift -= 12;
+            while (med + shift < 31) shift += 12;
             for (auto& n : b)
             {
                 int q = n.pitch + shift;
-                while (q > 55) q -= 12;
+                while (q > 48) q -= 12;
                 while (q < 24) q += 12;
                 n.pitch = q;
             }
