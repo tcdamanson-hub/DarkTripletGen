@@ -711,17 +711,34 @@ public:
                 if (R != nullptr) R[i] += colBuf.getReadPointer (1)[i]; else L[i] += colBuf.getReadPointer (1)[i];
             }
         }
+        // POP WAVE : reverb propre au genre, grande et feutree (sombre)
+        if (popWave != verbIsPopWave)
+        {
+            verbIsPopWave = popWave;
+            juce::Reverb::Parameters rp;
+            if (popWave) { rp.roomSize = 0.9f; rp.damping = 0.78f; }
+            else         { rp.roomSize = 0.55f; rp.damping = 0.5f; }
+            rp.wetLevel = 1.0f; rp.dryLevel = 0.0f; rp.width = 1.0f;
+            reverb.setParameters (rp);
+        }
+        if (popWave)   // on assombrit encore ce qui part dans la reverb
+            for (int c = 0; c < 2; ++c)
+            {
+                auto* v = verbBuf.getWritePointer (c);
+                for (int i = 0; i < num; ++i) { verbLp[c] += 0.22f * (v[i] - verbLp[c]); v[i] = verbLp[c]; }
+            }
         reverb.processStereo (verbBuf.getWritePointer (0), verbBuf.getWritePointer (1), num);
+        const float verbOut = popWave ? 0.8f : 0.6f;
         float peak = 0.0f;
         for (int i = 0; i < num; ++i)
         {
-            float l = (L[i] + verbBuf.getReadPointer (0)[i] * 0.6f) * set.master;
+            float l = (L[i] + verbBuf.getReadPointer (0)[i] * verbOut) * set.master;
             l = std::tanh (l * 1.1f) * 0.92f;
             L[i] = l;
             peak = juce::jmax (peak, std::abs (l));
             if (R != nullptr)
             {
-                float r = (R[i] + verbBuf.getReadPointer (1)[i] * 0.6f) * set.master;
+                float r = (R[i] + verbBuf.getReadPointer (1)[i] * verbOut) * set.master;
                 r = std::tanh (r * 1.1f) * 0.92f;
                 R[i] = r;
                 peak = juce::jmax (peak, std::abs (r));
@@ -755,6 +772,8 @@ private:
     juce::AudioBuffer<float> buses, verbBuf, colBuf;
     juce::Reverb reverb;
     PopWaveColour colour;
+    bool verbIsPopWave = false;
+    float verbLp[2] {};
     Settings set;
     GenState state;
     float meter = 0.0f;
