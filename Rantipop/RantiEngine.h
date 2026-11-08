@@ -189,11 +189,34 @@ class Generator
 {
 public:
     // nouvelle generation : morceau au hasard du genre, groove au hasard, kit au hasard
+    // POP WAVE : GENERER ne tire que les morceaux riches (au moins 3 pistes melodiques remplies) ;
+    // les autres restent accessibles avec les fleches
+    static bool richSong (int i)
+    {
+        static const std::vector<char> rich = []
+        {
+            std::vector<char> r ((size_t) numSongs, 0);
+            for (int k = 0; k < numSongs; ++k)
+            {
+                bool has[NumParts] {};
+                for (int n = 0; n < songs[k].count; ++n) has[(size_t) songNotes[songs[k].start + n].part] = true;
+                int c = 0;
+                for (int p = 0; p < NumParts; ++p) if (has[p] && isMelodicPart (p)) ++c;
+                r[(size_t) k] = c >= 3 ? 1 : 0;
+            }
+            return r;
+        }();
+        return rich[(size_t) i] != 0;
+    }
+
     static GenState randomState (int genre, int keyChoice, int previousSong, juce::Random& rng, int modeChoice = -1)
     {
         GenState g;
         g.genre = genre;
         std::vector<int> cand;
+        if (genre == 4)
+            for (int i = 0; i < numSongs; ++i) if (songs[i].genre == genre && i != previousSong && modeMatches (i, modeChoice) && richSong (i)) cand.push_back (i);
+        if (cand.empty())
         for (int i = 0; i < numSongs; ++i) if (songs[i].genre == genre && i != previousSong && modeMatches (i, modeChoice)) cand.push_back (i);
         if (cand.empty()) for (int i = 0; i < numSongs; ++i) if (songs[i].genre == genre && modeMatches (i, modeChoice)) cand.push_back (i);
         if (cand.empty()) for (int i = 0; i < numSongs; ++i) if (songs[i].genre == genre) cand.push_back (i);
