@@ -579,8 +579,8 @@ struct PopWaveColour
         const int n = (int) (sr * 0.03) + 4;
         for (auto& d : dl) { d.assign ((size_t) n, 0.0f); }
         w = 0; ph[0] = 0.0; ph[1] = 0.37;
-        mid.peak (sr, 1500.0, 0.55, -4.0);
-        top.highShelf (sr, 5000.0, 6.0);
+        mid.peak (sr, 1500.0, 0.55, 0.0);
+        top.highShelf (sr, 6500.0, -1.5);
         mid.reset(); top.reset();
         exLp[0] = exLp[1] = 0.0f;
         exK = (float) (1.0 - std::exp (-2.0 * juce::MathConstants<double>::pi * 3000.0 / sr));
@@ -622,7 +622,7 @@ struct PopWaveColour
     std::vector<float> dl[2];
     int w = 0;
     Biquad mid, top;
-    float exLp[2] {}, exK = 0.35f, exAmt = 0.35f;
+    float exLp[2] {}, exK = 0.35f, exAmt = 0.0f;
 };
 
 // POP WAVE : basse comme dans tes kits = sombre (passe-bas) et large (le grave reste au centre,
