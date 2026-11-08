@@ -596,7 +596,7 @@ inline void highPass (Biquad& q, double sr, double f)
     const double w = 2.0 * juce::MathConstants<double>::pi * f / sr, c = std::cos (w), al = std::sin (w) / (2.0 * 0.707), a0 = 1 + al;
     q.b0 = (1 + c) / 2 / a0; q.b1 = -(1 + c) / a0; q.b2 = q.b0; q.a1 = -2 * c / a0; q.a2 = (1 - al) / a0; q.reset();
 }
-static constexpr double SUBDB = -15.0, PRESDB = 4.0, TOPDB = 0.0, BODYDB = -8.0;
+static constexpr double SUBDB = -15.0, PRESDB = 4.0, TOPDB = 0.0, BODYDB = -11.0;
 struct PopWaveColour
 {
     void prepare (double sampleRate)
@@ -724,8 +724,8 @@ public:
         colour.prepare (sr);
         {
             auto pan = [] (PopWaveMixStrip& m, float p) { m.panL = std::sqrt (0.5f * (1.0f - p)) * 1.414f; m.panR = std::sqrt (0.5f * (1.0f + p)) * 1.414f; };
-            auto& me = mix[PMel];   me.n = 3;   highPass (me.f[0], sr, 180.0); me.f[1].peak (sr, 3000.0, 0.9, 2.0); me.f[2].peak (sr, 1200.0, 0.8, -3.0);
-            auto& ch = mix[PChords]; ch.n = 3;  highPass (ch.f[0], sr, 160.0); ch.f[1].peak (sr, 420.0, 1.0, -3.5); ch.f[2].peak (sr, 2800.0, 0.9, -3.0);
+            auto& me = mix[PMel];   me.n = 3;   highPass (me.f[0], sr, 180.0); me.f[1].peak (sr, 3000.0, 0.9, 2.0); me.f[2].peak (sr, 1200.0, 0.8, -5.0);
+            auto& ch = mix[PChords]; ch.n = 3;  highPass (ch.f[0], sr, 160.0); ch.f[1].peak (sr, 1500.0, 0.7, -6.0); ch.f[2].lowPass (sr, 5000.0, 0.7);   // accords doux : mediums et attaque claquante adoucis
             auto& ex = mix[PExtra]; ex.n = 2;   highPass (ex.f[0], sr, 250.0); ex.f[1].peak (sr, 1000.0, 1.0, -2.5); pan (ex, 0.6f);
             auto& ar = mix[PArp];   ar.n = 2;   highPass (ar.f[0], sr, 300.0); ar.f[1].peak (sr, 700.0, 1.0, -3.0); pan (ar, -0.6f);
             auto& pd = mix[PPad];   pd.n = 3;   pan (pd, 0.0f);   highPass (pd.f[0], sr, 200.0); pd.f[1].peak (sr, 450.0, 1.0, -3.0); pd.f[2].peak (sr, 2500.0, 0.8, -4.0);
