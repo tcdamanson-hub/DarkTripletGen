@@ -403,6 +403,27 @@ public:
         }
         p.hasBassLine = ! p.parts[PBass].empty();
 
+        // POP WAVE : la basse reste dans le grave. Toute la ligne descend d'octave(s) pour que son centre tombe
+        // dans le registre des basses de tes kits (MIDI 43-54, le registre des MIDI de basse de tes kits, joues avec les vraies basses des kits) ; les notes au-dessus de Do4 (60) descendent d'une octave.
+        // Rythme et notes inchanges, seule l'octave bouge.
+        if (g.genre == 4 && p.hasBassLine)
+        {
+            auto& b = p.parts[PBass];
+            std::vector<int> ps;
+            for (auto& n : b) ps.push_back (n.pitch);
+            std::nth_element (ps.begin(), ps.begin() + (long) ps.size() / 2, ps.end());
+            int med = ps[ps.size() / 2], shift = 0;
+            while (med + shift > 54) shift -= 12;
+            while (med + shift < 43) shift += 12;
+            for (auto& n : b)
+            {
+                int q = n.pitch + shift;
+                while (q > 60) q -= 12;
+                while (q < 24) q += 12;
+                n.pitch = q;
+            }
+        }
+
         // 808 : si le MIDI n'a pas de ligne de basse, elle suit les changements d'accords
         //       (note la plus grave de chaque accord, tenue jusqu'au suivant)
         const auto& src = ! p.parts[PChords].empty() ? p.parts[PChords] : p.parts[PMel];
@@ -535,6 +556,11 @@ struct Biquad
         b0 = A * ((A + 1) + (A - 1) * c + sq) / a0; b1 = -2 * A * ((A - 1) + (A + 1) * c) / a0; b2 = A * ((A + 1) + (A - 1) * c - sq) / a0;
         a1 = 2 * ((A - 1) - (A + 1) * c) / a0; a2 = ((A + 1) - (A - 1) * c - sq) / a0;
     }
+    void lowPass (double sr, double f, double q)
+    {
+        const double w = 2.0 * juce::MathConstants<double>::pi * f / sr, c = std::cos (w), al = std::sin (w) / (2.0 * q), a0 = 1 + al;
+        b0 = (1 - c) / 2 / a0; b1 = (1 - c) / a0; b2 = b0; a1 = -2 * c / a0; a2 = (1 - al) / a0;
+    }
     float process (int ch, float x)
     {
         const double y = b0 * x + z1[ch];
@@ -553,9 +579,11 @@ struct PopWaveColour
         const int n = (int) (sr * 0.03) + 4;
         for (auto& d : dl) { d.assign ((size_t) n, 0.0f); }
         w = 0; ph[0] = 0.0; ph[1] = 0.37;
-        mid.peak (sr, 1500.0, 0.55, -7.0);
+        mid.peak (sr, 1500.0, 0.55, -4.0);
         top.highShelf (sr, 6500.0, -1.5);
         mid.reset(); top.reset();
+        exLp[0] = exLp[1] = 0.0f;
+        exK = (float) (1.0 - std::exp (-2.0 * juce::MathConstants<double>::pi * 3000.0 / sr));
     }
     // chorus d'ensemble stereo (deux lignes modulees en opposition) + egalisation
     void process (float* L, float* R, int num)
@@ -582,6 +610,10 @@ struct PopWaveColour
             float r = inR * 0.78f + wet[1] * 0.55f;
             l = top.process (0, mid.process (0, l));
             r = top.process (1, mid.process (1, r));
+            // brillance 80s : le haut du spectre est legerement sature (excitateur) -> de l'air au-dessus de 5 kHz
+            exLp[0] += exK * (l - exLp[0]); exLp[1] += exK * (r - exLp[1]);
+            l += exAmt * std::tanh (4.0f * (l - exLp[0]));
+            r += exAmt * std::tanh (4.0f * (r - exLp[1]));
             L[i] = l; if (R != nullptr) R[i] = r;
             if (++w >= n) w = 0;
         }
@@ -590,6 +622,52 @@ struct PopWaveColour
     std::vector<float> dl[2];
     int w = 0;
     Biquad mid, top;
+    float exLp[2] {}, exK = 0.35f, exAmt = 0.0f;
+};
+
+// POP WAVE : basse comme dans tes kits = sombre (passe-bas) et large (le grave reste au centre,
+// le haut de la basse est elargi par un chorus), pas une basse mono qui claque
+struct PopWaveBassColour
+{
+    void prepare (double sampleRate)
+    {
+        sr = sampleRate;
+        const int n = (int) (sr * 0.03) + 4;
+        for (auto& d : dl) d.assign ((size_t) n, 0.0f);
+        w = 0; ph = 0.0; low[0] = low[1] = 0.0f;
+        lp.lowPass (sr, 520.0, 0.7); lp.reset();
+        k = (float) (1.0 - std::exp (-2.0 * juce::MathConstants<double>::pi * 160.0 / sr));
+    }
+    void process (float* L, float* R, int num)
+    {
+        if (dl[0].empty() || R == nullptr) return;
+        const int n = (int) dl[0].size();
+        for (int i = 0; i < num; ++i)
+        {
+            float x[2] = { lp.process (0, L[i]), lp.process (1, R[i]) };
+            float o[2];
+            ph += 0.33 / sr; if (ph >= 1.0) ph -= 1.0;
+            for (int c = 0; c < 2; ++c)
+            {
+                low[c] += k * (x[c] - low[c]);
+                const float hi = x[c] - low[c];
+                dl[c][(size_t) w] = hi;
+                const double lfo = std::sin (2.0 * juce::MathConstants<double>::pi * (ph + c * 0.5));
+                double rp = w - (0.009 + 0.004 * c + 0.0025 * lfo) * sr; while (rp < 0) rp += n;
+                const int i0 = (int) rp; const float fr = (float) (rp - i0);
+                const auto& d = dl[(size_t) (1 - c)];
+                const float wet = d[(size_t) i0] * (1.0f - fr) + d[(size_t) ((i0 + 1) % n)] * fr;
+                o[c] = low[c] + hi * 0.6f + wet * 1.0f;
+            }
+            L[i] = o[0]; R[i] = o[1];
+            if (++w >= n) w = 0;
+        }
+    }
+    double sr = 44100.0, ph = 0.0;
+    std::vector<float> dl[2];
+    int w = 0;
+    float low[2] {}, k = 0.02f;
+    Biquad lp;
 };
 
 class Engine
@@ -617,6 +695,8 @@ public:
         reverb.reset();
         colour.prepare (sr);
         colBuf.setSize (2, juce::jmax (16, maxBlock));
+        bassColour.prepare (sr);
+        bassBuf.setSize (2, juce::jmax (16, maxBlock));
     }
 
     void setSettings (const Settings& s) { set = s; }
@@ -672,7 +752,7 @@ public:
     void render (juce::AudioBuffer<float>& out, const std::vector<std::pair<int, std::array<int, 4>>>& evs) // (sample, {on, part, pitch, vel})
     {
         const int num = out.getNumSamples();
-        if (buses.getNumSamples() < num) { buses.setSize (Sampler::numBuses * 2, num, false, false, true); verbBuf.setSize (2, num, false, false, true); colBuf.setSize (2, num, false, false, true); }
+        if (buses.getNumSamples() < num) { buses.setSize (Sampler::numBuses * 2, num, false, false, true); verbBuf.setSize (2, num, false, false, true); colBuf.setSize (2, num, false, false, true); bassBuf.setSize (2, num, false, false, true); }
         buses.clear();
         int pos = 0;
         for (auto& e : evs)
@@ -691,6 +771,7 @@ public:
         static const float base[NumParts] = { 0.85f, 0.65f, 0.5f, 0.55f, 0.62f, 0.55f, 0.5f };
         verbBuf.clear();
         colBuf.clear();
+        bassBuf.clear();
         out.clear();
         auto* L = out.getWritePointer (0);
         auto* R = out.getNumChannels() > 1 ? out.getWritePointer (1) : nullptr;
@@ -701,8 +782,8 @@ public:
             const bool melodic = (b == PMel || b == PChords || b == PExtra || b == PArp || b == PPad);
             const float send = melodic ? set.reverb : 0.0f;
             // POP WAVE : les synthes passent par la couleur du genre avant le mixage
-            float* dstL = (popWave && melodic) ? colBuf.getWritePointer (0) : L;
-            float* dstR = (popWave && melodic) ? colBuf.getWritePointer (1) : R;
+            float* dstL = (popWave && melodic) ? colBuf.getWritePointer (0) : (popWave && b == PBass) ? bassBuf.getWritePointer (0) : L;
+            float* dstR = (popWave && melodic) ? colBuf.getWritePointer (1) : (popWave && b == PBass) ? bassBuf.getWritePointer (1) : R;
             const float* bl = buses.getReadPointer (b * 2);
             const float* br = buses.getReadPointer (b * 2 + 1);
             for (int i = 0; i < num; ++i)
@@ -715,6 +796,12 @@ public:
         }
         if (popWave)
         {
+            if (R != nullptr)
+            {
+                bassColour.process (bassBuf.getWritePointer (0), bassBuf.getWritePointer (1), num);
+                for (int i = 0; i < num; ++i) { L[i] += bassBuf.getReadPointer (0)[i]; R[i] += bassBuf.getReadPointer (1)[i]; }
+            }
+            else for (int i = 0; i < num; ++i) L[i] += bassBuf.getReadPointer (0)[i] + bassBuf.getReadPointer (1)[i];
             colour.process (colBuf.getWritePointer (0), colBuf.getWritePointer (1), num);
             for (int i = 0; i < num; ++i)
             {
@@ -736,7 +823,7 @@ public:
             for (int c = 0; c < 2; ++c)
             {
                 auto* v = verbBuf.getWritePointer (c);
-                for (int i = 0; i < num; ++i) { verbLp[c] += 0.22f * (v[i] - verbLp[c]); v[i] = verbLp[c]; }
+                for (int i = 0; i < num; ++i) { verbLp[c] += 0.4f * (v[i] - verbLp[c]); v[i] = verbLp[c]; }
             }
         reverb.processStereo (verbBuf.getWritePointer (0), verbBuf.getWritePointer (1), num);
         const float verbOut = popWave ? 0.8f : 0.6f;
@@ -782,9 +869,10 @@ private:
     long long lastOn[NumParts] { -1000000, -1000000, -1000000, -1000000, -1000000, -1000000, -1000000 };
     Sampler sampler;
     PianoSynth piano;
-    juce::AudioBuffer<float> buses, verbBuf, colBuf;
+    juce::AudioBuffer<float> buses, verbBuf, colBuf, bassBuf;
     juce::Reverb reverb;
     PopWaveColour colour;
+    PopWaveBassColour bassColour;
     bool verbIsPopWave = false;
     float verbLp[2] {};
     Settings set;
