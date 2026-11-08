@@ -514,6 +514,84 @@ inline std::vector<PNote> buildDrums (int groove, double length, juce::String* n
 // -----------------------------------------------------------------------------
 //  Rendu audio : pianos / samples / 808 / drums -> bus -> mix
 // -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+//  Couleur POP WAVE (mesuree sur les demos de reference) : synthes tres larges
+//  (chorus d'ensemble), mediums en retrait, aigus doux. Uniquement en POP WAVE.
+// -----------------------------------------------------------------------------
+struct Biquad
+{
+    double b0 = 1, b1 = 0, b2 = 0, a1 = 0, a2 = 0, z1[2] {}, z2[2] {};
+    void peak (double sr, double f, double q, double dB)
+    {
+        const double A = std::pow (10.0, dB / 40.0), w = 2.0 * juce::MathConstants<double>::pi * f / sr, al = std::sin (w) / (2.0 * q), c = std::cos (w);
+        const double a0 = 1 + al / A;
+        b0 = (1 + al * A) / a0; b1 = -2 * c / a0; b2 = (1 - al * A) / a0; a1 = -2 * c / a0; a2 = (1 - al / A) / a0;
+    }
+    void highShelf (double sr, double f, double dB)
+    {
+        const double A = std::pow (10.0, dB / 40.0), w = 2.0 * juce::MathConstants<double>::pi * f / sr, c = std::cos (w), s = std::sin (w);
+        const double al = s / 2.0 * std::sqrt (2.0), sq = 2.0 * std::sqrt (A) * al;
+        const double a0 = (A + 1) - (A - 1) * c + sq;
+        b0 = A * ((A + 1) + (A - 1) * c + sq) / a0; b1 = -2 * A * ((A - 1) + (A + 1) * c) / a0; b2 = A * ((A + 1) + (A - 1) * c - sq) / a0;
+        a1 = 2 * ((A - 1) - (A + 1) * c) / a0; a2 = ((A + 1) - (A - 1) * c - sq) / a0;
+    }
+    float process (int ch, float x)
+    {
+        const double y = b0 * x + z1[ch];
+        z1[ch] = b1 * x - a1 * y + z2[ch];
+        z2[ch] = b2 * x - a2 * y;
+        return (float) y;
+    }
+    void reset() { z1[0] = z1[1] = z2[0] = z2[1] = 0; }
+};
+
+struct PopWaveColour
+{
+    void prepare (double sampleRate)
+    {
+        sr = sampleRate;
+        const int n = (int) (sr * 0.03) + 4;
+        for (auto& d : dl) { d.assign ((size_t) n, 0.0f); }
+        w = 0; ph[0] = 0.0; ph[1] = 0.37;
+        mid.peak (sr, 1600.0, 0.7, -4.5);
+        top.highShelf (sr, 6500.0, -4.0);
+        mid.reset(); top.reset();
+    }
+    // chorus d'ensemble stereo (deux lignes modulees en opposition) + egalisation
+    void process (float* L, float* R, int num)
+    {
+        if (dl[0].empty()) return;
+        const int n = (int) dl[0].size();
+        const double inc[2] = { 0.45 / sr, 0.62 / sr };
+        for (int i = 0; i < num; ++i)
+        {
+            const float inL = L[i], inR = R != nullptr ? R[i] : L[i];
+            dl[0][(size_t) w] = inL; dl[1][(size_t) w] = inR;
+            float wet[2];
+            for (int c = 0; c < 2; ++c)
+            {
+                ph[c] += inc[c]; if (ph[c] >= 1.0) ph[c] -= 1.0;
+                const double lfo = std::sin (2.0 * juce::MathConstants<double>::pi * (ph[c] + (c == 1 ? 0.5 : 0.0)));
+                const double dsm = (0.0075 + 0.0028 * lfo) * sr;
+                double rp = w - dsm; while (rp < 0) rp += n;
+                const int i0 = (int) rp; const float fr = (float) (rp - i0);
+                const auto& d = dl[(size_t) (1 - c)];   // croise : la gauche lit la droite retardee (elargit)
+                wet[c] = d[(size_t) i0] * (1.0f - fr) + d[(size_t) ((i0 + 1) % n)] * fr;
+            }
+            float l = inL * 0.78f + wet[0] * 0.55f;
+            float r = inR * 0.78f + wet[1] * 0.55f;
+            l = top.process (0, mid.process (0, l));
+            r = top.process (1, mid.process (1, r));
+            L[i] = l; if (R != nullptr) R[i] = r;
+            if (++w >= n) w = 0;
+        }
+    }
+    double sr = 44100.0, ph[2] {};
+    std::vector<float> dl[2];
+    int w = 0;
+    Biquad mid, top;
+};
+
 class Engine
 {
 public:
@@ -537,6 +615,8 @@ public:
         rp.roomSize = 0.55f; rp.damping = 0.5f; rp.wetLevel = 1.0f; rp.dryLevel = 0.0f; rp.width = 1.0f;
         reverb.setParameters (rp);
         reverb.reset();
+        colour.prepare (sr);
+        colBuf.setSize (2, juce::jmax (16, maxBlock));
     }
 
     void setSettings (const Settings& s) { set = s; }
@@ -583,7 +663,7 @@ public:
     void render (juce::AudioBuffer<float>& out, const std::vector<std::pair<int, std::array<int, 4>>>& evs) // (sample, {on, part, pitch, vel})
     {
         const int num = out.getNumSamples();
-        if (buses.getNumSamples() < num) { buses.setSize (Sampler::numBuses * 2, num, false, false, true); verbBuf.setSize (2, num, false, false, true); }
+        if (buses.getNumSamples() < num) { buses.setSize (Sampler::numBuses * 2, num, false, false, true); verbBuf.setSize (2, num, false, false, true); colBuf.setSize (2, num, false, false, true); }
         buses.clear();
         int pos = 0;
         for (auto& e : evs)
@@ -599,21 +679,36 @@ public:
         // gains par partie (niveaux de base calibres pour que tout soit equilibre a 100 %)
         static const float base[NumParts] = { 0.85f, 0.65f, 0.5f, 0.55f, 0.62f, 0.55f, 0.5f };
         verbBuf.clear();
+        colBuf.clear();
         out.clear();
         auto* L = out.getWritePointer (0);
         auto* R = out.getNumChannels() > 1 ? out.getWritePointer (1) : nullptr;
+        const bool popWave = state.genre == 4;
         for (int b = 0; b < NumParts; ++b)
         {
             const float g = base[b] * set.vol[b];
-            const float send = (b == PMel || b == PChords || b == PExtra || b == PArp || b == PPad) ? set.reverb : 0.0f;
+            const bool melodic = (b == PMel || b == PChords || b == PExtra || b == PArp || b == PPad);
+            const float send = melodic ? set.reverb : 0.0f;
+            // POP WAVE : les synthes passent par la couleur du genre avant le mixage
+            float* dstL = (popWave && melodic) ? colBuf.getWritePointer (0) : L;
+            float* dstR = (popWave && melodic) ? colBuf.getWritePointer (1) : R;
             const float* bl = buses.getReadPointer (b * 2);
             const float* br = buses.getReadPointer (b * 2 + 1);
             for (int i = 0; i < num; ++i)
             {
                 const float l = bl[i] * g, r = br[i] * g;
-                L[i] += l;
-                if (R != nullptr) R[i] += r; else L[i] += r;
+                dstL[i] += l;
+                if (dstR != nullptr) dstR[i] += r; else dstL[i] += r;
                 if (send > 0.0f) { verbBuf.getWritePointer (0)[i] += l * send; verbBuf.getWritePointer (1)[i] += r * send; }
+            }
+        }
+        if (popWave)
+        {
+            colour.process (colBuf.getWritePointer (0), colBuf.getWritePointer (1), num);
+            for (int i = 0; i < num; ++i)
+            {
+                L[i] += colBuf.getReadPointer (0)[i];
+                if (R != nullptr) R[i] += colBuf.getReadPointer (1)[i]; else L[i] += colBuf.getReadPointer (1)[i];
             }
         }
         reverb.processStereo (verbBuf.getWritePointer (0), verbBuf.getWritePointer (1), num);
@@ -657,8 +752,9 @@ private:
     double sr = 44100.0;
     Sampler sampler;
     PianoSynth piano;
-    juce::AudioBuffer<float> buses, verbBuf;
+    juce::AudioBuffer<float> buses, verbBuf, colBuf;
     juce::Reverb reverb;
+    PopWaveColour colour;
     Settings set;
     GenState state;
     float meter = 0.0f;

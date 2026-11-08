@@ -751,6 +751,10 @@ void RantiEditor::showInstMenu (const char* id, bool bass)
         static const char* bassSel[] = { "Bass 158", "Bass 157", "Bass 155", "Bass 156", "808 Wave 01", "808 Wave 02", "808 Wave 03", "808 Wave 04",
                                          "808 Wave 05", "808 Wave 06", "808 Wave 07", "808 Senior" };
         m.addSectionHeader ("POP WAVE");
+        // d'abord les synthes POP WAVE (crees d'apres les demos de reference)
+        for (int i = 0; i < names.size(); ++i)
+            if (names[i].startsWith ("PW ")) m.addItem (i + 1, names[i], true, prm->getIndex() == i);
+        m.addSeparator();
         auto addSel = [&] (const char* const* list, int n)
         {
             for (int k = 0; k < n; ++k)
@@ -764,6 +768,7 @@ void RantiEditor::showInstMenu (const char* id, bool bass)
     juce::String lastGroup;
     for (int i = 0; i < names.size(); ++i)
     {
+        if (names[i].startsWith ("PW ")) continue;   // sons POP WAVE : seulement dans la section POP WAVE
         if (! bass && i > 0)
         {
             const auto* in = SoundBank::get().melodic (i);

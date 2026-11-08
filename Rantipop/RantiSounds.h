@@ -137,7 +137,7 @@ private:
         {
             auto& in = instruments[i];
             std::sort (in.zones.begin(), in.zones.end(), [] (const Sample& a, const Sample& b) { return a.root < b.root; });
-            if (in.group == "Bass") { bassIdx.push_back ((int) i); bassNames.add (in.name); }
+            if (in.group == "Bass" || in.group == "PopWaveBass") { bassIdx.push_back ((int) i); bassNames.add (in.name); }
             else                    { melIdx.push_back ((int) i);  melNames.add (in.name); }
         }
         if (bassNames.isEmpty()) bassNames.add ("-");
