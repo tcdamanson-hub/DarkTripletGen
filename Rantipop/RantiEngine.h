@@ -596,7 +596,7 @@ inline void highPass (Biquad& q, double sr, double f)
     const double w = 2.0 * juce::MathConstants<double>::pi * f / sr, c = std::cos (w), al = std::sin (w) / (2.0 * 0.707), a0 = 1 + al;
     q.b0 = (1 + c) / 2 / a0; q.b1 = -(1 + c) / a0; q.b2 = q.b0; q.a1 = -2 * c / a0; q.a2 = (1 - al) / a0; q.reset();
 }
-static constexpr double SUBDB = -15.0, PRESDB = 4.0, TOPDB = 0.0, BODYDB = -11.0;
+static constexpr double SUBDB = -2.0, PRESDB = 4.0, TOPDB = 0.0, BODYDB = -11.0;
 struct PopWaveColour
 {
     void prepare (double sampleRate)
@@ -662,7 +662,7 @@ struct PopWaveBassColour
         const int n = (int) (sr * 0.03) + 4;
         for (auto& d : dl) d.assign ((size_t) n, 0.0f);
         w = 0; ph = 0.0; low[0] = low[1] = 0.0f;
-        lp.lowPass (sr, 520.0, 0.7); lp.reset();
+        lp.lowPass (sr, 1400.0, 0.7); lp.reset();   // filtre ouvert : la basse garde sa couleur
         sub.lowShelf (sr, 90.0, SUBDB); sub.reset();
         k = (float) (1.0 - std::exp (-2.0 * juce::MathConstants<double>::pi * 160.0 / sr));
     }
