@@ -633,8 +633,8 @@ struct PopWaveColour
                 const auto& d = dl[(size_t) (1 - c)];   // croise : la gauche lit la droite retardee (elargit)
                 wet[c] = d[(size_t) i0] * (1.0f - fr) + d[(size_t) ((i0 + 1) % n)] * fr;
             }
-            float l = inL * 0.85f + wet[0] * 0.5f;
-            float r = inR * 0.85f + wet[1] * 0.5f;
+            float l = inL * 0.85f + wet[0] * 0.7f;
+            float r = inR * 0.85f + wet[1] * 0.7f;
             l = top.process (0, mid.process (0, body.process (0, l)));
             r = top.process (1, mid.process (1, body.process (1, r)));
             // brillance 80s : le haut du spectre est legerement sature (excitateur) -> de l'air au-dessus de 5 kHz
@@ -726,9 +726,9 @@ public:
             auto pan = [] (PopWaveMixStrip& m, float p) { m.panL = std::sqrt (0.5f * (1.0f - p)) * 1.414f; m.panR = std::sqrt (0.5f * (1.0f + p)) * 1.414f; };
             auto& me = mix[PMel];   me.n = 2;   highPass (me.f[0], sr, 180.0); me.f[1].peak (sr, 3000.0, 0.9, 2.0);
             auto& ch = mix[PChords]; ch.n = 3;  highPass (ch.f[0], sr, 160.0); ch.f[1].peak (sr, 420.0, 1.0, -3.5); ch.f[2].peak (sr, 2800.0, 0.9, -3.0);
-            auto& ex = mix[PExtra]; ex.n = 2;   highPass (ex.f[0], sr, 250.0); ex.f[1].peak (sr, 1000.0, 1.0, -2.5); pan (ex, 0.3f);
-            auto& ar = mix[PArp];   ar.n = 2;   highPass (ar.f[0], sr, 300.0); ar.f[1].peak (sr, 700.0, 1.0, -3.0); pan (ar, -0.3f);
-            auto& pd = mix[PPad];   pd.n = 3;   highPass (pd.f[0], sr, 200.0); pd.f[1].peak (sr, 450.0, 1.0, -3.0); pd.f[2].peak (sr, 2500.0, 0.8, -4.0);
+            auto& ex = mix[PExtra]; ex.n = 2;   highPass (ex.f[0], sr, 250.0); ex.f[1].peak (sr, 1000.0, 1.0, -2.5); pan (ex, 0.55f);
+            auto& ar = mix[PArp];   ar.n = 2;   highPass (ar.f[0], sr, 300.0); ar.f[1].peak (sr, 700.0, 1.0, -3.0); pan (ar, -0.55f);
+            auto& pd = mix[PPad];   pd.n = 3;   pan (pd, 0.0f);   highPass (pd.f[0], sr, 200.0); pd.f[1].peak (sr, 450.0, 1.0, -3.0); pd.f[2].peak (sr, 2500.0, 0.8, -4.0);
             for (auto& m : mix) for (auto& q : m.f) q.reset();
         }
         colBuf.setSize (2, juce::jmax (16, maxBlock));
