@@ -404,7 +404,7 @@ public:
         p.hasBassLine = ! p.parts[PBass].empty();
 
         // POP WAVE : la basse reste dans le grave. Toute la ligne descend d'octave(s) pour que son centre tombe
-        // dans le registre des basses de tes kits (MIDI 43-54, le registre des MIDI de basse de tes kits, joues avec les vraies basses des kits) ; les notes au-dessus de Do4 (60) descendent d'une octave.
+        // dans le registre des basses de tes kits (MIDI 36-47 : la ou les basses de tes kits sonnent vraiment) ; les notes au-dessus de Sol2 (55) descendent d'une octave.
         // Rythme et notes inchanges, seule l'octave bouge.
         if (g.genre == 4 && p.hasBassLine)
         {
@@ -413,12 +413,12 @@ public:
             for (auto& n : b) ps.push_back (n.pitch);
             std::nth_element (ps.begin(), ps.begin() + (long) ps.size() / 2, ps.end());
             int med = ps[ps.size() / 2], shift = 0;
-            while (med + shift > 54) shift -= 12;
-            while (med + shift < 43) shift += 12;
+            while (med + shift > 47) shift -= 12;
+            while (med + shift < 36) shift += 12;
             for (auto& n : b)
             {
                 int q = n.pitch + shift;
-                while (q > 60) q -= 12;
+                while (q > 55) q -= 12;
                 while (q < 24) q += 12;
                 n.pitch = q;
             }
@@ -579,8 +579,8 @@ struct PopWaveColour
         const int n = (int) (sr * 0.03) + 4;
         for (auto& d : dl) { d.assign ((size_t) n, 0.0f); }
         w = 0; ph[0] = 0.0; ph[1] = 0.37;
-        mid.peak (sr, 1500.0, 0.55, 0.0);
-        top.highShelf (sr, 6500.0, -1.5);
+        mid.peak (sr, 1500.0, 0.55, -4.0);
+        top.highShelf (sr, 5000.0, 6.0);
         mid.reset(); top.reset();
         exLp[0] = exLp[1] = 0.0f;
         exK = (float) (1.0 - std::exp (-2.0 * juce::MathConstants<double>::pi * 3000.0 / sr));
@@ -600,7 +600,7 @@ struct PopWaveColour
             {
                 ph[c] += inc[c]; if (ph[c] >= 1.0) ph[c] -= 1.0;
                 const double lfo = std::sin (2.0 * juce::MathConstants<double>::pi * (ph[c] + (c == 1 ? 0.5 : 0.0)));
-                const double dsm = (0.0075 + 0.0028 * lfo) * sr;
+                const double dsm = (0.0075 + 0.0009 * lfo) * sr;   // chorus leger : ~6 centiemes max, les notes restent justes
                 double rp = w - dsm; while (rp < 0) rp += n;
                 const int i0 = (int) rp; const float fr = (float) (rp - i0);
                 const auto& d = dl[(size_t) (1 - c)];   // croise : la gauche lit la droite retardee (elargit)
@@ -622,7 +622,7 @@ struct PopWaveColour
     std::vector<float> dl[2];
     int w = 0;
     Biquad mid, top;
-    float exLp[2] {}, exK = 0.35f, exAmt = 0.0f;
+    float exLp[2] {}, exK = 0.35f, exAmt = 0.35f;
 };
 
 // POP WAVE : basse comme dans tes kits = sombre (passe-bas) et large (le grave reste au centre,
@@ -653,7 +653,7 @@ struct PopWaveBassColour
                 const float hi = x[c] - low[c];
                 dl[c][(size_t) w] = hi;
                 const double lfo = std::sin (2.0 * juce::MathConstants<double>::pi * (ph + c * 0.5));
-                double rp = w - (0.009 + 0.004 * c + 0.0025 * lfo) * sr; while (rp < 0) rp += n;
+                double rp = w - (0.009 + 0.004 * c + 0.001 * lfo) * sr; while (rp < 0) rp += n;
                 const int i0 = (int) rp; const float fr = (float) (rp - i0);
                 const auto& d = dl[(size_t) (1 - c)];
                 const float wet = d[(size_t) i0] * (1.0f - fr) + d[(size_t) ((i0 + 1) % n)] * fr;
