@@ -7,9 +7,9 @@ namespace
 {
 // sons de base du POP WAVE : melodie, accords, contre-melo, basse, arp, pad
 // tes reglages de base POP WAVE
-const char* popWaveSounds[6] = { "PW Synth 1", "PW Synth 3", "PW Cloche 2", "PW Basse 1", "PW Arp 3", "PW Drone 1" }; // sons de tes stems, reaccordes en Do et nettoyes
+const char* popWaveSounds[6] = { "PW Lead 2", "PW Pluck Arp", "PW Bright Piano C5", "PW Basse Saw Pluck", "PW Arp 3", "PW Pad Abysse" }; // tes reglages de base
 // volumes POP WAVE : melodie, accords, basse, contre-melo, arp, pad (dans l'ordre des volIds)
-const float popWaveVol[6] = { 0.37f, 0.28f, 0.35f, 0.30f, 0.39f, 0.27f };
+const float popWaveVol[6] = { 0.30f, 0.23f, 0.49f, 0.30f, 0.39f, 0.53f }; // melodie, accords, basse, contre-melo, arp, pad
 // tes reglages de base AFRO (meme ordre) : volumes
 const float afroVol[6] = { 0.45f, 0.27f, 0.80f, 0.54f, 0.60f, 0.50f };
 const float defaultVol[6] = { 0.80f, 0.70f, 0.80f, 0.60f, 0.60f, 0.50f };
@@ -132,6 +132,7 @@ void RantiProcessor::applyGenreSounds (int genre, int before)
     };
     // volumes : equilibre POP WAVE en y entrant, volumes d'origine en en sortant
     if (genre == 4)                          for (int i = 0; i < numRows; ++i) setVol (volIds[i], popWaveVol[i]);
+    if (genre == 4)                          setVol ("reverb", 0.17f);
     else if (genre == 1)                     for (int i = 0; i < numRows; ++i) setVol (volIds[i], afroVol[i]);
     else if (before == 4 || before == 1)     for (int i = 0; i < numRows; ++i) setVol (volIds[i], defaultVol[i]);
     auto pick = [&] (std::initializer_list<const char*> names) -> int
@@ -416,7 +417,8 @@ void RantiProcessor::setStateInformation (const void* data, int sizeInBytes)
             apvts.replaceState (vt);
             keyChoice = (int) vt.getProperty ("key", 0);
             modeChoice = juce::jlimit (-3, NumModes - 1, (int) vt.getProperty ("mode", -1));
-            const auto g = GenState::fromString (vt.getProperty ("gen", "").toString());
+            auto g = GenState::fromString (vt.getProperty ("gen", "").toString());
+            if (g.genre == 2 || g.genre == 3) g.genre = 4;   // POP et SYNTHWAVE sont dans la POP WAVE
             if (g.song >= 0 && g.song < numSongs) applyState (g, true);
         }
 }
