@@ -600,14 +600,14 @@ struct PopWaveColour
             {
                 ph[c] += inc[c]; if (ph[c] >= 1.0) ph[c] -= 1.0;
                 const double lfo = std::sin (2.0 * juce::MathConstants<double>::pi * (ph[c] + (c == 1 ? 0.5 : 0.0)));
-                const double dsm = (0.0075 + 0.0009 * lfo) * sr;   // chorus leger : ~6 centiemes max, les notes restent justes
+                const double dsm = (0.0075 + 0.0 * lfo) * sr;   // largeur fixe, sans modulation : le son ne bouge plus de gauche a droite, phase stable
                 double rp = w - dsm; while (rp < 0) rp += n;
                 const int i0 = (int) rp; const float fr = (float) (rp - i0);
                 const auto& d = dl[(size_t) (1 - c)];   // croise : la gauche lit la droite retardee (elargit)
                 wet[c] = d[(size_t) i0] * (1.0f - fr) + d[(size_t) ((i0 + 1) % n)] * fr;
             }
-            float l = inL * 0.78f + wet[0] * 0.55f;
-            float r = inR * 0.78f + wet[1] * 0.55f;
+            float l = inL * 0.85f + wet[0] * 0.35f;
+            float r = inR * 0.85f + wet[1] * 0.35f;
             l = top.process (0, mid.process (0, l));
             r = top.process (1, mid.process (1, r));
             // brillance 80s : le haut du spectre est legerement sature (excitateur) -> de l'air au-dessus de 5 kHz
@@ -653,7 +653,7 @@ struct PopWaveBassColour
                 const float hi = x[c] - low[c];
                 dl[c][(size_t) w] = hi;
                 const double lfo = std::sin (2.0 * juce::MathConstants<double>::pi * (ph + c * 0.5));
-                double rp = w - (0.009 + 0.004 * c + 0.001 * lfo) * sr; while (rp < 0) rp += n;
+                double rp = w - (0.009 + 0.004 * c + 0.0 * lfo) * sr; while (rp < 0) rp += n;
                 const int i0 = (int) rp; const float fr = (float) (rp - i0);
                 const auto& d = dl[(size_t) (1 - c)];
                 const float wet = d[(size_t) i0] * (1.0f - fr) + d[(size_t) ((i0 + 1) % n)] * fr;
