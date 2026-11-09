@@ -716,6 +716,7 @@ public:
         piano.prepare (sr);
         buses.setSize (Sampler::numBuses * 2, juce::jmax (16, maxBlock));
         verbBuf.setSize (2, juce::jmax (16, maxBlock));
+        levVerb.assign ((size_t) juce::jmax (8192, maxBlock), 1.0f); levEnv = 0.0009f; levGain = 1.0f; levLp = 0.0f;
         reverb.setSampleRate (sr);
         juce::Reverb::Parameters rp;
         rp.roomSize = 0.55f; rp.damping = 0.5f; rp.wetLevel = 1.0f; rp.dryLevel = 0.0f; rp.width = 1.0f;
@@ -866,15 +867,38 @@ public:
         reverb.processStereo (verbBuf.getWritePointer (0), verbBuf.getWritePointer (1), num);
         const float verbOut = popWave ? 0.8f : 0.6f;
         float peak = 0.0f;
+        // POP WAVE : niveleur de volume lent -> chaque morceau sort au meme niveau (corrige 70 % de l'ecart,
+        // au plus +/-6 dB, reaction en ~0,4 s quand ca monte et ~1,5 s quand ca baisse : les nuances restent).
+        // Ne touche ni aux sons, ni aux notes, ni a l'egalisation : seulement le volume general du morceau.
+        if (popWave && (int) levVerb.size() < num) levVerb.resize ((size_t) num, 1.0f);
+        if (popWave)
+        {
+            const float aUp = (float) std::exp (-1.0 / (0.4 * sr)), aDn = (float) std::exp (-1.0 / (1.5 * sr));
+            const float gs = (float) std::exp (-1.0 / (0.05 * sr));
+            for (int i = 0; i < num; ++i)
+            {
+                const float x = 0.5f * ((L[i] + verbBuf.getReadPointer (0)[i] * verbOut) + (R != nullptr ? R[i] + verbBuf.getReadPointer (1)[i] * verbOut : L[i]));
+                const float hp = x - levLp; levLp += 0.0085f * (x - levLp);      // mesure sans l'extreme grave, comme l'oreille
+                const float e = hp * hp;
+                const float a = e > levEnv ? aUp : aDn;
+                levEnv = a * levEnv + (1.0f - a) * e;
+                const float rms = std::sqrt (levEnv) + 1.0e-6f;
+                const float want = juce::jlimit (0.5f, 2.0f, std::pow (levTarget / rms, 0.7f));
+                levGain = gs * levGain + (1.0f - gs) * want;
+                L[i] *= levGain; if (R != nullptr) R[i] *= levGain;
+                levVerb[(size_t) i] = levGain;
+            }
+        }
         for (int i = 0; i < num; ++i)
         {
-            float l = (L[i] + verbBuf.getReadPointer (0)[i] * verbOut) * set.master;
+            const float vg = popWave ? levVerb[(size_t) i] : 1.0f;
+            float l = (L[i] + verbBuf.getReadPointer (0)[i] * verbOut * vg) * set.master;
             l = std::tanh (l * 1.1f) * 0.92f;
             L[i] = l;
             peak = juce::jmax (peak, std::abs (l));
             if (R != nullptr)
             {
-                float r = (R[i] + verbBuf.getReadPointer (1)[i] * verbOut) * set.master;
+                float r = (R[i] + verbBuf.getReadPointer (1)[i] * verbOut * vg) * set.master;
                 r = std::tanh (r * 1.1f) * 0.92f;
                 R[i] = r;
                 peak = juce::jmax (peak, std::abs (r));
@@ -903,7 +927,9 @@ private:
     }
 
     double sr = 44100.0;
-    long long clock = 0, now = 0;                       // temps en samples (coupure des notes POP WAVE)
+    long long clock = 0, now = 0;
+    float levEnv = 0.0009f, levGain = 1.0f, levLp = 0.0f, levTarget = 0.03f;   // niveleur de volume POP WAVE
+    std::vector<float> levVerb = std::vector<float> (8192, 1.0f);                       // temps en samples (coupure des notes POP WAVE)
     long long lastOn[NumParts] { -1000000, -1000000, -1000000, -1000000, -1000000, -1000000, -1000000 };
     Sampler sampler;
     PianoSynth piano;
