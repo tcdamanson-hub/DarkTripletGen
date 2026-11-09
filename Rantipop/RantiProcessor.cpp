@@ -29,6 +29,12 @@ RantiProcessor::RantiProcessor()
     clock.poll();
     previewPlaying = clock.running.load();
     startTimerHz (20);
+    // sons POP WAVE de base charges des le demarrage : le passage en POP WAVE sonne tout de suite
+    {
+        auto& bank = SoundBank::get();
+        for (int i = 0; i < 6; ++i)
+            bank.request (i == 3 ? bank.bass (bank.findBass (popWaveSounds[i])) : bank.melodic (bank.findMelodic (popWaveSounds[i])));
+    }
     for (auto& k : keyCount) k = 0;
     // premier son : un R&B au hasard
     applyState (Generator::randomState (0, 0, -1, rng), true);
@@ -94,6 +100,28 @@ void RantiProcessor::generate()
 {
     const auto cur = getState();
     applyState (Generator::randomState (cur.genre, keyChoice, cur.song, rng, modeChoice), true);
+    if (cur.genre == 4) shuffleFamilySounds();
+}
+
+// POP WAVE : a chaque generation, chaque piste prend un autre son de la meme famille (une autre basse, un autre lead...).
+// Le nouveau son est d'abord charge en arriere-plan ; l'ancien joue jusqu'a ce qu'il soit pret (pas de blanc).
+void RantiProcessor::shuffleFamilySounds()
+{
+    auto& bank = ranti::SoundBank::get();
+    for (int r = 0; r < numRows; ++r)
+    {
+        auto* prm = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter (instIds[r]));
+        if (prm == nullptr) continue;
+        const auto fam = bank.categoryOf (prm->choices[prm->getIndex()]);
+        if (fam.isEmpty()) continue;
+        juce::Array<int> cand;
+        for (int i = 0; i < prm->choices.size(); ++i)
+            if (i != prm->getIndex() && prm->choices[i].startsWith ("PW ") && bank.categoryOf (prm->choices[i]) == fam) cand.add (i);
+        if (cand.isEmpty()) continue;
+        const int pick = cand[rng.nextInt (cand.size())];
+        pendingSound[r] = pick;
+        bank.request (rowPart[r] == ranti::PBass ? bank.bass (pick) : bank.melodic (pick));
+    }
 }
 
 void RantiProcessor::goBack()    { if (canGoBack())    applyState (history[(size_t) --histPos], false); }
@@ -429,6 +457,22 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new RantiProce
 void RantiProcessor::requestSelectedSounds()
 {
     auto& bank = ranti::SoundBank::get();
+    // sons choisis a la generation : on bascule des qu'ils sont charges
+    for (int r = 0; r < numRows; ++r)
+    {
+        const int pick = pendingSound[r];
+        if (pick < 0) continue;
+        auto* in = rowPart[r] == ranti::PBass ? bank.bass (pick) : bank.melodic (pick);
+        bank.request (in);
+        if (! ranti::SoundBank::isLoaded (in)) continue;
+        if (auto* prm = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter (instIds[r])))
+        {
+            prm->beginChangeGesture();
+            prm->setValueNotifyingHost (prm->convertTo0to1 ((float) pick));
+            prm->endChangeGesture();
+        }
+        pendingSound[r] = -1;
+    }
     for (int i = 0; i < numRows; ++i)
     {
         const int idx = (int) apvts.getRawParameterValue (instIds[i])->load();

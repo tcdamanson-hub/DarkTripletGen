@@ -68,6 +68,8 @@ public:
 private:
     void timerCallback() override { clock.poll(); previewPlaying = clock.running.load(); requestSelectedSounds(); }
     void requestSelectedSounds();   // charge en arriere-plan les sons des packs externes choisis
+    void shuffleFamilySounds();     // POP WAVE : nouveau son de la meme famille sur chaque piste a chaque generation
+    int pendingSound[6] { -1, -1, -1, -1, -1, -1 };
     ranti::SharedClock clock;
     void applyState (const ranti::GenState& g, bool pushHistory);
 

@@ -26,6 +26,7 @@ struct Sample
     int srcSize = 0;
     juce::File file, fileR;                // son d'un pack externe (charge a la demande) ; fileR = canal droit si enregistre en deux fichiers
     int loopStart = -1, loopEnd = -1;      // boucle de maintien (packs multi-echantillonnes)
+    std::shared_ptr<std::atomic<juce::uint32>> useStamp;   // derniere utilisation (ms) : un son externe inutilise est libere
     std::shared_ptr<std::atomic<bool>> ready = std::make_shared<std::atomic<bool>> (false);
     bool isReady() const { return ready->load (std::memory_order_acquire); }
 };
@@ -37,6 +38,7 @@ struct Instrument
     bool external = false;
     juce::String category;     // famille (packs externes) : Basses, Cordes, Leads...
     std::shared_ptr<std::atomic<int>> loadState = std::make_shared<std::atomic<int>> (0); // 0 rien, 1 demande, 2 charge
+    std::shared_ptr<std::atomic<juce::uint32>> useStamp = std::make_shared<std::atomic<juce::uint32>> (0u);
 
     const Sample* zoneFor (int note) const
     {
@@ -130,6 +132,7 @@ private:
             instruments[it->second].zones.push_back (std::move (s));
         }
         scanExternalPacks (instIndex);
+        for (auto& in : instruments) if (in.external) for (auto& z : in.zones) z.useStamp = in.useStamp;
         for (auto& c : drumCats)
             std::sort (c.second.begin(), c.second.end(), [] (const Sample& a, const Sample& b) { return a.name < b.name; });
 
@@ -243,6 +246,21 @@ private:
                     in.loadState->store (2);
                     did = true;
                 }
+                const auto nowMs = juce::Time::getMillisecondCounter();
+                for (auto& in : bank.instruments)
+                {
+                    if (! in.external || in.loadState->load() != 2) continue;
+                    if (nowMs - in.useStamp->load() < 90000u) continue;
+                    for (auto& z : in.zones) z.ready->store (false, std::memory_order_release);
+                    wait (300);   // laisse finir un eventuel bloc audio en cours
+                    if (juce::Time::getMillisecondCounter() - in.useStamp->load() < 90000u)
+                    {   // re-utilise entre-temps : on le garde
+                        for (auto& z : in.zones) z.ready->store (true, std::memory_order_release);
+                        continue;
+                    }
+                    for (auto& z : in.zones) { z.data.setSize (0, 0); z.loopStart = z.loopEnd = -1; }
+                    in.loadState->store (0);
+                }
                 if (! did) wait (150);
             }
         }
@@ -333,6 +351,7 @@ private:
         }
     }
 public:
+    static bool isLoaded (const Instrument* in) { return in == nullptr || ! in->external || in->loadState->load() == 2; }
     // famille d'un son (menu POP WAVE) ; vide pour les sons integres
     juce::String categoryOf (const juce::String& name) const
     {
@@ -343,6 +362,7 @@ public:
     void request (const Instrument* in)
     {
         if (in == nullptr || ! in->external) return;
+        in->useStamp->store (juce::Time::getMillisecondCounter());
         int expected = 0;
         if (in->loadState->compare_exchange_strong (expected, 1) && loader != nullptr) loader->notify();
     }
@@ -409,6 +429,8 @@ public:
             if (! v.active) continue;
             float* outL = buses.getWritePointer (v.bus * 2);
             float* outR = buses.getWritePointer (v.bus * 2 + 1);
+            if (v.s->useStamp != nullptr) v.s->useStamp->store (juce::Time::getMillisecondCounter(), std::memory_order_relaxed);
+            if (! v.s->isReady() || v.s->data.getNumSamples() == 0) { v.active = false; continue; }
             const float* dL = v.s->data.getReadPointer (0);
             const float* dR = v.s->data.getReadPointer (v.s->data.getNumChannels() > 1 ? 1 : 0);
             const int len = v.s->data.getNumSamples();
