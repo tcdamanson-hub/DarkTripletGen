@@ -444,7 +444,8 @@ void RantiProcessor::setStateInformation (const void* data, int sizeInBytes)
             apvts.replaceState (vt);
             keyChoice = (int) vt.getProperty ("key", 0);
             modeChoice = juce::jlimit (-3, NumModes - 1, (int) vt.getProperty ("mode", -1));
-            const auto g = GenState::fromString (vt.getProperty ("gen", "").toString());
+            auto g = GenState::fromString (vt.getProperty ("gen", "").toString());
+            if (g.genre == 3) g.genre = 4;   // la SYNTHWAVE est dans la POP WAVE
             if (g.song >= 0 && g.song < numSongs) applyState (g, true);
         }
 }
