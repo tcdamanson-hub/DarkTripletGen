@@ -260,14 +260,17 @@ private:
         for (int up = 0; up < 6 && f.exists(); ++up)
         {
             f = f.getParentDirectory();
-            auto c = f.getChildFile ("RANTIPOP Sounds");
-            if (c.isDirectory()) { roots.addIfNotAlreadyThere (c); break; }
+            // sons livres dans le plugin (RANTIPOP MELODIE.vst3/Contents/Resources/RANTIPOP Sounds) ou a cote
+            for (auto c : { f.getChildFile ("Resources").getChildFile ("RANTIPOP Sounds"), f.getChildFile ("RANTIPOP Sounds") })
+                if (c.isDirectory()) roots.addIfNotAlreadyThere (c);
         }
         for (auto loc : { juce::File::userDocumentsDirectory, juce::File::commonDocumentsDirectory })
         {
             auto c = juce::File::getSpecialLocation (loc).getChildFile ("RANTIPOP Sounds");
             if (c.isDirectory()) roots.addIfNotAlreadyThere (c);
         }
+        // un seul emplacement : le premier trouve (dans le plugin d'abord), pas de sons en double
+        if (roots.size() > 1) roots.removeRange (1, roots.size() - 1);
         return roots;
     }
 

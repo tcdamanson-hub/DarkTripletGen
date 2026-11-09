@@ -26,6 +26,22 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel --target RantipopMelodie_All RantipopDrums_All
 
+      - name: Sons POP WAVE (OB From Mars) livres dans le plugin
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download sss -p WAV.zip -D sons --repo "${{ github.repository }}"
+          unzip -q sons/WAV.zip -d sonsx
+          find sonsx -name .DS_Store -delete
+          for b in build/RantipopMelodie_artefacts/Release/VST3/*.vst3; do
+            dest="$b/Contents/Resources/RANTIPOP Sounds/OB From Mars"
+            mkdir -p "$dest"
+            cp -r sonsx/WAV/* "$dest/"
+            echo "sons copies dans $dest : $(find "$dest" -name '*.wav' | wc -l) fichiers"
+          done
+
       - name: Upload RANTIPOP
         uses: actions/upload-artifact@v4
         with:
