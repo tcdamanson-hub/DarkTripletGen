@@ -404,7 +404,7 @@ public:
         p.hasBassLine = ! p.parts[PBass].empty();
 
         // POP WAVE : la basse reste dans le grave. Toute la ligne descend d'octave(s) pour que son centre tombe
-        // dans le registre des basses de tes kits (MIDI 31-42 : meme hauteur entendue que la version de 12 h 42, maintenant que les basses des kits sont etiquetees a leur vraie note) ; les notes au-dessus de Do3 (48) descendent d'une octave.
+        // dans le registre des basses synthwave (MIDI 33-44, La1-Sol#2) ; les notes au-dessus de Re3 (50) descendent d'une octave.
         // Rythme et notes inchanges, seule l'octave bouge.
         if (g.genre == 4 && p.hasBassLine)
         {
@@ -413,14 +413,41 @@ public:
             for (auto& n : b) ps.push_back (n.pitch);
             std::nth_element (ps.begin(), ps.begin() + (long) ps.size() / 2, ps.end());
             int med = ps[ps.size() / 2], shift = 0;
-            while (med + shift > 42) shift -= 12;
-            while (med + shift < 31) shift += 12;
+            while (med + shift > 44) shift -= 12;
+            while (med + shift < 33) shift += 12;
             for (auto& n : b)
             {
                 int q = n.pitch + shift;
-                while (q > 48) q -= 12;
+                while (q > 50) q -= 12;
                 while (q < 24) q += 12;
                 n.pitch = q;
+            }
+        }
+
+        // POP WAVE : coherence d'un morceau a l'autre.
+        //  1) chaque piste est ramenee a la meme velocite moyenne (ses nuances internes sont gardees) :
+        //     plus de morceau qui sort 10 dB plus fort ou plus faible que le suivant ;
+        //  2) chaque piste melodique est deplacee d'octave(s) entiere(s) si son centre sort de sa zone
+        //     (melodie/contre/arp : Sol3-Do6, accords/pad : Mi3-Sol5) ; la ligne et les notes ne changent pas.
+        if (g.genre == 4)
+        {
+            for (int part = 0; part < NumParts; ++part)
+            {
+                auto& v = p.parts[(size_t) part];
+                if (v.empty() || part == PDrums) continue;
+                double mean = 0.0; for (auto& n : v) mean += n.vel; mean /= (double) v.size();
+                const int target = part == PBass ? 100 : (part == PChords || part == PPad) ? 88 : 96;
+                const int dv = (int) std::lround (target - mean);
+                for (auto& n : v) n.vel = juce::jlimit (30, 127, n.vel + dv);
+                if (part == PBass) continue;
+                std::vector<int> ps; for (auto& n : v) ps.push_back (n.pitch);
+                std::nth_element (ps.begin(), ps.begin() + (long) ps.size() / 2, ps.end());
+                const int med = ps[ps.size() / 2];
+                const int lo = (part == PChords || part == PPad) ? 52 : 55, hi = (part == PChords || part == PPad) ? 67 : 84;
+                int shift = 0;
+                while (med + shift > hi) shift -= 12;
+                while (med + shift < lo) shift += 12;
+                if (shift != 0) for (auto& n : v) n.pitch = juce::jlimit (0, 127, n.pitch + shift);
             }
         }
 
