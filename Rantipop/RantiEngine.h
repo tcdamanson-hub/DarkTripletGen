@@ -623,7 +623,7 @@ inline void highPass (Biquad& q, double sr, double f)
     const double w = 2.0 * juce::MathConstants<double>::pi * f / sr, c = std::cos (w), al = std::sin (w) / (2.0 * 0.707), a0 = 1 + al;
     q.b0 = (1 + c) / 2 / a0; q.b1 = -(1 + c) / a0; q.b2 = q.b0; q.a1 = -2 * c / a0; q.a2 = (1 - al) / a0; q.reset();
 }
-static constexpr double SUBDB = -9.0, PRESDB = 4.0, TOPDB = 0.0, BODYDB = -11.0;
+static constexpr double SUBDB = -4.0, PRESDB = 0.0, TOPDB = -3.0, BODYDB = -11.0;
 struct PopWaveColour
 {
     void prepare (double sampleRate)
@@ -743,6 +743,7 @@ public:
         piano.prepare (sr);
         buses.setSize (Sampler::numBuses * 2, juce::jmax (16, maxBlock));
         verbBuf.setSize (2, juce::jmax (16, maxBlock));
+        levVerb.assign ((size_t) juce::jmax (8192, maxBlock), 1.0f); levEnv = 0.0009f; levGain = 1.0f; levLp = 0.0f;
         reverb.setSampleRate (sr);
         juce::Reverb::Parameters rp;
         rp.roomSize = 0.55f; rp.damping = 0.5f; rp.wetLevel = 1.0f; rp.dryLevel = 0.0f; rp.width = 1.0f;
@@ -751,10 +752,10 @@ public:
         colour.prepare (sr);
         {
             auto pan = [] (PopWaveMixStrip& m, float p) { m.panL = std::sqrt (0.5f * (1.0f - p)) * 1.414f; m.panR = std::sqrt (0.5f * (1.0f + p)) * 1.414f; };
-            auto& me = mix[PMel];   me.n = 3;   highPass (me.f[0], sr, 180.0); me.f[1].peak (sr, 3000.0, 0.9, 2.0); me.f[2].peak (sr, 1200.0, 0.8, -5.0);
+            auto& me = mix[PMel];   me.n = 3;   highPass (me.f[0], sr, 180.0); me.f[1].peak (sr, 3000.0, 0.9, 0.0); me.f[2].peak (sr, 1200.0, 0.8, -5.0);
             auto& ch = mix[PChords]; ch.n = 3;  highPass (ch.f[0], sr, 160.0); ch.f[1].peak (sr, 1500.0, 0.7, -6.0); ch.f[2].lowPass (sr, 5000.0, 0.7);   // accords doux : mediums et attaque claquante adoucis
-            auto& ex = mix[PExtra]; ex.n = 2;   highPass (ex.f[0], sr, 250.0); ex.f[1].peak (sr, 1000.0, 1.0, -2.5); pan (ex, 0.6f);
-            auto& ar = mix[PArp];   ar.n = 2;   highPass (ar.f[0], sr, 300.0); ar.f[1].peak (sr, 700.0, 1.0, -3.0); pan (ar, -0.6f);
+            auto& ex = mix[PExtra]; ex.n = 3;   highPass (ex.f[0], sr, 250.0); ex.f[1].peak (sr, 1000.0, 1.0, -2.5); ex.f[2].highShelf (sr, 5000.0, -3.0); pan (ex, 0.6f);
+            auto& ar = mix[PArp];   ar.n = 3;   highPass (ar.f[0], sr, 300.0); ar.f[1].peak (sr, 700.0, 1.0, -3.0); ar.f[2].highShelf (sr, 5000.0, -3.0); pan (ar, -0.6f);
             auto& pd = mix[PPad];   pd.n = 3;   pan (pd, 0.0f);   highPass (pd.f[0], sr, 200.0); pd.f[1].peak (sr, 450.0, 1.0, -3.0); pd.f[2].peak (sr, 2500.0, 0.8, -4.0);
             for (auto& m : mix) for (auto& q : m.f) q.reset();
         }
@@ -893,15 +894,37 @@ public:
         reverb.processStereo (verbBuf.getWritePointer (0), verbBuf.getWritePointer (1), num);
         const float verbOut = popWave ? 0.8f : 0.6f;
         float peak = 0.0f;
+        // POP WAVE : niveleur de mastering lent -> chaque morceau sort au meme niveau (corrige 70 % de l'ecart,
+        // au plus +/-6 dB, reaction en ~0,4 s quand ca monte et ~1,5 s quand ca baisse : les nuances restent)
+        if (popWave && (int) levVerb.size() < num) levVerb.resize ((size_t) num, 1.0f);
+        if (popWave)
+        {
+            const float aUp = (float) std::exp (-1.0 / (0.4 * sr)), aDn = (float) std::exp (-1.0 / (1.5 * sr));
+            const float gs = (float) std::exp (-1.0 / (0.05 * sr));
+            for (int i = 0; i < num; ++i)
+            {
+                const float x = 0.5f * ((L[i] + verbBuf.getReadPointer (0)[i] * verbOut) + (R != nullptr ? R[i] + verbBuf.getReadPointer (1)[i] * verbOut : L[i]));
+                const float hp = x - levLp; levLp += 0.0085f * (x - levLp);      // grave ignore (~60 Hz), comme l'oreille
+                const float e = hp * hp;
+                const float a = e > levEnv ? aUp : aDn;
+                levEnv = a * levEnv + (1.0f - a) * e;
+                const float rms = std::sqrt (levEnv) + 1.0e-6f;
+                const float want = juce::jlimit (0.5f, 2.0f, std::pow (levTarget / rms, 0.7f));
+                levGain = gs * levGain + (1.0f - gs) * want;
+                L[i] *= levGain; if (R != nullptr) R[i] *= levGain;
+                levVerb[i] = levGain;
+            }
+        }
         for (int i = 0; i < num; ++i)
         {
-            float l = (L[i] + verbBuf.getReadPointer (0)[i] * verbOut) * set.master;
+            const float vg = popWave ? levVerb[i] : 1.0f;
+            float l = (L[i] + verbBuf.getReadPointer (0)[i] * verbOut * vg) * set.master;
             l = std::tanh (l * 1.1f) * 0.92f;
             L[i] = l;
             peak = juce::jmax (peak, std::abs (l));
             if (R != nullptr)
             {
-                float r = (R[i] + verbBuf.getReadPointer (1)[i] * verbOut) * set.master;
+                float r = (R[i] + verbBuf.getReadPointer (1)[i] * verbOut * vg) * set.master;
                 r = std::tanh (r * 1.1f) * 0.92f;
                 R[i] = r;
                 peak = juce::jmax (peak, std::abs (r));
@@ -930,7 +953,9 @@ private:
     }
 
     double sr = 44100.0;
-    long long clock = 0, now = 0;                       // temps en samples (coupure des notes POP WAVE)
+    long long clock = 0, now = 0;
+    float levEnv = 0.0009f, levGain = 1.0f, levLp = 0.0f, levTarget = 0.03f;   // niveleur POP WAVE
+    std::vector<float> levVerb = std::vector<float> (8192, 1.0f);                       // temps en samples (coupure des notes POP WAVE)
     long long lastOn[NumParts] { -1000000, -1000000, -1000000, -1000000, -1000000, -1000000, -1000000 };
     Sampler sampler;
     PianoSynth piano;
