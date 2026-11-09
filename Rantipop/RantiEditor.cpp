@@ -745,9 +745,20 @@ void RantiEditor::showInstMenu (const char* id, bool bass)
     // POP WAVE : uniquement les sons crees pour la POP WAVE (PW ...)
     if (proc.getState().genre == 4)
     {
-        m.addSectionHeader ("POP WAVE");
+        // rangement par familles (Basses, Cordes, Leads, Claviers, Cuivres & bois, Orgues, Effets...)
+        std::map<juce::String, juce::PopupMenu> fam;
+        juce::StringArray order;
         for (int i = 0; i < names.size(); ++i)
-            if (names[i].startsWith ("PW ")) m.addItem (i + 1, names[i], true, prm->getIndex() == i);
+        {
+            if (! names[i].startsWith ("PW ")) continue;
+            auto c = ranti::SoundBank::get().categoryOf (names[i]);
+            if (c.isEmpty()) c = "Autres";
+            if (! order.contains (c)) order.add (c);
+            fam[c].addItem (i + 1, names[i].fromFirstOccurrenceOf ("PW ", false, false), true, prm->getIndex() == i);
+        }
+        order.sort (true);
+        m.addSectionHeader ("POP WAVE");
+        for (auto& c : order) m.addSubMenu (c, fam[c]);
         m.showMenuAsync (juce::PopupMenu::Options().withParentComponent (this), [this, prm] (int r)
         {
             if (r <= 0) return;

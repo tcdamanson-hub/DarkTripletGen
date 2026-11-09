@@ -24,6 +24,8 @@ struct Sample
     // decode en arriere-plan au demarrage : FL n'attend plus le chargement des sons
     const char* src = nullptr;
     int srcSize = 0;
+    juce::File file, fileR;                // son d'un pack externe (charge a la demande) ; fileR = canal droit si enregistre en deux fichiers
+    int loopStart = -1, loopEnd = -1;      // boucle de maintien (packs multi-echantillonnes)
     std::shared_ptr<std::atomic<bool>> ready = std::make_shared<std::atomic<bool>> (false);
     bool isReady() const { return ready->load (std::memory_order_acquire); }
 };
@@ -32,6 +34,9 @@ struct Instrument
 {
     juce::String group, name;
     std::vector<Sample> zones; // triees par racine
+    bool external = false;
+    juce::String category;     // famille (packs externes) : Basses, Cordes, Leads...
+    std::shared_ptr<std::atomic<int>> loadState = std::make_shared<std::atomic<int>> (0); // 0 rien, 1 demande, 2 charge
 
     const Sample* zoneFor (int note) const
     {
@@ -124,6 +129,7 @@ private:
             }
             instruments[it->second].zones.push_back (std::move (s));
         }
+        scanExternalPacks (instIndex);
         for (auto& c : drumCats)
             std::sort (c.second.begin(), c.second.end(), [] (const Sample& a, const Sample& b) { return a.name < b.name; });
 
@@ -142,10 +148,34 @@ private:
         }
         if (bassNames.isEmpty()) bassNames.add ("-");
         // ordre de chargement : instruments puis tambours ; tout est pret en une ou deux secondes
-        for (auto& in : instruments) for (auto& z : in.zones) all.push_back (&z);
+        for (auto& in : instruments) if (! in.external) for (auto& z : in.zones) all.push_back (&z);
         for (auto& c : drumCats) for (auto& z : c.second) all.push_back (&z);
         loader = std::make_unique<Loader> (*this);
         loader->startThread (juce::Thread::Priority::low);
+    }
+
+    // packs externes : chaque son ramene au meme volume percu (RMS de la premiere seconde, grave allege comme l'oreille)
+    // sur les notes du milieu de sa tessiture ; une seule valeur par son, donc l'equilibre entre ses notes est garde
+    static void normalise (Instrument& in)
+    {
+        double acc = 0.0; int cnt = 0; float peak = 0.0f;
+        const int lo = in.group == "PopWaveBass" ? 28 : 48, hi = in.group == "PopWaveBass" ? 52 : 76;
+        for (auto& z : in.zones)
+        {
+            for (int c = 0; c < z.data.getNumChannels(); ++c) peak = juce::jmax (peak, z.data.getMagnitude (c, 0, z.data.getNumSamples()));
+            if (z.root < lo || z.root > hi || z.data.getNumSamples() == 0) continue;
+            const int n = juce::jmin (z.data.getNumSamples(), (int) z.sampleRate);
+            const float* d = z.data.getReadPointer (0);
+            float y = 0.0f, prev = 0.0f; double e = 0.0;
+            const float k = in.group == "PopWaveBass" ? 0.0f : 0.991f;   // passe-haut ~60 Hz pour les sons non-basse
+            for (int i = 0; i < n; ++i) { const float x = d[i]; y = k > 0.0f ? k * (y + x - prev) : x; prev = x; e += (double) y * y; }
+            acc += e / n; ++cnt;
+        }
+        if (cnt == 0 || acc <= 0.0) return;
+        const float rms = (float) std::sqrt (acc / cnt);
+        float g = 0.2f / rms;                                    // -14 dBFS
+        if (peak * g > 0.95f) g = 0.95f / peak;
+        for (auto& z : in.zones) z.data.applyGain (g);
     }
 
     struct Loader : juce::Thread
@@ -170,11 +200,149 @@ private:
                 }
                 s->ready->store (true, std::memory_order_release);
             }
+            // packs externes : chaque instrument est charge quand on le choisit (pas tout le pack en memoire)
+            while (! threadShouldExit())
+            {
+                bool did = false;
+                for (auto& in : bank.instruments)
+                {
+                    if (threadShouldExit()) return;
+                    if (! in.external || in.loadState->load() != 1) continue;
+                    for (auto& z : in.zones)
+                    {
+                        if (threadShouldExit()) return;
+                        std::unique_ptr<juce::AudioFormatReader> reader (formats.createReaderFor (z.file));
+                        if (reader != nullptr)
+                        {
+                            const int nch = (reader->numChannels > 1 || z.fileR.existsAsFile()) ? 2 : 1;
+                            z.data.setSize (nch, (int) reader->lengthInSamples);
+                            reader->read (&z.data, 0, (int) reader->lengthInSamples, 0, true, reader->numChannels > 1);
+                            if (z.fileR.existsAsFile() && reader->numChannels == 1)
+                            {
+                                std::unique_ptr<juce::AudioFormatReader> rr (formats.createReaderFor (z.fileR));
+                                if (rr != nullptr)
+                                {
+                                    juce::AudioBuffer<float> tmp (1, (int) reader->lengthInSamples);
+                                    tmp.clear();
+                                    rr->read (&tmp, 0, (int) juce::jmin (rr->lengthInSamples, reader->lengthInSamples), 0, true, false);
+                                    z.data.copyFrom (1, 0, tmp, 0, 0, tmp.getNumSamples());
+                                }
+                                else z.data.copyFrom (1, 0, z.data, 0, 0, z.data.getNumSamples());
+                            }
+                            z.sampleRate = reader->sampleRate;
+                            const auto& md = reader->metadataValues;
+                            if (md.getValue ("NumSampleLoops", "0").getIntValue() > 0)
+                            {
+                                const int ls = md.getValue ("Loop0Start", "-1").getIntValue(), le = md.getValue ("Loop0End", "-1").getIntValue();
+                                if (ls >= 0 && le > ls + 64 && le < (int) reader->lengthInSamples) { z.loopStart = ls; z.loopEnd = le; }
+                            }
+                        }
+                        z.ready->store (true, std::memory_order_release);
+                    }
+                    normalise (in);
+                    in.loadState->store (2);
+                    did = true;
+                }
+                if (! did) wait (150);
+            }
         }
     };
     std::vector<Sample*> all;
     std::unique_ptr<Loader> loader;
+
+    // Packs externes : dossier "RANTIPOP Sounds" a cote des plugins (VST3) ou dans Documents.
+    // Structure libre : .../<Categorie>/<Son>/<NN> <nom>.wav ou NN = note MIDI enregistree (multi-echantillons).
+    // Un son par dossier ; categorie contenant "Bass" -> menu basse. Nom affiche : "PW <Son>" (selection POP WAVE).
+    static juce::Array<juce::File> externalRoots()
+    {
+        juce::Array<juce::File> roots;
+        auto f = juce::File::getSpecialLocation (juce::File::currentExecutableFile);
+        for (int up = 0; up < 6 && f.exists(); ++up)
+        {
+            f = f.getParentDirectory();
+            auto c = f.getChildFile ("RANTIPOP Sounds");
+            if (c.isDirectory()) { roots.addIfNotAlreadyThere (c); break; }
+        }
+        for (auto loc : { juce::File::userDocumentsDirectory, juce::File::commonDocumentsDirectory })
+        {
+            auto c = juce::File::getSpecialLocation (loc).getChildFile ("RANTIPOP Sounds");
+            if (c.isDirectory()) roots.addIfNotAlreadyThere (c);
+        }
+        return roots;
+    }
+
+    static juce::String familyName (const juce::String& c)
+    {
+        const auto l = c.toLowerCase();
+        if (l.contains ("bass")) return "Basses";
+        if (l.contains ("brass") || l.contains ("wind")) return "Cuivres & bois";
+        if (l.contains ("string")) return "Cordes";
+        if (l.contains ("pad")) return "Pads";
+        if (l.contains ("lead")) return "Leads";
+        if (l.contains ("organ")) return "Orgues";
+        if (l.contains ("key") || l.contains ("piano")) return "Claviers";
+        if (l.contains ("fx") || l.contains ("effect")) return "Effets";
+        return c;
+    }
+
+    void scanExternalPacks (std::map<juce::String, size_t>& instIndex)
+    {
+        for (auto& root : externalRoots())
+        {
+            for (const auto& entry : juce::RangedDirectoryIterator (root, true, "*.wav;*.flac", juce::File::findFiles))
+            {
+                const auto f = entry.getFile();
+                const auto base = f.getFileNameWithoutExtension();
+                // variantes (couches de velocite / doubles) : on garde la prise principale
+                if (base.matchesWildcard ("*_0001", true) || base.matchesWildcard ("*_0002", true) || base.matchesWildcard ("*_0003", true)) continue;
+                const auto lead = base.upToFirstOccurrenceOf (" ", false, false);
+                if (! lead.containsOnly ("0123456789") || lead.isEmpty()) continue;
+                const int root = lead.getIntValue();
+                if (root < 0 || root > 127) continue;
+                const auto patchDir = f.getParentDirectory();
+                const auto cat = patchDir.getParentDirectory().getFileName();
+                const juce::String group = cat.containsIgnoreCase ("bass") ? "PopWaveBass" : "PopWave";
+                const juce::String name = "PW " + patchDir.getFileName();
+                const auto key = group + "|" + name;
+                auto it = instIndex.find (key);
+                if (it == instIndex.end())
+                {
+                    Instrument in;
+                    in.group = group; in.name = name; in.external = true; in.category = familyName (cat);
+                    instruments.push_back (std::move (in));
+                    it = instIndex.emplace (key, instruments.size() - 1).first;
+                }
+                // stereo en deux fichiers ("... L OB ..." / "... R OB ...") : une seule zone, deux canaux
+                const bool isL = base.contains (" L "), isR = base.contains (" R ");
+                auto& zones = instruments[it->second].zones;
+                if (isL || isR)
+                {
+                    Sample* z = nullptr;
+                    for (auto& q : zones) if (q.root == root) { z = &q; break; }
+                    if (z == nullptr) { Sample smp; smp.root = root; smp.name = base; zones.push_back (std::move (smp)); z = &zones.back(); }
+                    (isL ? z->file : z->fileR) = f;
+                    continue;
+                }
+                Sample smp;
+                smp.file = f; smp.root = root; smp.name = base;
+                zones.push_back (std::move (smp));
+            }
+        }
+    }
 public:
+    // famille d'un son (menu POP WAVE) ; vide pour les sons integres
+    juce::String categoryOf (const juce::String& name) const
+    {
+        for (auto& in : instruments) if (in.name == name) return in.category;
+        return {};
+    }
+    // a appeler (fil message) quand un instrument est choisi : le charge en arriere-plan s'il vient d'un pack externe
+    void request (const Instrument* in)
+    {
+        if (in == nullptr || ! in->external) return;
+        int expected = 0;
+        if (in->loadState->compare_exchange_strong (expected, 1) && loader != nullptr) loader->notify();
+    }
     ~SoundBank() { if (loader != nullptr) loader->stopThread (4000); }
 private:
 };
@@ -243,6 +411,7 @@ public:
             const int len = v.s->data.getNumSamples();
             for (int i = start; i < end; ++i)
             {
+                if (v.s->loopEnd > 0 && v.pos >= v.s->loopEnd) v.pos -= (v.s->loopEnd - v.s->loopStart);
                 const int i0 = (int) v.pos;
                 if (i0 + 2 >= len) { v.active = false; break; }
                 const float t = (float) (v.pos - i0);

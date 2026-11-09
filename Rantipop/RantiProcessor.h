@@ -66,7 +66,8 @@ public:
     }
 
 private:
-    void timerCallback() override { clock.poll(); previewPlaying = clock.running.load(); }
+    void timerCallback() override { clock.poll(); previewPlaying = clock.running.load(); requestSelectedSounds(); }
+    void requestSelectedSounds();   // charge en arriere-plan les sons des packs externes choisis
     ranti::SharedClock clock;
     void applyState (const ranti::GenState& g, bool pushHistory);
 
