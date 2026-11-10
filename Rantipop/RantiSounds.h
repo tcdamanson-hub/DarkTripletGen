@@ -176,8 +176,7 @@ private:
         }
         if (cnt == 0 || acc <= 0.0) return;
         const float rms = (float) std::sqrt (acc / cnt);
-        // -14 dBFS ; les sons POP (one-shots tres compresses) un cran plus bas pour sortir au meme niveau que la POP WAVE
-        float g = (in.name.startsWith ("POP ") ? 0.1f : 0.2f) / rms;
+        float g = 0.2f / rms;                                    // -14 dBFS
         if (peak * g > 0.95f) g = 0.95f / peak;
         for (auto& z : in.zones) z.data.applyGain (g);
     }
@@ -296,13 +295,7 @@ private:
     static juce::String familyName (const juce::String& c)
     {
         const auto l = c.toLowerCase();
-        if (l.contains ("bass") || l.contains ("basse") || l == "sub") return "Basses";
-        if (l.contains ("guitar")) return "Guitares";
-        if (l.contains ("pluck")) return "Plucks";
-        if (l.contains ("cuivre") || l.contains ("trumpet") || l.contains ("trompette")) return "Cuivres & bois";
-        if (l.contains ("synth")) return "Synthes";
-        if (l.contains ("voix") || l.contains ("vocal") || l.contains ("vox")) return "Voix";
-        if (l == "piano") return "Piano";
+        if (l.contains ("bass")) return "Basses";
         if (l.contains ("brass") || l.contains ("wind")) return "Cuivres & bois";
         if (l.contains ("string")) return "Cordes";
         if (l.contains ("pad")) return "Pads";
@@ -315,9 +308,9 @@ private:
 
     void scanExternalPacks (std::map<juce::String, size_t>& instIndex)
     {
-        for (auto& sroot : externalRoots())
+        for (auto& root : externalRoots())
         {
-            for (const auto& entry : juce::RangedDirectoryIterator (sroot, true, "*.wav;*.flac", juce::File::findFiles))
+            for (const auto& entry : juce::RangedDirectoryIterator (root, true, "*.wav;*.flac", juce::File::findFiles))
             {
                 const auto f = entry.getFile();
                 const auto base = f.getFileNameWithoutExtension();
@@ -330,12 +323,7 @@ private:
                 const auto patchDir = f.getParentDirectory();
                 const auto cat = patchDir.getParentDirectory().getFileName();
                 const juce::String group = cat.containsIgnoreCase ("bass") ? "PopWaveBass" : "PopWave";
-                // pack = premier dossier sous la racine ; son prefixe (genre) est dans prefixe.txt (ex. "POP"), "PW" par defaut
-                auto pack = patchDir;
-                while (pack.getParentDirectory() != sroot && pack.getParentDirectory().exists() && pack != sroot) pack = pack.getParentDirectory();
-                const auto pf = pack.getChildFile ("prefixe.txt");
-                const juce::String prefix = pf.existsAsFile() ? pf.loadFileAsString().trim() : juce::String ("PW");
-                const juce::String name = prefix + " " + patchDir.getFileName();
+                const juce::String name = "PW " + patchDir.getFileName();
                 const auto key = group + "|" + name;
                 auto it = instIndex.find (key);
                 if (it == instIndex.end())
