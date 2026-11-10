@@ -744,22 +744,26 @@ void RantiEditor::showInstMenu (const char* id, bool bass)
     if (prm == nullptr) return;
     juce::PopupMenu m;
     const auto& names = prm->choices;
-    // POP WAVE : uniquement les sons crees pour la POP WAVE (PW ...)
-    if (proc.getState().genre == 4)
+    // POP WAVE (PW ...) et POP (POP ...) : uniquement les sons du pack de ce genre, ranges par familles
+    const int gnr = proc.getState().genre;
+    const juce::String pfx = gnr == 4 ? "PW " : gnr == 2 ? "POP " : "";
+    bool hasPack = false;
+    if (pfx.isNotEmpty()) for (auto& nm : names) if (nm.startsWith (pfx)) { hasPack = true; break; }
+    if (hasPack)
     {
         // rangement par familles (Basses, Cordes, Leads, Claviers, Cuivres & bois, Orgues, Effets...)
         std::map<juce::String, juce::PopupMenu> fam;
         juce::StringArray order;
         for (int i = 0; i < names.size(); ++i)
         {
-            if (! names[i].startsWith ("PW ")) continue;
+            if (! names[i].startsWith (pfx)) continue;
             auto c = ranti::SoundBank::get().categoryOf (names[i]);
             if (c.isEmpty()) c = "Autres";
             if (! order.contains (c)) order.add (c);
-            fam[c].addItem (i + 1, names[i].fromFirstOccurrenceOf ("PW ", false, false), true, prm->getIndex() == i);
+            fam[c].addItem (i + 1, names[i].fromFirstOccurrenceOf (pfx, false, false), true, prm->getIndex() == i);
         }
         order.sort (true);
-        m.addSectionHeader ("POP WAVE");
+        m.addSectionHeader (gnr == 4 ? "POP WAVE" : "POP");
         for (auto& c : order) m.addSubMenu (c, fam[c]);
         m.showMenuAsync (juce::PopupMenu::Options().withParentComponent (this), [this, prm] (int r)
         {
@@ -775,7 +779,7 @@ void RantiEditor::showInstMenu (const char* id, bool bass)
     juce::String lastGroup;
     for (int i = 0; i < names.size(); ++i)
     {
-        if (names[i].startsWith ("PW ")) continue;   // sons POP WAVE : seulement dans la section POP WAVE
+        if (names[i].startsWith ("PW ") || names[i].startsWith ("POP ")) continue;   // sons des packs : seulement dans leur genre
         if (! bass && i > 0)
         {
             const auto* in = SoundBank::get().melodic (i);
