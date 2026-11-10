@@ -176,7 +176,8 @@ private:
         }
         if (cnt == 0 || acc <= 0.0) return;
         const float rms = (float) std::sqrt (acc / cnt);
-        float g = 0.2f / rms;                                    // -14 dBFS
+        // -14 dBFS ; les sons POP (one-shots tres compresses) un cran plus bas pour sortir au meme niveau que la POP WAVE
+        float g = (in.name.startsWith ("POP ") ? 0.1f : 0.2f) / rms;
         if (peak * g > 0.95f) g = 0.95f / peak;
         for (auto& z : in.zones) z.data.applyGain (g);
     }
