@@ -50,8 +50,8 @@ inline juce::String drumCategory (int genre, int lane, int variant)
     }
     if (genre == 2)
     {
-        // pop : kits Essential WAV From Mars, un kit = une machine (le kit vient du meme groupe que le groove)
-        static const char* pp[NumLanes] = { "PP_KICK", "PP_SNARE", "PP_CLAP", "PP_HAT", "PP_HAT", "PP_OHAT", "PP_RIM", "PP_LTOM", "PP_HTOM", "PP_PERC", "PP_CRASH" };
+        // pop : kits Prism (le kit vient du meme groupe que le groove)
+        static const char* pp[NumLanes] = { "PP_KICK", "PP_SNARE", "PP_CLAP", "PP_HAT", "PP_HAT", "PP_OHAT", "RB_RIM", "PP_LTOM", "PP_HTOM", "RB_PERC", "PP_CRASH" };
         if (SoundBank::get().drums (pp[lane]) != nullptr) return pp[lane];
         return rb[lane];
     }
