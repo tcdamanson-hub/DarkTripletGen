@@ -37,6 +37,7 @@ struct Instrument
     std::vector<Sample> zones; // triees par racine
     bool external = false;
     juce::String category;     // famille (packs externes) : Basses, Cordes, Leads...
+    float minLen = 99.0f;      // duree (s) de son echantillon le plus court (packs avec durees.txt), 99 = inconnue
     std::shared_ptr<std::atomic<int>> loadState = std::make_shared<std::atomic<int>> (0); // 0 rien, 1 demande, 2 charge
     std::shared_ptr<std::atomic<juce::uint32>> useStamp = std::make_shared<std::atomic<juce::uint32>> (0u);
 
@@ -308,11 +309,12 @@ private:
 
     void scanExternalPacks (std::map<juce::String, size_t>& instIndex)
     {
-        for (auto& root : externalRoots())
+        for (auto& sroot : externalRoots())
         {
             // prefixe du pack (fichier prefixe.txt a sa racine) : "POP" pour la selection POP, "PW" par defaut (POP WAVE)
             std::map<juce::String, juce::String> packPrefix;
-            for (const auto& entry : juce::RangedDirectoryIterator (root, true, "*.wav;*.flac", juce::File::findFiles))
+            std::map<juce::String, float> packLen;   // durees.txt : "<Son>|<secondes>" (echantillon le plus court)
+            for (const auto& entry : juce::RangedDirectoryIterator (sroot, true, "*.wav;*.flac", juce::File::findFiles))
             {
                 const auto f = entry.getFile();
                 const auto base = f.getFileNameWithoutExtension();
@@ -325,12 +327,16 @@ private:
                 const auto patchDir = f.getParentDirectory();
                 const auto cat = patchDir.getParentDirectory().getFileName();
                 const juce::String group = cat.containsIgnoreCase ("bass") ? "PopWaveBass" : "PopWave";
-                const auto pack = f.getRelativePathFrom (root).upToFirstOccurrenceOf (juce::File::getSeparatorString(), false, false);
+                const auto pack = f.getRelativePathFrom (sroot).upToFirstOccurrenceOf (juce::File::getSeparatorString(), false, false);
                 auto pf = packPrefix.find (pack);
                 if (pf == packPrefix.end())
                 {
-                    auto t = root.getChildFile (pack).getChildFile ("prefixe.txt").loadFileAsString().trim();
+                    auto t = sroot.getChildFile (pack).getChildFile ("prefixe.txt").loadFileAsString().trim();
                     pf = packPrefix.emplace (pack, t.isEmpty() ? juce::String ("PW") : t).first;
+                    juce::StringArray lines;
+                    lines.addLines (sroot.getChildFile (pack).getChildFile ("durees.txt").loadFileAsString());
+                    for (auto& ln : lines)
+                        if (ln.contains ("|")) packLen[pack + "|" + ln.upToFirstOccurrenceOf ("|", false, false)] = ln.fromFirstOccurrenceOf ("|", false, false).getFloatValue();
                 }
                 const juce::String name = pf->second + " " + patchDir.getFileName();
                 const auto key = group + "|" + name;
@@ -339,6 +345,7 @@ private:
                 {
                     Instrument in;
                     in.group = group; in.name = name; in.external = true; in.category = familyName (cat);
+                    if (auto ml = packLen.find (pack + "|" + patchDir.getFileName()); ml != packLen.end()) in.minLen = ml->second;
                     instruments.push_back (std::move (in));
                     it = instIndex.emplace (key, instruments.size() - 1).first;
                 }

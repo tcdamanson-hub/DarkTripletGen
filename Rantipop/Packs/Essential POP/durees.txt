@@ -1,0 +1,263 @@
+2600 Dirtier Vinyl|5.03
+2600 Sub Smooth Vinyl|4.24
+Bass Pizz Dr Sample|5.89
+BassStation Res Wobble Vinyl|3.75
+BassStation Sub Fuzzy Vinyl|7.35
+BungelingBayBass Sid|5.17
+CAT Dual Tone Vinyl|2.39
+CAT Filter Smooth Vinyl|3.30
+CAT Sync Chopper Vinyl|7.61
+CS5 Filter Res Vinyl|4.24
+Clean Sub Synare|4.52
+DX100 Solid Bass Vinyl|2.39
+Drift Bass Dr Sample|8.06
+E Bass 2 S612|0.63
+E Bass 360|3.67
+E Bass Dr Sample|0.81
+Funk Bass Soviet Synths|0.70
+Fuzz Bass Mirage|0.33
+Goon Bass Dr Sample|6.24
+Huge Sub Micro|2.71
+ImGoingToSub1Down SH101|2.01
+Juno106 Square Vinyl|6.94
+Jupiter4 Unison Pluck Vinyl|1.51
+Just Sub 2600|4.13
+MS20 Fat Vinyl|4.77
+MadBass Mini|5.21
+Mono Bass DX100|3.46
+MonoEvolver Sub Filter Vinyl|0.89
+Overdrive Bass Dr Sample|2.32
+Pluck Bass S950|0.38
+Polysix Heavy Vinyl|4.85
+Polysix Mo Verb Vinyl|2.48
+Prodigy Punch Verb Vinyl|1.17
+Res Multi Acid|5.42
+Res Square Bass Voyetra|4.03
+Rhodes Bass Dr Sample|14.97
+Round Bass S950|0.49
+Saw Acid|3.88
+Solid Bass DX100|2.50
+Square Acid|5.07
+Stutter Bass Mirage|0.37
+Sub Bass Dr Sample|4.63
+Sub Dirt Synare|3.21
+Sub Short Synare|0.54
+Synare Sub Dirty Vinyl|4.61
+Synth Bass Dr Sample|0.89
+TB303 Res Classic Vinyl|4.89
+TB303 Square Vinyl|3.63
+Tom Sawyer Bass OB|7.95
+Upright Bass Mirage|0.27
+Warm Bass Dr Sample|2.31
+80s Piano Dr Sample|8.98
+Artifact Piano Mirage|0.31
+Bell Air Kawaii Dreams|11.31
+Celeste Mirage|1.33
+Clav Funk OB|3.04
+Clavinet Soviet Synths|1.67
+DX100 Club Organ Vinyl|6.50
+DX200 Bell Arp Vinyl|3.08
+DX200 Rhodes Vinyl|7.05
+E Piano 360|1.62
+Good Vibes DX100|4.22
+Indie Organ Kawaii Dreams|8.07
+Jazz Organ DX100|6.05
+Jazz Organ SK1|6.44
+Lead2 EP Vibes Vinyl|4.28
+Marimba DX100|1.70
+Orbit Keys S950|0.79
+Organ Dr Sample|12.05
+Piano Echo SK1|3.65
+Piano Halfband S950|5.51
+Piano S950|5.49
+Piano SK1|2.00
+Polysix Organ Noise Verb Vinyl|4.44
+Prodigy Bell Verb Vinyl|3.52
+Sub37 Easy Keys Vinyl|0.77
+Sunrise Rhodes S612|5.22
+Tremolo Organ OB|1.28
+Upright Piano Dr Sample|10.11
+Vibes 360|2.61
+Wurli Mirage|0.49
+Accordion Wasp|1.88
+Brass Dr Sample|10.27
+Breezy Trumpet Fragments|0.61
+Broken String Trumpet Fragments|0.78
+Chordal Reef 01 Trumpet Fragments|1.76
+Chordal Reef 02 Trumpet Fragments|2.30
+Clouds Trumpet Fragments|8.33
+Deathray Trumpet Fragments|6.20
+Desert Pad Trumpet Fragments|1.19
+Dont Cry Trumpet Fragments|1.37
+Doomsday Trumpet Fragments|10.39
+Dusty Trem Trumpet Fragments|1.59
+Ecliptic Trumpet Fragments|1.16
+Eternal Sleep Trumpet Fragments|0.92
+Flute Filter 360|3.96
+Flute Mirage|0.36
+Flute SK1|4.83
+Ghost Pop Trumpet Fragments|2.12
+Hard Trumpet OB|2.69
+Ice Cave Trumpet Fragments|0.56
+Ice Pick Trumpet Fragments|0.72
+Memory Foam Trumpet Fragments|6.82
+Muted Trumpet 360|3.81
+No Regular Horn Trumpet Fragments|0.46
+Oneiric Blend Trumpet Fragments|0.35
+Persian Steps Trumpet Fragments|2.55
+Rubberized Trumpet Fragments|0.71
+Saxophone Filter 360|3.99
+Sheer Trumpet Fragments|1.99
+Simple Keyz Trumpet Fragments|6.94
+Sonar Vox Trumpet Fragments|0.22
+String Theory Trumpet Fragments|3.58
+Train Wreck Trumpet Fragments|1.36
+Tree Frog Trumpet Fragments|2.84
+Trumpet SK1|3.38
+Trumpets In Dub Trumpet Fragments|18.08
+Acoustic Guitar Mirage|0.39
+Acoustic Tremolo Dr Sample|5.79
+Muted Strat Dr Sample|0.29
+Nylon Guitar 360|0.89
+Synth Guitar S612|5.11
+Attack Lead Soviet Synths|3.14
+Bumble Bros Wasp|5.34
+CAT Bent LFO Vinyl|4.26
+Chick N Swell S612|4.62
+Classic 5ths OB|1.98
+Clean Sine DX100|4.00
+DX100 New Electro Vinyl|5.85
+Drunk History MS10|5.57
+Dual Sine SYS100|5.26
+Env Saw Voyetra|4.04
+Env Square Voyetra|4.06
+Exit Summer SH101|12.06
+FM Square DX100|4.08
+FX Vinyl|1.21
+FlaschBier Sid|13.53
+Giger Counter SYS100|3.50
+Hendrix Fuzz SH5|9.05
+Hiss Machine SH5|4.96
+Hologram Kawaii Dreams|8.18
+Hoover Kraft 2600|3.21
+Industrial Krunk S612|3.86
+Juno106 Noise Chorus Vinyl|2.19
+Juno106 PWM Chorus Vinyl|4.95
+Jupiter4 Saw Delay Vinyl|2.66
+Kiryat LoFi Soviet Synths|9.53
+Kulak Decay Soviet Synths|2.88
+Legacy Pulsar SH101|1.87
+Long Pulse Micro|4.05
+Long Res Micro|4.22
+MS10 Chilling Ghosts Vinyl|4.14
+Massive Poly Voyetra|4.23
+Mr Edgar SH5|3.41
+OneFiftySeven 2600|2.00
+Osc2Sine 2600|1.47
+Polaris Space Delay Vinyl|1.87
+Polysix Slow Opener Vinyl|12.93
+Precinct420 SH101|2.01
+Prodigy Dark Pluck Verb Vinyl|5.95
+Prodigy Filthy Silky Vinyl|2.25
+Prodigy Glide Up Verb Vinyl|4.26
+Prodigy PWM Chorus Vinyl|4.24
+Prodigy Swell Vinyl|6.36
+PulseEGMod MS10|6.51
+PutARingOneIt SYS100|5.30
+R-Type Sid|11.43
+RankingDons 2600|1.43
+Res Long Synare|10.47
+Saw Glide Voyetra|2.30
+Saw Noise Micro|2.95
+Sawtooth Soviet Synths|2.92
+Science Wasp|4.39
+Screech & Hiss Voyetra|9.24
+Sonic Interval Mini|5.43
+Southern Sting Wasp|2.67
+Strong Triangle SH5|4.22
+Sub37 Big Sync Vinyl|5.20
+Sub37 Blade Triplet Vinyl|3.95
+Sub37 Sine Chorus Vinyl|1.48
+Sweet Pushin MS10|4.81
+Sync Lite Voyetra|4.45
+Synthesizer SK1|3.61
+Triangle MS10|4.14
+Unison Synare|14.90
+VP330 Combo Pitch Mod Vinyl|2.92
+VP330 Combo Vinyl|4.76
+Wasp Factory OB|2.88
+Wild LFO SH5|5.90
+eXistenZ Wasp|5.53
+motherVShal SYS100|6.85
+80s Threat Wasp|9.67
+Ambient Pad S612|6.42
+Analog Strings Kawaii Dreams|14.78
+Breath Vox Mirage|0.28
+Broken Tape VP330|5.56
+Bukhat Pad Soviet Synths|7.39
+CS5 Tremolo Wide Vinyl|9.08
+ContraPad Sid|5.12
+DX100 Glass Lead Reverse Vinyl|4.69
+Dreamy Vox SK1|0.54
+Dusty Stringfield VP330|4.32
+Female VP330|4.66
+Female Vibe VP330|4.20
+Halen Strings OB|3.64
+Hello Kawaii Dreams|8.85
+Juno106 Wide Pad Vinyl|7.26
+LA 2420 VP330|8.67
+M1 Strings Detuned Vinyl|12.56
+Male VP330|5.30
+Polaris Epic Vinyl|3.66
+Polysix Strings Vinyl|15.53
+Prodigy Pluck Swell Vinyl|5.10
+Prophet Chorus Dr Sample|7.45
+Return Home Kawaii Dreams|52.37
+Rockmore Lead S612|11.12
+Shrimp & Wine VP330|4.15
+String & Voice VP330|7.23
+String N Keys Soviet Synths|8.47
+Strings 360|2.44
+Strings Dr Sample|12.77
+Strings Pitched Tape Soviet Synths|5.00
+Sub37 Violin Vinyl|6.71
+Troika Pulse Soviet Synths|3.60
+Trombone Pad Mirage|0.67
+Universe Dr Sample|21.33
+VP330 Strings Vinyl|8.70
+Voices Kawaii Dreams|7.00
+Vox Choir S612|3.29
+Warm Strings Kawaii Dreams|14.67
+Acid Wasp|0.33
+Big Res Acid|0.24
+Billy Zane 2600|0.85
+Comecon Fifths Soviet Synths|0.36
+DX Punch S612|0.30
+DX200 Buzz Verb Vinyl|6.70
+DX200 Ghost Pluck Verb Vinyl|8.68
+Funk Whiz SH5|4.21
+Jackies33 2600|0.71
+La Mordidita Wasp|1.20
+Lead2 Pop Verb Vinyl|3.72
+Long Arp Omni|5.94
+Mario on PCP 2600|0.74
+Metro Funk Micro|1.91
+Munchies S612|0.06
+Open Filter Saturated Arp Omni|1.06
+PWM LFO Voyetra|4.28
+Prodigy Dark Pluck Vinyl|0.73
+Pulse Mod 2600|0.56
+Randroid Kawaii Dreams|8.14
+Res Short Synare|0.40
+Short And Funky Saturated Arp Omni|0.61
+Short Dirt SH5|1.04
+Short Pulse Micro|1.34
+Square Dirt Micro|2.11
+Sync Pulse SH5|0.73
+TB303 Saw Vinyl|3.38
+TechNoir 2600|0.98
+Tiny Rave SH101|0.24
+Tube Man OB|1.86
+Velocity Res Quirky Acid|0.33
+Whistler Dr Sample|0.50
+Xenomorph Sid|0.90

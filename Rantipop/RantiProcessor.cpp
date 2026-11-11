@@ -11,7 +11,7 @@ const char* popWaveSounds[6] = { "PW Warm Trumpet", "PW Warm Keys", "PW Black St
 // volumes POP WAVE : melodie, accords, basse, contre-melo, arp, pad (dans l'ordre des volIds)
 const float popWaveVol[6] = { 0.32f, 0.28f, 0.41f, 0.48f, 0.39f, 0.40f }; // melodie, accords, basse, contre-melo, arp, pad
 // sons de base de la POP (Essential WAV From Mars) : melodie, accords, contre-melo, basse, arp, pad
-const char* popSounds[6] = { "POP Juno106 Square Vinyl", "POP E Piano 360", "POP Prophet Chorus Dr Sample", "POP Synth Bass Dr Sample", "POP Short Pulse Micro", "POP Analog Strings Kawaii Dreams" };
+const char* popSounds[6] = { "POP Env Square Voyetra", "POP E Piano 360", "POP DX Punch S612", "POP Mono Bass DX100", "POP Short Pulse Micro", "POP Analog Strings Kawaii Dreams" };
 // prefixe des sons de la selection d'un genre ("" : pas de selection propre)
 const char* soundPrefix (int genre) { return genre == 4 ? "PW " : genre == 2 ? "POP " : ""; }
 // tes reglages de base AFRO (meme ordre) : volumes
@@ -124,9 +124,25 @@ void RantiProcessor::shuffleFamilySounds()
         if (! prm->choices[prm->getIndex()].startsWith (prefix)) continue;
         const auto fam = bank.categoryOf (prm->choices[prm->getIndex()]);
         if (fam.isEmpty()) continue;
+        // notes jouees par cette piste : le son doit avoir un echantillon a moins d'une octave de chacune
+        // (sinon une seule prise etiree sur trois octaves : il reste dans le menu, mais n'est pas tire au hasard)
+        static const int rowLo[numRows] = { 59, 40, 28, 55, 55, 40 }, rowHi[numRows] = { 76, 67, 48, 79, 84, 72 };
+        auto covers = [&] (int i)
+        {
+            const auto* in = rowPart[r] == ranti::PBass ? bank.bass (i) : bank.melodic (i);
+            if (in == nullptr || in->zones.empty()) return false;
+            if ((rowPart[r] == ranti::PChords || rowPart[r] == ranti::PPad) && in->minLen < 1.5f) return false;   // accords / nappe : notes tenues
+            for (int n = rowLo[r]; n <= rowHi[r]; ++n)
+            {
+                int d = 999;
+                for (auto& z : in->zones) d = juce::jmin (d, std::abs (z.root - n));
+                if (d > 12) return false;
+            }
+            return true;
+        };
         juce::Array<int> cand;
         for (int i = 0; i < prm->choices.size(); ++i)
-            if (i != prm->getIndex() && prm->choices[i].startsWith (prefix) && bank.categoryOf (prm->choices[i]) == fam) cand.add (i);
+            if (i != prm->getIndex() && prm->choices[i].startsWith (prefix) && bank.categoryOf (prm->choices[i]) == fam && (prefix != "POP " || covers (i))) cand.add (i);
         if (cand.isEmpty()) continue;
         const int pick = cand[rng.nextInt (cand.size())];
         pendingSound[r] = pick;
