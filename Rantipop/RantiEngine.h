@@ -40,7 +40,7 @@ inline bool modeMatches (int song, int choice)
 inline juce::String drumCategory (int genre, int lane, int variant)
 {
     static const char* rb[NumLanes] = { "RB_KICK", "RB_SNARE", "RB_CLAP", "RB_HAT", "RB_SHAKER", "RB_OHAT", "RB_RIM", "RB_PERC", "RB_PERC", "RB_SNAP", "RB_CRASH" };
-    static const char* af[NumLanes] = { "AF_KICK", "AF_SNARE", "AF_CLAP", "AF_HAT", "AF_SHAKER", "AF_OHAT", "AF_RIM", "AF_CONGA", "AF_CONGA", "AF_SNAP", "AF_CRASH" };
+    static const char* af[NumLanes] = { "AF_KICK", "AF_SNARE", "AF_CLAP", "AF_HAT", "AF_SHAKER", "AF_OHAT", "AF_RIM", "AF_CONGA", "AF_CONGA", "AF_PERC", "AF_CRASH" };
     static const char* sw[NumLanes] = { "SW_KICK", "SW_SNARE", "SW_CLAP", "SW_HAT", "SW_HAT", "SW_OHAT", "SW_RIM", "SW_PERC", "SW_PERC", "SW_PERC", "SW_CRASH" };
     if (genre == 3)
     {
