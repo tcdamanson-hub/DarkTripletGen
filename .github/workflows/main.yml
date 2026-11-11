@@ -40,7 +40,7 @@ jobs:
         if: env.PLUGIN != 'melodie'
         run: cmake --build build --config Release --parallel --target RantipopDrums_All
 
-      - name: Sons POP WAVE (OB From Mars) livres dans le plugin
+      - name: Sons POP WAVE et POP livres dans le plugin (noms Ranti, sans metadonnees)
         if: runner.os == 'Windows' && env.PLUGIN != 'drums'
         shell: bash
         env:
@@ -48,15 +48,12 @@ jobs:
         run: |
           gh release download sss -p WAV.zip -D sons --repo "${{ github.repository }}"
           unzip -q sons/WAV.zip -d sonsx
-          find sonsx -name .DS_Store -delete
           for b in build/RantipopMelodie_artefacts/Release/VST3/*.vst3; do
-            dest="$b/Contents/Resources/RANTIPOP Sounds/OB From Mars"
-            mkdir -p "$dest"
-            cp -r sonsx/WAV/* "$dest/"
-            echo "sons copies dans $dest : $(find "$dest" -name '*.wav' | wc -l) fichiers"
-            # packs du depot (Essential POP...) : a cote, dans le meme dossier de sons
-            cp -r Rantipop/Packs/* "$b/Contents/Resources/RANTIPOP Sounds/"
-            echo "packs du depot copies : $(find "$b/Contents/Resources/RANTIPOP Sounds" -name '*.flac' | wc -l) fichiers"
+            dest="$b/Contents/Resources/RANTIPOP Sounds"
+            mkdir -p "$dest/Ranti Wave"
+            python tools/ranti_pack.py sonsx/WAV "$dest/Ranti Wave" tools/ranti_wave_map.json
+            cp -r Rantipop/Packs/* "$dest/"
+            echo "sons livres : $(find "$dest" -type f | wc -l) fichiers"
           done
 
       - name: Upload MELODIE

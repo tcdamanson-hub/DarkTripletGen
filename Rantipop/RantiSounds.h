@@ -1,4 +1,5 @@
 #pragma once
+#include <set>
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <array>
@@ -91,7 +92,7 @@ private:
 
     static int groupOrder (const juce::String& g)
     {
-        static const juce::StringArray order { "Piano", "Rhodes", "Keys", "Guitares", "Mallets", "Plucks", "Pads", "Cordes", "Bells", "Leads", "Synths", "Cuivres", "Bass" };
+        static const juce::StringArray order { "Piano", "EPiano", "Keys", "Guitares", "Mallets", "Plucks", "Pads", "Cordes", "Bells", "Leads", "Synths", "Cuivres", "Bass" };
         const int i = order.indexOf (g);
         return i < 0 ? 50 : i;
     }
@@ -142,7 +143,7 @@ private:
             const int ga = groupOrder (a.group), gb = groupOrder (b.group);
             return ga != gb ? ga < gb : a.name < b.name;
         });
-        melNames.add ("Piano (synthe)");
+        melNames.add ("Ranti Piano Synthe");
         for (size_t i = 0; i < instruments.size(); ++i)
         {
             auto& in = instruments[i];
@@ -271,7 +272,7 @@ private:
 
     // Packs externes : dossier "RANTIPOP Sounds" a cote des plugins (VST3) ou dans Documents.
     // Structure libre : .../<Categorie>/<Son>/<NN> <nom>.wav ou NN = note MIDI enregistree (multi-echantillons).
-    // Un son par dossier ; categorie contenant "Bass" -> menu basse. Nom affiche : "<prefixe> <Son>" (PW = POP WAVE, POP = POP).
+    // Un son par dossier ; categorie contenant "Bass" -> menu basse. Nom affiche = nom du dossier du son ("Ranti Wave 07", "Ranti Pop 112").
     static juce::Array<juce::File> externalRoots()
     {
         juce::Array<juce::File> roots;
@@ -311,9 +312,8 @@ private:
     {
         for (auto& sroot : externalRoots())
         {
-            // prefixe du pack (fichier prefixe.txt a sa racine) : "POP" pour la selection POP, "PW" par defaut (POP WAVE)
-            std::map<juce::String, juce::String> packPrefix;
             std::map<juce::String, float> packLen;   // durees.txt : "<Son>|<secondes>" (echantillon le plus court)
+            std::set<juce::String> packsRead;
             for (const auto& entry : juce::RangedDirectoryIterator (sroot, true, "*.wav;*.flac", juce::File::findFiles))
             {
                 const auto f = entry.getFile();
@@ -328,24 +328,21 @@ private:
                 const auto cat = patchDir.getParentDirectory().getFileName();
                 const juce::String group = cat.containsIgnoreCase ("bass") ? "PopWaveBass" : "PopWave";
                 const auto pack = f.getRelativePathFrom (sroot).upToFirstOccurrenceOf (juce::File::getSeparatorString(), false, false);
-                auto pf = packPrefix.find (pack);
-                if (pf == packPrefix.end())
+                if (packsRead.insert (pack).second)
                 {
-                    auto t = sroot.getChildFile (pack).getChildFile ("prefixe.txt").loadFileAsString().trim();
-                    pf = packPrefix.emplace (pack, t.isEmpty() ? juce::String ("PW") : t).first;
                     juce::StringArray lines;
                     lines.addLines (sroot.getChildFile (pack).getChildFile ("durees.txt").loadFileAsString());
                     for (auto& ln : lines)
-                        if (ln.contains ("|")) packLen[pack + "|" + ln.upToFirstOccurrenceOf ("|", false, false)] = ln.fromFirstOccurrenceOf ("|", false, false).getFloatValue();
+                        if (ln.contains ("|")) packLen[ln.upToFirstOccurrenceOf ("|", false, false)] = ln.fromFirstOccurrenceOf ("|", false, false).getFloatValue();
                 }
-                const juce::String name = pf->second + " " + patchDir.getFileName();
+                const juce::String name = patchDir.getFileName();   // "Ranti Wave 07", "Ranti Pop 112"...
                 const auto key = group + "|" + name;
                 auto it = instIndex.find (key);
                 if (it == instIndex.end())
                 {
                     Instrument in;
                     in.group = group; in.name = name; in.external = true; in.category = familyName (cat);
-                    if (auto ml = packLen.find (pack + "|" + patchDir.getFileName()); ml != packLen.end()) in.minLen = ml->second;
+                    if (auto ml = packLen.find (name); ml != packLen.end()) in.minLen = ml->second;
                     instruments.push_back (std::move (in));
                     it = instIndex.emplace (key, instruments.size() - 1).first;
                 }

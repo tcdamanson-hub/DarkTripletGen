@@ -253,15 +253,14 @@ public:
         //            que joue le groove (rien de muet) ; on prend ses sons d'origine (n. 01), qui vont ensemble
         if (g.genre == 4)
             pickPopWaveKit (g, rng);
-        // pop : un kit complet du groupe du groove (moderne, californie, retro, indie), jamais melange
+        // pop : un kit complet du groupe du groove (1 a 4), jamais melange
         if (g.genre == 2 && g.groove >= 0 && g.groove < numGrooves)
         {
-            static const char* groupName[] = { "", "Moderne", "Californie", "Retro", "Indie" };
             const int grp = juce::jlimit (0, 4, grooves[g.groove].group);
             if (const auto* kicks = SoundBank::get().drums ("PP_KICK"); kicks != nullptr && grp > 0)
             {
                 std::vector<juce::String> names;
-                for (auto& k : *kicks) if (k.name.startsWith (groupName[grp])) names.push_back (k.name);
+                for (auto& k : *kicks) if (popKitGroup (k.name) == grp) names.push_back (k.name);
                 if (! names.empty())
                 {
                     const auto kitName = names[(size_t) rng.nextInt ((int) names.size())];
@@ -272,7 +271,7 @@ public:
                             for (size_t i = 0; i < set->size(); ++i)
                             {
                                 if ((*set)[i].name == kitName) found = (int) i;
-                                if (sameGroup < 0 && (*set)[i].name.startsWith (groupName[grp])) sameGroup = (int) i;
+                                if (sameGroup < 0 && popKitGroup ((*set)[i].name) == grp) sameGroup = (int) i;
                             }
                             if (found >= 0) g.kit[(size_t) l] = found;
                             else if (sameGroup >= 0) g.kit[(size_t) l] = sameGroup;
@@ -280,6 +279,14 @@ public:
                 }
             }
         }
+    }
+
+    // groupe (1 a 4) d'un kit POP "Ranti Kit NNN"
+    static int popKitGroup (const juce::String& kitName)
+    {
+        static const unsigned char grp[] = { 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
+        const int n = kitName.getTrailingIntValue();
+        return n >= 1 && n <= (int) sizeof (grp) ? grp[n - 1] : 0;
     }
 
     static std::array<bool, NumLanes> lanesUsed (int groove)

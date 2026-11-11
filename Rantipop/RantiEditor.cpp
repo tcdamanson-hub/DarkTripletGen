@@ -746,13 +746,13 @@ void RantiEditor::showInstMenu (const char* id, bool bass)
     const auto& names = prm->choices;
     // POP WAVE : uniquement les sons crees pour la POP WAVE (PW ...)
     const int genre = proc.getState().genre;
-    const juce::String prefix = genre == 4 ? "PW " : genre == 2 ? "POP " : "";
+    const juce::String prefix = genre == 4 ? "Ranti Wave " : genre == 2 ? "Ranti Pop " : "";
     if (prefix.isNotEmpty())
     {
         // rangement par familles (Basses, Cordes, Leads, Claviers, Cuivres & bois, Orgues, Effets...)
         // POP WAVE : ses sons (PW), puis les sons de la POP (test : la POP est dans la POP WAVE)
         juce::StringArray prefixes; prefixes.add (prefix);
-        if (genre == 4) prefixes.add ("POP ");
+        if (genre == 4) prefixes.add ("Ranti Pop ");
         for (auto& pre : prefixes)
         {
             std::map<juce::String, juce::PopupMenu> fam;
@@ -767,7 +767,7 @@ void RantiEditor::showInstMenu (const char* id, bool bass)
             }
             if (order.isEmpty()) continue;
             order.sort (true);
-            m.addSectionHeader (pre == "PW " ? "POP WAVE" : "POP");
+            m.addSectionHeader (pre == "Ranti Wave " ? "POP WAVE" : "POP");
             for (auto& c : order) m.addSubMenu (c, fam[c]);
         }
         m.showMenuAsync (juce::PopupMenu::Options().withParentComponent (this), [this, prm] (int r)
@@ -784,7 +784,7 @@ void RantiEditor::showInstMenu (const char* id, bool bass)
     juce::String lastGroup;
     for (int i = 0; i < names.size(); ++i)
     {
-        if (names[i].startsWith ("PW ") || names[i].startsWith ("POP ")) continue;   // sons POP WAVE / POP : seulement dans leur section
+        if (names[i].startsWith ("Ranti Wave ") || names[i].startsWith ("Ranti Pop ")) continue;   // sons POP WAVE / POP : seulement dans leur section
         if (! bass && i > 0)
         {
             const auto* in = SoundBank::get().melodic (i);

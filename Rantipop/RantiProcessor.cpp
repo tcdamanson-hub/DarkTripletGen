@@ -7,14 +7,14 @@ namespace
 {
 // sons de base du POP WAVE : melodie, accords, contre-melo, basse, arp, pad
 // tes reglages de base POP WAVE
-const char* popWaveSounds[6] = { "PW Warm Trumpet", "PW Warm Keys", "PW Black Star Saw", "PW Tom Sawyer Bass", "PW Harp INC", "PW Murder She Wrote" }; // kit officiel OB From Mars (mel, accords, contre, basse, arp, pad)
+const char* popWaveSounds[6] = { "Ranti Wave 40", "Ranti Wave 39", "Ranti Wave 05", "Ranti Wave 34", "Ranti Wave 17", "Ranti Wave 24" }; // kit officiel OB From Mars (mel, accords, contre, basse, arp, pad)
 // volumes POP WAVE : melodie, accords, basse, contre-melo, arp, pad (dans l'ordre des volIds)
 const float popWaveVol[6] = { 0.32f, 0.28f, 0.41f, 0.48f, 0.39f, 0.40f }; // melodie, accords, basse, contre-melo, arp, pad
 // POP : sons de base FIXES (choisis par toi), ils ne changent pas a la generation : melodie, accords, contre-melo, basse, arp, pad
-const char* popSounds[6] = { "POP Env Square Voyetra", "POP Lead2 EP Vibes Vinyl", "POP Prophet Chorus Dr Sample", "POP Drift Bass Dr Sample", "POP Short Pulse Micro", "POP String & Voice VP330" };
+const char* popSounds[6] = { "Ranti Pop 070", "Ranti Pop 115", "Ranti Pop 170", "Ranti Pop 059", "Ranti Pop 196", "Ranti Pop 205" };
 const float popVol[6] = { 0.32f, 0.33f, 0.41f, 0.48f, 0.39f, 0.40f }; // melodie, accords, basse, contre-melo, arp, pad
 // prefixe des sons de la selection d'un genre ("" : pas de selection propre)
-const char* soundPrefix (int genre) { return genre == 4 ? "PW " : genre == 2 ? "POP " : ""; }
+const char* soundPrefix (int genre) { return genre == 4 ? "Ranti Wave " : genre == 2 ? "Ranti Pop " : ""; }
 // tes reglages de base AFRO (meme ordre) : volumes
 const float afroVol[6] = { 0.45f, 0.27f, 0.80f, 0.54f, 0.60f, 0.50f };
 const float defaultVol[6] = { 0.80f, 0.70f, 0.80f, 0.60f, 0.60f, 0.50f };
@@ -56,12 +56,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout RantiProcessor::createLayout
     const auto& bank = SoundBank::get();
     const auto& mel = bank.melodicMenu();
     auto findM = [&] (const char* n, int fb) { const int i = mel.indexOf (n); return i < 0 ? fb : i; };
-    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instMel", 1 },    "Melody Sound", mel, findM ("Piano 31", 0)));
+    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instMel", 1 },    "Melody Sound", mel, findM ("Ranti Piano 14", 0)));
     ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instChords", 1 }, "Chords Sound", mel, 0));
-    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instExtra", 1 },  "Counter Sound", mel, findM ("Rhodes Doux", 0)));
-    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instBass", 1 },   "808 Sound", bank.bassMenu(), juce::jmax (0, bank.bassMenu().indexOf ("808 All Alone"))));
-    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instArp", 1 },    "Arp Sound", mel, findM ("Pluck 01", 0)));
-    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instPad", 1 },    "Pad Sound", mel, findM ("Pad 18", 0)));
+    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instExtra", 1 },  "Counter Sound", mel, findM ("Ranti EPiano 06", 0)));
+    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instBass", 1 },   "808 Sound", bank.bassMenu(), juce::jmax (0, bank.bassMenu().indexOf ("Ranti Basse 001"))));
+    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instArp", 1 },    "Arp Sound", mel, findM ("Ranti Pluck 01", 0)));
+    ps.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "instPad", 1 },    "Pad Sound", mel, findM ("Ranti Pad 018", 0)));
     const float defVol[numRows] = { 0.8f, 0.7f, 0.8f, 0.6f, 0.6f, 0.5f };
     const char* volNames[numRows] = { "Melody Vol", "Chords Vol", "808 Vol", "Counter Vol", "Arp Vol", "Pad Vol" };
     for (int i = 0; i < numRows; ++i)
@@ -143,7 +143,7 @@ void RantiProcessor::shuffleFamilySounds()
         };
         juce::Array<int> cand;
         for (int i = 0; i < prm->choices.size(); ++i)
-            if (i != prm->getIndex() && prm->choices[i].startsWith (prefix) && bank.categoryOf (prm->choices[i]) == fam && (prefix != "POP " || covers (i))) cand.add (i);
+            if (i != prm->getIndex() && prm->choices[i].startsWith (prefix) && bank.categoryOf (prm->choices[i]) == fam && (prefix != "Ranti Pop " || covers (i))) cand.add (i);
         if (cand.isEmpty()) continue;
         const int pick = cand[rng.nextInt (cand.size())];
         pendingSound[r] = pick;
@@ -199,20 +199,20 @@ void RantiProcessor::applyGenreSounds (int genre, int before)
     if (genre == 1)
     {
         // afro : tes reglages de base
-        set ("instMel", bank.findMelodic ("Electric Key 3"));
-        set ("instChords", bank.findMelodic ("Rhodes Doux"));
-        set ("instExtra", bank.findMelodic ("Rhodes 01"));
-        set ("instBass", bank.findBass ("Bass 62"));
-        set ("instArp", bank.findMelodic ("Synth 20"));
-        set ("instPad", bank.findMelodic ("Pad 67"));
+        set ("instMel", bank.findMelodic ("Ranti Clavier 05"));
+        set ("instChords", bank.findMelodic ("Ranti EPiano 06"));
+        set ("instExtra", bank.findMelodic ("Ranti EPiano 01"));
+        set ("instBass", bank.findBass ("Ranti Basse 108"));
+        set ("instArp", bank.findMelodic ("Ranti Synthe 20"));
+        set ("instPad", bank.findMelodic ("Ranti Pad 067"));
     }
     else if (genre == 3)
     {
         // synthwave : tes reglages de base
-        set ("instMel", bank.findMelodic ("Electric Key 2"));
-        set ("instChords", bank.findMelodic ("Pad 18"));
-        set ("instExtra", bank.findMelodic ("Synth 25"));
-        set ("instBass", bank.findBass ("808 Senior"));
+        set ("instMel", bank.findMelodic ("Ranti Clavier 04"));
+        set ("instChords", bank.findMelodic ("Ranti Pad 018"));
+        set ("instExtra", bank.findMelodic ("Ranti Synthe 25"));
+        set ("instBass", bank.findBass ("Ranti Basse 004"));
     }
     else if (genre == 4)
     {
@@ -236,15 +236,15 @@ void RantiProcessor::applyGenreSounds (int genre, int before)
     }
     else
     {
-        set ("instMel", bank.findMelodic ("Piano 31"));
+        set ("instMel", bank.findMelodic ("Ranti Piano 14"));
         set ("instChords", 0);
-        set ("instExtra", bank.findMelodic ("Rhodes Doux"));
-        set ("instBass", bank.findBass ("808 All Alone"));
+        set ("instExtra", bank.findMelodic ("Ranti EPiano 06"));
+        set ("instBass", bank.findBass ("Ranti Basse 001"));
         // en sortant de la POP / POP WAVE : arp et pad d'origine (les sons de ces selections ne restent pas)
         if (before == 2 || before == 4)
         {
-            set ("instArp", bank.findMelodic ("Pluck 01"));
-            set ("instPad", bank.findMelodic ("Pad 18"));
+            set ("instArp", bank.findMelodic ("Ranti Pluck 01"));
+            set ("instPad", bank.findMelodic ("Ranti Pad 018"));
         }
     }
 }
