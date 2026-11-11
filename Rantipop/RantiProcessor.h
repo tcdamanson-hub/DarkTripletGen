@@ -70,7 +70,6 @@ private:
     void requestSelectedSounds();   // charge en arriere-plan les sons des packs externes choisis
     void shuffleFamilySounds();     // POP WAVE : nouveau son de la meme famille sur chaque piste a chaque generation
     int pendingSound[6] { -1, -1, -1, -1, -1, -1 };
-    int lastPopCombo = 0;   // POP : combinaison de sons en cours
     ranti::SharedClock clock;
     void applyState (const ranti::GenState& g, bool pushHistory);
 

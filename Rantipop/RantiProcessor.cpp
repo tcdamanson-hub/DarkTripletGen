@@ -10,42 +10,9 @@ namespace
 const char* popWaveSounds[6] = { "PW Warm Trumpet", "PW Warm Keys", "PW Black Star Saw", "PW Tom Sawyer Bass", "PW Harp INC", "PW Murder She Wrote" }; // kit officiel OB From Mars (mel, accords, contre, basse, arp, pad)
 // volumes POP WAVE : melodie, accords, basse, contre-melo, arp, pad (dans l'ordre des volIds)
 const float popWaveVol[6] = { 0.32f, 0.28f, 0.41f, 0.48f, 0.39f, 0.40f }; // melodie, accords, basse, contre-melo, arp, pad
-// POP : combinaisons de sons qui vont ensemble (melodie, accords, contre-melo, basse, arp, pad).
-// A chaque generation, le plugin en prend une autre au hasard ; la premiere sert de sons de depart.
-const char* popCombos[][6] = {
-    { "POP Clean Sine DX100", "POP Upright Piano Dr Sample", "POP Prophet Chorus Dr Sample", "POP Sub Bass Dr Sample", "POP Short Pulse Micro", "POP Strings Dr Sample" },   // Piano pop
-    { "POP Mr Edgar SH5", "POP Sunrise Rhodes S612", "POP Muted Strat Dr Sample", "POP Drift Bass Dr Sample", "POP Vibes 360", "POP Warm Strings Kawaii Dreams" },   // Rhodes soul
-    { "POP Env Saw Voyetra", "POP Massive Poly Voyetra", "POP Sync Lite Voyetra", "POP Res Square Bass Voyetra", "POP PWM LFO Voyetra", "POP Halen Strings OB" },   // Synthpop 80s
-    { "POP Hard Trumpet OB", "POP Clav Funk OB", "POP Muted Strat Dr Sample", "POP Funk Bass Soviet Synths", "POP Metro Funk Micro", "POP Strings 360" },   // Disco funk
-    { "POP Dual Sine SYS100", "POP Bell Air Kawaii Dreams", "POP Hologram Kawaii Dreams", "POP Clean Sub Synare", "POP Short Pulse Micro", "POP Hello Kawaii Dreams" },   // Dream pop
-    { "POP FM Square DX100", "POP E Piano 360", "POP Vibes 360", "POP Mono Bass DX100", "POP Marimba DX100", "POP Strings 360" },   // E-piano pop
-    { "POP Long Pulse Micro", "POP Jazz Organ DX100", "POP DX Punch S612", "POP Solid Bass DX100", "POP Short Pulse Micro", "POP Vox Choir S612" },   // Orgue house
-    { "POP Flute Filter 360", "POP 80s Piano Dr Sample", "POP Acoustic Tremolo Dr Sample", "POP Warm Bass Dr Sample", "POP Nylon Guitar 360", "POP Strings Dr Sample" },   // Acoustique
-    { "POP Sawtooth Soviet Synths", "POP Strings Pitched Tape Soviet Synths", "POP Comecon Fifths Soviet Synths", "POP Funk Bass Soviet Synths", "POP Troika Pulse Soviet Synths", "POP Bukhat Pad Soviet Synths" },   // Synthes sovietiques
-    { "POP Saxophone Filter 360", "POP E Piano 360", "POP Nylon Guitar 360", "POP E Bass 360", "POP Vibes 360", "POP Strings 360" },   // Sax pop
-    { "POP Precinct420 SH101", "POP Exit Summer SH101", "POP Tiny Rave SH101", "POP ImGoingToSub1Down SH101", "POP Legacy Pulsar SH101", "POP Analog Strings Kawaii Dreams" },   // Juno pop
-    { "POP Strong Triangle SH5", "POP Upright Piano Dr Sample", "POP Funk Whiz SH5", "POP Warm Bass Dr Sample", "POP Sync Pulse SH5", "POP Voices Kawaii Dreams" },   // Pop moderne
-    { "POP Muted Trumpet 360", "POP Clav Funk OB", "POP Muted Strat Dr Sample", "POP Rhodes Bass Dr Sample", "POP Tube Man OB", "POP Halen Strings OB" },   // Cuivres funk
-    { "POP Env Square Voyetra", "POP Sunrise Rhodes S612", "POP Prophet Chorus Dr Sample", "POP Drift Bass Dr Sample", "POP Short Pulse Micro", "POP String & Voice VP330" },   // Choeurs
-    { "POP Mr Edgar SH5", "POP Marimba DX100", "POP Nylon Guitar 360", "POP Sub Bass Dr Sample", "POP Vibes 360", "POP Ambient Pad S612" },   // Tropical
-    { "POP Saw Glide Voyetra", "POP 80s Piano Dr Sample", "POP Short Pulse Micro", "POP Huge Sub Micro", "POP Metro Funk Micro", "POP Male VP330" },   // Piano house
-    { "POP Hologram Kawaii Dreams", "POP Indie Organ Kawaii Dreams", "POP Square Dirt Micro", "POP Just Sub 2600", "POP Short Pulse Micro", "POP Warm Strings Kawaii Dreams" },   // Kawaii
-    { "POP Osc2Sine 2600", "POP Upright Piano Dr Sample", "POP Pulse Mod 2600", "POP Just Sub 2600", "POP Jackies33 2600", "POP Warm Strings Kawaii Dreams" },   // 2600
-    { "POP Clean Sine DX100", "POP Good Vibes DX100", "POP Marimba DX100", "POP Solid Bass DX100", "POP Vibes 360", "POP LA 2420 VP330" },   // DX
-    { "POP PulseEGMod MS10", "POP Clav Funk OB", "POP Metro Funk Micro", "POP Goon Bass Dr Sample", "POP Funk Whiz SH5", "POP Dusty Stringfield VP330" },   // Funk retro
-    { "POP Triangle MS10", "POP Upright Piano Dr Sample", "POP Acoustic Tremolo Dr Sample", "POP Drift Bass Dr Sample", "POP Nylon Guitar 360", "POP Strings Dr Sample" },   // Ballade
-    { "POP Sync Lite Voyetra", "POP Massive Poly Voyetra", "POP Billy Zane 2600", "POP Polysix Heavy Vinyl", "POP Short Pulse Micro", "POP 80s Threat Wasp" },   // Synthe brillant
-    { "POP Dual Sine SYS100", "POP Jazz Organ SK1", "POP Prophet Chorus Dr Sample", "POP Rhodes Bass Dr Sample", "POP Vibes 360", "POP Voices Kawaii Dreams" },   // Orgue gospel
-    { "POP Hard Trumpet OB", "POP Massive Poly Voyetra", "POP Tube Man OB", "POP Tom Sawyer Bass OB", "POP PWM LFO Voyetra", "POP Halen Strings OB" },   // Synth cuivres
-    { "POP Flute SK1", "POP Sunrise Rhodes S612", "POP Acoustic Tremolo Dr Sample", "POP Warm Bass Dr Sample", "POP Marimba DX100", "POP Strings Dr Sample" },   // Douce
-    { "POP Long Res Micro", "POP Sunrise Rhodes S612", "POP Metro Funk Micro", "POP Huge Sub Micro", "POP Short Pulse Micro", "POP Analog Strings Kawaii Dreams" },   // Micro
-    { "POP Attack Lead Soviet Synths", "POP Clav Funk OB", "POP Muted Strat Dr Sample", "POP Overdrive Bass Dr Sample", "POP DX Punch S612", "POP Strings Pitched Tape Soviet Synths" },   // Funky house
-    { "POP Sync Lite Voyetra", "POP E Piano 360", "POP DX Punch S612", "POP Sub Bass Dr Sample", "POP Short Pulse Micro", "POP Universe Dr Sample" },   // Rhodes house
-    { "POP Res Long Synare", "POP Hologram Kawaii Dreams", "POP Xenomorph Sid", "POP Clean Sub Synare", "POP Square Dirt Micro", "POP Return Home Kawaii Dreams" },   // Nuit
-    { "POP Strong Triangle SH5", "POP Vibes 360", "POP Nylon Guitar 360", "POP E Bass 360", "POP Marimba DX100", "POP Warm Strings Kawaii Dreams" },   // Vibes
-};
-const int numPopCombos = (int) (sizeof (popCombos) / sizeof (popCombos[0]));
-const char* const* popSounds = popCombos[0];
+// POP : sons de base FIXES (choisis par toi), ils ne changent pas a la generation : melodie, accords, contre-melo, basse, arp, pad
+const char* popSounds[6] = { "POP Env Square Voyetra", "POP Lead2 EP Vibes Vinyl", "POP Prophet Chorus Dr Sample", "POP Drift Bass Dr Sample", "POP Short Pulse Micro", "POP String & Voice VP330" };
+const float popVol[6] = { 0.32f, 0.33f, 0.41f, 0.48f, 0.39f, 0.40f }; // melodie, accords, basse, contre-melo, arp, pad
 // prefixe des sons de la selection d'un genre ("" : pas de selection propre)
 const char* soundPrefix (int genre) { return genre == 4 ? "PW " : genre == 2 ? "POP " : ""; }
 // tes reglages de base AFRO (meme ordre) : volumes
@@ -141,7 +108,7 @@ void RantiProcessor::generate()
 {
     const auto cur = getState();
     applyState (Generator::randomState (cur.genre, keyChoice, cur.song, rng, modeChoice), true);
-    if (cur.genre == 4 || cur.genre == 2) shuffleFamilySounds();
+    if (cur.genre == 4) shuffleFamilySounds();
 }
 
 // POP WAVE : a chaque generation, chaque piste prend un autre son de la meme famille (une autre basse, un autre lead...).
@@ -151,23 +118,6 @@ void RantiProcessor::shuffleFamilySounds()
     auto& bank = ranti::SoundBank::get();
     const juce::String prefix = soundPrefix (getState().genre);
     if (prefix.isEmpty()) return;
-    if (getState().genre == 2)
-    {
-        // POP : une combinaison entiere, jamais deux fois la meme de suite
-        int c = rng.nextInt (numPopCombos - 1);
-        if (c >= lastPopCombo) ++c;
-        lastPopCombo = c;
-        static const int slot[numRows] = { 0, 1, 3, 2, 4, 5 };   // lignes (mel, accords, basse, contre, arp, pad) -> colonnes de popCombos
-        for (int r = 0; r < numRows; ++r)
-        {
-            const bool isBass = rowPart[r] == ranti::PBass;
-            const int idx = isBass ? bank.findBass (popCombos[c][slot[r]]) : bank.findMelodic (popCombos[c][slot[r]]);
-            if (idx < 0) continue;
-            pendingSound[r] = idx;
-            bank.request (isBass ? bank.bass (idx) : bank.melodic (idx));
-        }
-        return;
-    }
     for (int r = 0; r < numRows; ++r)
     {
         auto* prm = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter (instIds[r]));
@@ -236,7 +186,8 @@ void RantiProcessor::applyGenreSounds (int genre, int before)
         }
     };
     // volumes : equilibre POP WAVE en y entrant, volumes d'origine en en sortant
-    if (genre == 4 || genre == 2)            for (int i = 0; i < numRows; ++i) setVol (volIds[i], popWaveVol[i]);
+    if (genre == 4)                          for (int i = 0; i < numRows; ++i) setVol (volIds[i], popWaveVol[i]);
+    else if (genre == 2)                     for (int i = 0; i < numRows; ++i) setVol (volIds[i], popVol[i]);
     else if (genre == 1)                     for (int i = 0; i < numRows; ++i) setVol (volIds[i], afroVol[i]);
     else if (before == 4 || before == 1 || before == 2) for (int i = 0; i < numRows; ++i) setVol (volIds[i], defaultVol[i]);
     auto pick = [&] (std::initializer_list<const char*> names) -> int
