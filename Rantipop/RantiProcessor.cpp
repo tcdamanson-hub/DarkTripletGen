@@ -489,7 +489,8 @@ void RantiProcessor::setStateInformation (const void* data, int sizeInBytes)
             keyChoice = (int) vt.getProperty ("key", 0);
             modeChoice = juce::jlimit (-3, NumModes - 1, (int) vt.getProperty ("mode", -1));
             auto g = GenState::fromString (vt.getProperty ("gen", "").toString());
-            if (g.genre == 3 || g.genre == 2) g.genre = 4;   // la SYNTHWAVE (et, pour le test, la POP) sont dans la POP WAVE
+            if (g.genre == 3 || g.genre == 2) g.genre = 4;
+            if (g.genre == 1) g.genre = 0;   // AFRO supprime   // la SYNTHWAVE (et, pour le test, la POP) sont dans la POP WAVE
             if (g.song >= 0 && g.song < numSongs) applyState (g, true);
         }
 }

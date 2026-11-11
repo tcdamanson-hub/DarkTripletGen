@@ -335,7 +335,7 @@ void RantiDrumsEditor::paint (juce::Graphics& g)
         const auto box = juce::Rectangle<float> (300.0f, 26.0f, 466.0f, 44.0f);
         glass (g, box);
         // onglets R&B, AFRO, POP, SYNTHWAVE (l'onglet POP WAVE, vide, est supprime)
-        const float tw[5] = { 90.0f, 100.0f, 90.0f, 170.0f, 0.0f };
+        const float tw[5] = { 130.0f, 0.0f, 130.0f, 190.0f, 0.0f };   // R&B, POP, SYNTHWAVE (AFRO et POP WAVE supprimes)
         float x = box.getX() + 5.0f;
         for (int i = 0; i < numGenres; ++i)
         {

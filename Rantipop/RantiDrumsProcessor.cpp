@@ -290,7 +290,8 @@ void RantiDrumsProcessor::setStateInformation (const void* data, int sizeInBytes
         {
             auto vt = juce::ValueTree::fromXml (*xml);
             apvts.replaceState (vt);
-            const auto g = GenState::fromString (vt.getProperty ("gen", "").toString());
+            auto g = GenState::fromString (vt.getProperty ("gen", "").toString());
+            if (g.genre == 1 || g.genre == 4) { g.genre = 0; Generator::randomRnb (g, rng); Generator::randomKit (g, rng); }   // AFRO et POP WAVE supprimes
             if ((g.groove >= 0 && g.groove < numGrooves) || g.genre == 0) applyState (g, true);
         }
 }
