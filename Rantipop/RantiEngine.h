@@ -40,7 +40,9 @@ inline bool modeMatches (int song, int choice)
 inline juce::String drumCategory (int genre, int lane, int variant)
 {
     static const char* rb[NumLanes] = { "RB_KICK", "RB_SNARE", "RB_CLAP", "RB_HAT", "RB_SHAKER", "RB_OHAT", "RB_RIM", "RB_PERC", "RB_PERC", "RB_SNAP", "RB_CRASH" };
-    static const char* af[NumLanes] = { "AF_KICK", "AF_SNARE", "AF_CLAP", "AF_HAT", "AF_SHAKER", "AF_OHAT", "AF_RIM", "AF_CONGA", "AF_CONGA", "AF_PERC", "AF_CRASH" };
+    // afro : chaque element du MIDI sur sa piste ; "Percussion" / "Percussion2" = sons Perc (pas des congas).
+    // Pistes sans son dans le kit (charleston, open hat, rim, snap) : muettes.
+    static const char* af[NumLanes] = { "AF_KICK", "AF_SNARE", "AF_CLAP", "AF_HAT", "AF_SHAKER", "AF_OHAT", "AF_RIM", "AF_PERC", "AF_PERC", "AF_SNAP", "AF_CRASH" };
     static const char* sw[NumLanes] = { "SW_KICK", "SW_SNARE", "SW_CLAP", "SW_HAT", "SW_HAT", "SW_OHAT", "SW_RIM", "SW_PERC", "SW_PERC", "SW_PERC", "SW_CRASH" };
     if (genre == 3)
     {
@@ -245,9 +247,9 @@ public:
             const auto* set = SoundBank::get().drums (drumCategory (g.genre, l, g.clapVariant));
             g.kit[(size_t) l] = (set != nullptr && ! set->empty()) ? rng.nextInt ((int) set->size()) : 0;
         }
-        // afro : deux congas differentes pour Percussion et Percussion 2
+        // afro : deux percs differentes pour Percussion et Percussion 2
         if (g.genre == 1)
-            if (const auto* c = SoundBank::get().drums ("AF_CONGA"); c != nullptr && c->size() > 1)
+            if (const auto* c = SoundBank::get().drums ("AF_PERC"); c != nullptr && c->size() > 1)
                 while (g.kit[(size_t) LPercB] == g.kit[(size_t) LPercA]) g.kit[(size_t) LPercB] = rng.nextInt ((int) c->size());
         // pop wave : une seule machine pour tout le kit, et seulement une machine qui a TOUS les elements
         //            que joue le groove (rien de muet) ; on prend ses sons d'origine (n. 01), qui vont ensemble
