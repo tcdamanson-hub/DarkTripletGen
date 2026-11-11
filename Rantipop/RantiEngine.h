@@ -867,11 +867,12 @@ public:
         reverb.processStereo (verbBuf.getWritePointer (0), verbBuf.getWritePointer (1), num);
         const float verbOut = popWave ? 0.8f : 0.6f;
         float peak = 0.0f;
-        // POP WAVE : niveleur de volume lent -> chaque morceau sort au meme niveau (corrige 70 % de l'ecart,
+        // POP WAVE et POP : niveleur de volume lent -> chaque morceau sort au meme niveau (corrige 70 % de l'ecart,
         // au plus +/-6 dB, reaction en ~0,4 s quand ca monte et ~1,5 s quand ca baisse : les nuances restent).
         // Ne touche ni aux sons, ni aux notes, ni a l'egalisation : seulement le volume general du morceau.
-        if (popWave && (int) levVerb.size() < num) levVerb.resize ((size_t) num, 1.0f);
-        if (popWave)
+        const bool level = popWave || state.genre == 2;   // POP WAVE et POP
+        if (level && (int) levVerb.size() < num) levVerb.resize ((size_t) num, 1.0f);
+        if (level)
         {
             const float aUp = (float) std::exp (-1.0 / (0.4 * sr)), aDn = (float) std::exp (-1.0 / (1.5 * sr));
             const float gs = (float) std::exp (-1.0 / (0.05 * sr));
@@ -891,7 +892,7 @@ public:
         }
         for (int i = 0; i < num; ++i)
         {
-            const float vg = popWave ? levVerb[(size_t) i] : 1.0f;
+            const float vg = level ? levVerb[(size_t) i] : 1.0f;
             float l = (L[i] + verbBuf.getReadPointer (0)[i] * verbOut * vg) * set.master;
             l = std::tanh (l * 1.1f) * 0.92f;
             L[i] = l;

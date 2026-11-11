@@ -10,6 +10,10 @@ namespace
 const char* popWaveSounds[6] = { "PW Warm Trumpet", "PW Warm Keys", "PW Black Star Saw", "PW Tom Sawyer Bass", "PW Harp INC", "PW Murder She Wrote" }; // kit officiel OB From Mars (mel, accords, contre, basse, arp, pad)
 // volumes POP WAVE : melodie, accords, basse, contre-melo, arp, pad (dans l'ordre des volIds)
 const float popWaveVol[6] = { 0.32f, 0.28f, 0.41f, 0.48f, 0.39f, 0.40f }; // melodie, accords, basse, contre-melo, arp, pad
+// sons de base de la POP (Essential WAV From Mars) : melodie, accords, contre-melo, basse, arp, pad
+const char* popSounds[6] = { "POP Juno106 Square Vinyl", "POP E Piano 360", "POP Prophet Chorus Dr Sample", "POP Synth Bass Dr Sample", "POP Short Pulse Micro", "POP Analog Strings Kawaii Dreams" };
+// prefixe des sons de la selection d'un genre ("" : pas de selection propre)
+const char* soundPrefix (int genre) { return genre == 4 ? "PW " : genre == 2 ? "POP " : ""; }
 // tes reglages de base AFRO (meme ordre) : volumes
 const float afroVol[6] = { 0.45f, 0.27f, 0.80f, 0.54f, 0.60f, 0.50f };
 const float defaultVol[6] = { 0.80f, 0.70f, 0.80f, 0.60f, 0.60f, 0.50f };
@@ -33,7 +37,10 @@ RantiProcessor::RantiProcessor()
     {
         auto& bank = SoundBank::get();
         for (int i = 0; i < 6; ++i)
+        {
             bank.request (i == 3 ? bank.bass (bank.findBass (popWaveSounds[i])) : bank.melodic (bank.findMelodic (popWaveSounds[i])));
+            bank.request (i == 3 ? bank.bass (bank.findBass (popSounds[i])) : bank.melodic (bank.findMelodic (popSounds[i])));
+        }
     }
     for (auto& k : keyCount) k = 0;
     // premier son : un R&B au hasard
@@ -100,7 +107,7 @@ void RantiProcessor::generate()
 {
     const auto cur = getState();
     applyState (Generator::randomState (cur.genre, keyChoice, cur.song, rng, modeChoice), true);
-    if (cur.genre == 4) shuffleFamilySounds();
+    if (cur.genre == 4 || cur.genre == 2) shuffleFamilySounds();
 }
 
 // POP WAVE : a chaque generation, chaque piste prend un autre son de la meme famille (une autre basse, un autre lead...).
@@ -108,15 +115,18 @@ void RantiProcessor::generate()
 void RantiProcessor::shuffleFamilySounds()
 {
     auto& bank = ranti::SoundBank::get();
+    const juce::String prefix = soundPrefix (getState().genre);
+    if (prefix.isEmpty()) return;
     for (int r = 0; r < numRows; ++r)
     {
         auto* prm = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter (instIds[r]));
         if (prm == nullptr) continue;
+        if (! prm->choices[prm->getIndex()].startsWith (prefix)) continue;
         const auto fam = bank.categoryOf (prm->choices[prm->getIndex()]);
         if (fam.isEmpty()) continue;
         juce::Array<int> cand;
         for (int i = 0; i < prm->choices.size(); ++i)
-            if (i != prm->getIndex() && prm->choices[i].startsWith ("PW ") && bank.categoryOf (prm->choices[i]) == fam) cand.add (i);
+            if (i != prm->getIndex() && prm->choices[i].startsWith (prefix) && bank.categoryOf (prm->choices[i]) == fam) cand.add (i);
         if (cand.isEmpty()) continue;
         const int pick = cand[rng.nextInt (cand.size())];
         pendingSound[r] = pick;
@@ -132,7 +142,7 @@ void RantiProcessor::setGenre (int g)
     if (! genreAvailable (g)) return;
     const int before = getState().genre;
     applyState (Generator::randomState (g, keyChoice, -1, rng, modeChoice), true);
-    if (g == 1 || g == 3 || g == 4 || before == 1 || before == 3 || before == 4) applyGenreSounds (g, before);
+    if (g == 1 || g == 2 || g == 3 || g == 4 || before == 1 || before == 2 || before == 3 || before == 4) applyGenreSounds (g, before);
 }
 
 // afro : guitares pour les pistes de guitare, Rhodes pour les keys, 808 ; en quittant l'afro on remet les sons d'origine
@@ -159,9 +169,9 @@ void RantiProcessor::applyGenreSounds (int genre, int before)
         }
     };
     // volumes : equilibre POP WAVE en y entrant, volumes d'origine en en sortant
-    if (genre == 4)                          for (int i = 0; i < numRows; ++i) setVol (volIds[i], popWaveVol[i]);
+    if (genre == 4 || genre == 2)            for (int i = 0; i < numRows; ++i) setVol (volIds[i], popWaveVol[i]);
     else if (genre == 1)                     for (int i = 0; i < numRows; ++i) setVol (volIds[i], afroVol[i]);
-    else if (before == 4 || before == 1)     for (int i = 0; i < numRows; ++i) setVol (volIds[i], defaultVol[i]);
+    else if (before == 4 || before == 1 || before == 2) for (int i = 0; i < numRows; ++i) setVol (volIds[i], defaultVol[i]);
     auto pick = [&] (std::initializer_list<const char*> names) -> int
     {
         std::vector<int> c;
@@ -196,12 +206,28 @@ void RantiProcessor::applyGenreSounds (int genre, int before)
         set ("instArp", bank.findMelodic (popWaveSounds[4]));
         set ("instPad", bank.findMelodic (popWaveSounds[5]));
     }
+    else if (genre == 2)
+    {
+        // pop : Essential WAV From Mars
+        set ("instMel", bank.findMelodic (popSounds[0]));
+        set ("instChords", bank.findMelodic (popSounds[1]));
+        set ("instExtra", bank.findMelodic (popSounds[2]));
+        set ("instBass", bank.findBass (popSounds[3]));
+        set ("instArp", bank.findMelodic (popSounds[4]));
+        set ("instPad", bank.findMelodic (popSounds[5]));
+    }
     else
     {
         set ("instMel", bank.findMelodic ("Piano 31"));
         set ("instChords", 0);
         set ("instExtra", bank.findMelodic ("Rhodes Doux"));
         set ("instBass", bank.findBass ("808 All Alone"));
+        // en sortant de la POP / POP WAVE : arp et pad d'origine (les sons de ces selections ne restent pas)
+        if (before == 2 || before == 4)
+        {
+            set ("instArp", bank.findMelodic ("Pluck 01"));
+            set ("instPad", bank.findMelodic ("Pad 18"));
+        }
     }
 }
 

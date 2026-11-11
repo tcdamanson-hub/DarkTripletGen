@@ -745,21 +745,23 @@ void RantiEditor::showInstMenu (const char* id, bool bass)
     juce::PopupMenu m;
     const auto& names = prm->choices;
     // POP WAVE : uniquement les sons crees pour la POP WAVE (PW ...)
-    if (proc.getState().genre == 4)
+    const int genre = proc.getState().genre;
+    const juce::String prefix = genre == 4 ? "PW " : genre == 2 ? "POP " : "";
+    if (prefix.isNotEmpty())
     {
         // rangement par familles (Basses, Cordes, Leads, Claviers, Cuivres & bois, Orgues, Effets...)
         std::map<juce::String, juce::PopupMenu> fam;
         juce::StringArray order;
         for (int i = 0; i < names.size(); ++i)
         {
-            if (! names[i].startsWith ("PW ")) continue;
+            if (! names[i].startsWith (prefix)) continue;
             auto c = ranti::SoundBank::get().categoryOf (names[i]);
             if (c.isEmpty()) c = "Autres";
             if (! order.contains (c)) order.add (c);
-            fam[c].addItem (i + 1, names[i].fromFirstOccurrenceOf ("PW ", false, false), true, prm->getIndex() == i);
+            fam[c].addItem (i + 1, names[i].fromFirstOccurrenceOf (prefix, false, false), true, prm->getIndex() == i);
         }
         order.sort (true);
-        m.addSectionHeader ("POP WAVE");
+        m.addSectionHeader (genre == 4 ? "POP WAVE" : "POP");
         for (auto& c : order) m.addSubMenu (c, fam[c]);
         m.showMenuAsync (juce::PopupMenu::Options().withParentComponent (this), [this, prm] (int r)
         {
@@ -775,7 +777,7 @@ void RantiEditor::showInstMenu (const char* id, bool bass)
     juce::String lastGroup;
     for (int i = 0; i < names.size(); ++i)
     {
-        if (names[i].startsWith ("PW ")) continue;   // sons POP WAVE : seulement dans la section POP WAVE
+        if (names[i].startsWith ("PW ") || names[i].startsWith ("POP ")) continue;   // sons POP WAVE / POP : seulement dans leur section
         if (! bass && i > 0)
         {
             const auto* in = SoundBank::get().melodic (i);

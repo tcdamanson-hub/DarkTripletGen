@@ -270,7 +270,7 @@ private:
 
     // Packs externes : dossier "RANTIPOP Sounds" a cote des plugins (VST3) ou dans Documents.
     // Structure libre : .../<Categorie>/<Son>/<NN> <nom>.wav ou NN = note MIDI enregistree (multi-echantillons).
-    // Un son par dossier ; categorie contenant "Bass" -> menu basse. Nom affiche : "PW <Son>" (selection POP WAVE).
+    // Un son par dossier ; categorie contenant "Bass" -> menu basse. Nom affiche : "<prefixe> <Son>" (PW = POP WAVE, POP = POP).
     static juce::Array<juce::File> externalRoots()
     {
         juce::Array<juce::File> roots;
@@ -310,6 +310,8 @@ private:
     {
         for (auto& root : externalRoots())
         {
+            // prefixe du pack (fichier prefixe.txt a sa racine) : "POP" pour la selection POP, "PW" par defaut (POP WAVE)
+            std::map<juce::String, juce::String> packPrefix;
             for (const auto& entry : juce::RangedDirectoryIterator (root, true, "*.wav;*.flac", juce::File::findFiles))
             {
                 const auto f = entry.getFile();
@@ -323,7 +325,14 @@ private:
                 const auto patchDir = f.getParentDirectory();
                 const auto cat = patchDir.getParentDirectory().getFileName();
                 const juce::String group = cat.containsIgnoreCase ("bass") ? "PopWaveBass" : "PopWave";
-                const juce::String name = "PW " + patchDir.getFileName();
+                const auto pack = f.getRelativePathFrom (root).upToFirstOccurrenceOf (juce::File::getSeparatorString(), false, false);
+                auto pf = packPrefix.find (pack);
+                if (pf == packPrefix.end())
+                {
+                    auto t = root.getChildFile (pack).getChildFile ("prefixe.txt").loadFileAsString().trim();
+                    pf = packPrefix.emplace (pack, t.isEmpty() ? juce::String ("PW") : t).first;
+                }
+                const juce::String name = pf->second + " " + patchDir.getFileName();
                 const auto key = group + "|" + name;
                 auto it = instIndex.find (key);
                 if (it == instIndex.end())

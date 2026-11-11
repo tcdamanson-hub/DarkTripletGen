@@ -40,6 +40,9 @@ jobs:
             mkdir -p "$dest"
             cp -r sonsx/WAV/* "$dest/"
             echo "sons copies dans $dest : $(find "$dest" -name '*.wav' | wc -l) fichiers"
+            # packs du depot (Essential POP...) : a cote, dans le meme dossier de sons
+            cp -r Rantipop/Packs/* "$b/Contents/Resources/RANTIPOP Sounds/"
+            echo "packs du depot copies : $(find "$b/Contents/Resources/RANTIPOP Sounds" -name '*.flac' | wc -l) fichiers"
           done
 
       - name: Upload RANTIPOP
