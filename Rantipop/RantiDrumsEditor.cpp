@@ -334,10 +334,12 @@ void RantiDrumsEditor::paint (juce::Graphics& g)
     {
         const auto box = juce::Rectangle<float> (300.0f, 26.0f, 466.0f, 44.0f);
         glass (g, box);
-        const float tw[5] = { 64.0f, 76.0f, 64.0f, 136.0f, 110.0f };
+        // onglets R&B, AFRO, POP, SYNTHWAVE (l'onglet POP WAVE, vide, est supprime)
+        const float tw[5] = { 90.0f, 100.0f, 90.0f, 170.0f, 0.0f };
         float x = box.getX() + 5.0f;
         for (int i = 0; i < numGenres; ++i)
         {
+            if (tw[i] <= 0.0f) { genreTabs[i] = {}; continue; }
             genreTabs[i] = { x, box.getY() + 5.0f, tw[i], box.getHeight() - 10.0f };
             bool avail = i == 0;
             for (int j = 0; j < numGrooves; ++j) if (grooves[j].genre == i) avail = true;

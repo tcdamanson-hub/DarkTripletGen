@@ -442,10 +442,10 @@ void RantiEditor::paint (juce::Graphics& g)
 
     // genres
     {
-        // MELODIE : la SYNTHWAVE est regroupee dans la POP WAVE -> onglets R&B, AFRO, POP, POP WAVE
+        // MELODIE : la SYNTHWAVE et la POP sont regroupees dans la POP WAVE -> onglets R&B, AFRO, POP WAVE
         const auto box = juce::Rectangle<float> (336.0f, 26.0f, 466.0f, 44.0f);
         glass (g, box);
-        const float tw[5] = { 96.0f, 104.0f, 96.0f, 0.0f, 150.0f };
+        const float tw[5] = { 140.0f, 150.0f, 0.0f, 0.0f, 160.0f };
         float x = box.getX() + 5.0f;
         for (int i = 0; i < numGenres; ++i)
         {
