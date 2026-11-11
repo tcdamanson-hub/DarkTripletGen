@@ -3,6 +3,12 @@ name: Build plugin
 on:
   push:
   workflow_dispatch:
+    inputs:
+      plugin:
+        description: "Plugin a compiler"
+        type: choice
+        options: [melodie, drums, les-deux]
+        default: melodie
 
 jobs:
   build:
@@ -11,6 +17,9 @@ jobs:
       matrix:
         os: [windows-latest]
     runs-on: ${{ matrix.os }}
+    env:
+      # on ne compile que le plugin modifie (un push sans choix compile les deux)
+      PLUGIN: ${{ inputs.plugin || 'les-deux' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -23,11 +32,16 @@ jobs:
         if: runner.os == 'macOS'
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release "-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64"
 
-      - name: Build
-        run: cmake --build build --config Release --parallel --target RantipopMelodie_All RantipopDrums_All
+      - name: Build MELODIE
+        if: env.PLUGIN != 'drums'
+        run: cmake --build build --config Release --parallel --target RantipopMelodie_All
+
+      - name: Build DRUMS
+        if: env.PLUGIN != 'melodie'
+        run: cmake --build build --config Release --parallel --target RantipopDrums_All
 
       - name: Sons POP WAVE (OB From Mars) livres dans le plugin
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && env.PLUGIN != 'drums'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -45,13 +59,21 @@ jobs:
             echo "packs du depot copies : $(find "$b/Contents/Resources/RANTIPOP Sounds" -name '*.flac' | wc -l) fichiers"
           done
 
-      - name: Upload RANTIPOP
+      - name: Upload MELODIE
+        if: env.PLUGIN != 'drums'
         uses: actions/upload-artifact@v4
         with:
-          name: RANTIPOP-${{ runner.os }}
+          name: RANTIPOP-MELODIE-${{ runner.os }}
           path: |
             build/RantipopMelodie_artefacts/Release/VST3
             build/RantipopMelodie_artefacts/Release/AU
             build/RantipopMelodie_artefacts/Release/Standalone
+
+      - name: Upload DRUMS
+        if: env.PLUGIN != 'melodie'
+        uses: actions/upload-artifact@v4
+        with:
+          name: RANTIPOP-DRUMS-${{ runner.os }}
+          path: |
             build/RantipopDrums_artefacts/Release/VST3
             build/RantipopDrums_artefacts/Release/Standalone
