@@ -126,7 +126,7 @@ void RantiProcessor::shuffleFamilySounds()
         if (fam.isEmpty()) continue;
         // notes jouees par cette piste : le son doit avoir un echantillon a moins d'une octave de chacune
         // (sinon une seule prise etiree sur trois octaves : il reste dans le menu, mais n'est pas tire au hasard)
-        static const int rowLo[numRows] = { 59, 40, 28, 55, 55, 40 }, rowHi[numRows] = { 76, 67, 48, 79, 84, 72 };
+        static const int rowLo[numRows] = { 52, 45, 26, 41, 41, 48 }, rowHi[numRows] = { 77, 75, 48, 69, 70, 80 };   // notes des morceaux POP (Equinox)
         auto covers = [&] (int i)
         {
             const auto* in = rowPart[r] == ranti::PBass ? bank.bass (i) : bank.melodic (i);
